@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>第5页 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout no-right">
+      <aside class="left-nav">
+        
+        <div class="card profile">
+          <img class="avatar" src="/laumy.github.io/assets/avatar.jpg" alt="avatar" />
+          <div class="author">laumy</div>
+          <div class="bio">为学日益，为道日损</div>
+          <div class="stats">
+            <div><div class="num">160</div><div class="label">文章数</div></div>
+            <div><div class="num">10</div><div class="label">分类</div></div>
+          </div>
+        </div>
+                    
+            <div class="card">
+              <div class="card-title">分类专栏</div>
+              <ul class="category-list">
+                
+                <li class="category-item has-subcategories">
+                  <a href="/laumy.github.io/categories/linux.html" class="category-main">
+                    <span class="category-name">linux</span>
+                    <span class="subcategory-count">(48篇)</span>
+                  </a>
+                  
+                  <ul class="subcategory-list">
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/性能工具.html">
+                        <span class="subcategory-name">性能工具</span>
+                        <span class="subcategory-count">(6篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/设备驱动.html">
+                        <span class="subcategory-name">设备驱动</span>
+                        <span class="subcategory-count">(5篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/内存管理.html">
+                        <span class="subcategory-name">内存管理</span>
+                        <span class="subcategory-count">(10篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/文件系统.html">
+                        <span class="subcategory-name">文件系统</span>
+                        <span class="subcategory-count">(12篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/进程调度.html">
+                        <span class="subcategory-name">进程调度</span>
+                        <span class="subcategory-count">(9篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/中断管理.html">
+                        <span class="subcategory-name">中断管理</span>
+                        <span class="subcategory-count">(6篇)</span>
+                      </a>
+                    </li>
+                    
+                  </ul>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/risc-v.html" class="category-main">
+                    <span class="category-name">risc-v</span>
+                    <span class="subcategory-count">(25篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/rtos.html" class="category-main">
+                    <span class="category-name">rtos</span>
+                    <span class="subcategory-count">(4篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item has-subcategories">
+                  <a href="/laumy.github.io/categories/ai.html" class="category-main">
+                    <span class="category-name">ai</span>
+                    <span class="subcategory-count">(41篇)</span>
+                  </a>
+                  
+                  <ul class="subcategory-list">
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/ai应用.html">
+                        <span class="subcategory-name">ai应用</span>
+                        <span class="subcategory-count">(12篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/算法.html">
+                        <span class="subcategory-name">算法</span>
+                        <span class="subcategory-count">(5篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/lerobot.html">
+                        <span class="subcategory-name">lerobot</span>
+                        <span class="subcategory-count">(10篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/深度学习.html">
+                        <span class="subcategory-name">深度学习</span>
+                        <span class="subcategory-count">(11篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/opencv.html">
+                        <span class="subcategory-name">opencv</span>
+                        <span class="subcategory-count">(3篇)</span>
+                      </a>
+                    </li>
+                    
+                  </ul>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/外设.html" class="category-main">
+                    <span class="category-name">外设</span>
+                    <span class="subcategory-count">(2篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/语言.html" class="category-main">
+                    <span class="category-name">语言</span>
+                    <span class="subcategory-count">(4篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/调试.html" class="category-main">
+                    <span class="category-name">调试</span>
+                    <span class="subcategory-count">(7篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/网络.html" class="category-main">
+                    <span class="category-name">网络</span>
+                    <span class="subcategory-count">(5篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/阅读.html" class="category-main">
+                    <span class="category-name">阅读</span>
+                    <span class="subcategory-count">(6篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/其他.html" class="category-main">
+                    <span class="category-name">其他</span>
+                    <span class="subcategory-count">(18篇)</span>
+                  </a>
+                  
+                </li>
+                
+              </ul>
+            </div>
+            
+        
+      </aside>
+
+      <section class="content">
+        
+<div class="card">
+  <div class="card-title">最新文章</div>
+  <div class="post-list">
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_1bb420627685200b9cfc21e886ecadcc.jpg" alt="ftrace-概述" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/linux/ftrace-概述.html">ftrace-概述</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-08-27
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      linux
+                    </span>
+                  </div>
+                  <p class="summary">ftrace是一个内部跟踪器，用于帮助开发人员查找内核正在发生的事情，它可用于调试或分析用户空间之外发生的延迟和性能问题。ftrace从名称上看是function trace，函数跟踪器，但它实际并不限制函数跟踪，而是多个不同跟踪实用程序的框架。延迟跟踪可以检查在禁用和启用中断之</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_3b7340fb5fcf13be7e879fb3db8587bf.jpg" alt="ftrace的使用" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/linux/ftrace的使用.html">ftrace的使用</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-08-27
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      linux
+                    </span>
+                  </div>
+                  <p class="summary">tracer irqsoff 当关闭中断时，CPU就无法响应中断了（NMI和SMI除外），无法响应外部事件做出反应。这会阻止定时器触发或鼠标中断触发，导致系统延迟。 irqsoff跟踪器跟踪中断被禁用的时间，当达到新的最大延迟时，跟踪器会保存导致该延迟点的跟踪，一边每次达到新的最</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4633_1.jpeg" alt="arch初始化" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/arch初始化.html">arch初始化</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-07-07
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">_start_kernel: /* Mask all interrupts */ csrw CSR_SIE, zero csrw CSR_SIP, zero ① 将sie，sip寄存器设置为0，关闭所有中断和清除中断的pending（不是异常）。 /* Load the glob</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_b4dc7dc2cd99e6cdaffbe6a5bba2bd34.jpg" alt="临时虚拟地址空间映射" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/临时虚拟地址空间映射.html">临时虚拟地址空间映射</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-07-07
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">概述 为什么要做临时虚拟地址空间映射？ 一旦开启MMU，PC的下一条指令地址会经过MMU转化，未开启MMU之前地址的翻译是不需要经过MMU转化直接访问。对应开启MMU之后，应该要使用虚拟地址，才能访问到正确的指令内存。 前面描述了虚拟地址转换为物理地址是通过MMU自动转换，但是需</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4633_1.jpeg" alt="使能MMU" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/使能mmu.html">使能MMU</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-07-07
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">① 多核情况使能MMU .Lsecondary_start: #ifdef CONFIG_SMP /* Set trap vector to spin forever to help debug */ la a3, .Lsecondary_park csrw CSR_STVEC,</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_1f236d08257ff16646b4ff4b3e00e63b.jpg" alt="虚拟地址与物理地址概念" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/虚拟地址与物理地址概念.html">虚拟地址与物理地址概念</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-07-07
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">地址空间 虚拟地址：程序使用的内存地址；物理地址：硬件的地址空间。虚拟地址通过MMU转化为物理地址，虚拟地址的长度与实际的物理内存容量没有关系，从系统中每个进程的角度看，地址空间的进程无法感知其他进程的存在。 32位cpu处理的地址空间为2^32=4G，所以虚拟地址空间为4G，分</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_916371e84407b542dab3272d403af53f.jpg" alt="Linux系统RISC-V架构启动流程分析之概述" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/linux系统risc-v架构启动流程分析之概述.html">Linux系统RISC-V架构启动流程分析之概述</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-07-07
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">典型的linux系统启动流程如上，但本文主要探讨的是OS的启动流程，opensbi，uboot暂不涉及。主要围绕arch/riscv/kernel/head.S进行分析。 _start j _start_kernel _start_kernel arch init //关中断，关</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4509-scaled.jpg" alt="启动第一个应用进程" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/启动第一个应用进程.html">启动第一个应用进程</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-07-07
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">start_kernel ...... arch_call_rest_init() rest_init(); pid = kernel_thread(kernel_init, NULL, CLONE_FS); static int __ref kernel_init(void *</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_2e42fa1b407a7f2adcede12a1f21e93c.jpg" alt="虚拟地址空间与物理地址空间完整映射" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/虚拟地址空间与物理地址空间完整映射.html">虚拟地址空间与物理地址空间完整映射</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-07-07
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">setup bootmem 物理内存都添加到系统之后，会调用setup_bootmem对整个物理内存进行整理，主要的工作就是remove掉一些no-map区域（不归内核管理），同时保留一些关键区域，如内核镜像区，dtb中reserved的内存节点。 上图中，浅绿色的就是reser</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_2390.png" alt="异常初始化" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/异常初始化.html">异常初始化</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-07-07
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">异常处理概述 略 异常入口 start_kernel trap_init(); void __init trap_init(void) { /* * Set sup0 scratch register to 0, indicating to exception vector * </p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4633_1.jpeg" alt="挂载根文件系统" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/挂载根文件系统.html">挂载根文件系统</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-07-07
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">根文件系统是控制权从linux内核转移到用户空间的一个桥梁，文件系统的挂载需要提供挂载点，linux内核在初始化时汇初始化一个虚拟的“/”目录用于根文件系统的挂载。 start_kernel vfs_caches_init() mnt_init() init_rootfs() i</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_bea9bd944eac8755afec8ce6e48abedd.jpg" alt="Linux risc-v head.S调试记录" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/linux-risc-v-head-s调试记录.html">Linux risc-v head.S调试记录</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-06-13
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">调试准备 gdb调试 0x0000000080200000为opensbi跳转执行的物理地址，linux内核的img会加载到这个地址运行，如果要在这个地方断点，就b *(0x0000000080200000),没法对head.S中进行断点，因为linux加载后会变成虚拟地址。调试</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_6adc983a2528652d892331d49be15695.jpg" alt="freertos内存管理" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/rtos/freertos内存管理.html">freertos内存管理</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-05-29
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      rtos
+                    </span>
+                  </div>
+                  <p class="summary">freertos一共有5种内存管理算法，heap3直接使用的是c库的管理算法，只是对c库封装了一层接口。本章节主要分析heap1、heap2、heap4； heap1 heap2 heap4 heap5 heap5与heap4相比，支持了允许内存堆跨越多个不连续的内存段，这种情况</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4509-scaled.jpg" alt="道德经" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/阅读/道德经.html">道德经</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-05-26
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      阅读
+                    </span>
+                  </div>
+                  <p class="summary">第一章 原文 道可道，非常道；名可名，非常名。 无名天地之始，有名万物之母。 故常无，欲以观其妙；常有，欲以观其徼（jiao,叫）。 此两者，同出而异名，同谓之玄。 玄之又玄，众秒之门。 译文 “道”，如果可以说得出来，那么它就不是永恒不变的“道”（即不是那个“道”）。 “名”，</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_54ee3f7bb483f2711bf976d7be7473a8.jpg" alt="kasan原理" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/调试/kasan原理.html">kasan原理</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-05-24
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      调试
+                    </span>
+                  </div>
+                  <p class="summary">kasan是什么？（基本原理） kasan是用于内存检测的工具，能够检测内存以下异常。 buffer-overflow in heap,stack and globals use-after-free uninitialized-memory-read user-memory-a</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4509-scaled.jpg" alt="freertos栈溢出检测原理" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/rtos/freertos栈溢出检测原理.html">freertos栈溢出检测原理</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-05-24
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      rtos
+                    </span>
+                  </div>
+                  <p class="summary">portSTACK_GROWTH &gt; 0：栈向上生长 portSTACK_GROWTH &lt; 0: 栈向下生长，本章使用栈向下生长 打开 configRECORD_STACK_HIGH_ADDRESS 1，将PCB中将打开pxEndOfStack，结构如下。 adress:0+ul</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_28488988b05ce9451cdfe90bd5aecc29.jpg" alt="RISC-V backtrace实现原理" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/risc-v-backtrace实现原理.html">RISC-V backtrace实现原理</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-05-21
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">start_kernel addi sp,sp,-16 ---① 分配栈帧sp=sp-16,sp指向栈顶 sw ra,12(sp) ---② 将ra存储到sp+12的位置 sw s0,8(sp) xxxxxx jal ra, 6000dba2 &lt;backtrace&gt; xxxxxx</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_37f368d5fce10c18a29432289ae7c530.jpg" alt="RISC-V动态链接实验" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/risc-v动态链接实验.html">RISC-V动态链接实验</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-05-18
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">准备 实验环境 qemu linux启动环境： https://www.laumy.tech/1186.html 代码 动态库 cat swap.c #include &lt;stdio.h&gt; int shared = 1; int z; void swap(int *a, int *</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_de137d3f339bba2861223978a646f5d1.jpg" alt="opensbi分析（二）" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/opensbi分析-二.html">opensbi分析（二）</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-05-17
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">待补充...... 参考： 玄铁处理器Linux移植</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_9c3807da2c0941724b7dbfc629354ac2.jpg" alt="opensbi分析（一）" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/opensbi分析-一.html">opensbi分析（一）</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2024-05-16
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">引导Hart启动 _start: /* Find preferred boot HART id */ MOV_3R s0, a0, s1, a1, s2, a2 # 将a0,a1,a2的参数分别赋值为s0,s1,s2,这3个参数是前一阶段传入的参数。 # a0: hart id </p>
+                </div>
+              </div>
+            </article>
+    
+  </div>
+  
+  <!-- 分页导航 -->
+  
+  <div class="pagination">
+    
+      
+        <a href="/laumy.github.io/page-4.html" class="page-link">&laquo; 上一页</a>
+      
+    
+    
+    
+      
+        <a href="/laumy.github.io/" class="page-link">1</a>
+      
+    
+      
+        <a href="/laumy.github.io/page-2.html" class="page-link">2</a>
+      
+    
+      
+        <a href="/laumy.github.io/page-3.html" class="page-link">3</a>
+      
+    
+      
+        <a href="/laumy.github.io/page-4.html" class="page-link">4</a>
+      
+    
+      
+        <span class="page-link current">5</span>
+      
+    
+      
+        <a href="/laumy.github.io/page-6.html" class="page-link">6</a>
+      
+    
+      
+        <a href="/laumy.github.io/page-7.html" class="page-link">7</a>
+      
+    
+      
+        <a href="/laumy.github.io/page-8.html" class="page-link">8</a>
+      
+    
+    
+    
+      <a href="/laumy.github.io/page-6.html" class="page-link">下一页 &raquo;</a>
+    
+  </div>
+  
+</div>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

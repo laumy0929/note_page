@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>一切皆文件之块设备驱动（三） - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">块设备驱动示例</a><ul></ul></li><li><a href="#_2">应用程序示例</a><ul></ul></li><li><a href="#trace">trace脚本</a><ul></ul></li><li><a href="#_3">实验</a><ul></ul></li><li><a href="#_4">代码分析</a><ul><li><a href="#_5">初始化请求队列</a></li><li><a href="#_6">数据处理</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>一切皆文件之块设备驱动（三）</h1>
+  <div class="meta">2023-06-04 · linux</div>
+  <div class="post-content"><h2 id="_1">块设备驱动示例</h2>
+<div class="codehilite"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/blk_types.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/blkdev.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/device.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/blk-mq.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/list.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/module.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/hdreg.h&gt;</span><span class="c1"> /* for HDIO_GETGEO */</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/cdrom.h&gt;</span><span class="c1"> /* for CDROM_GET_CAPABILITY */</span>
+
+<span class="cp">#define CONFIG_SBLKDEV_REQUESTS_BASED</span>
+
+<span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w"> </span><span class="n">link</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">sector_t</span><span class="w"> </span><span class="n">capacity</span><span class="p">;</span><span class="w">      </span><span class="cm">/* Device size in sectors */</span>
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="o">*</span><span class="n">data</span><span class="p">;</span><span class="w">           </span><span class="cm">/* The data in virtual memory */</span>
+<span class="cp">#ifdef CONFIG_SBLKDEV_REQUESTS_BASED</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">blk_mq_tag_set</span><span class="w"> </span><span class="n">tag_set</span><span class="p">;</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">gendisk</span><span class="w"> </span><span class="o">*</span><span class="n">disk</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">sblkdev_add</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">major</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">minor</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">name</span><span class="p">,</span>
+<span class="w">                  </span><span class="n">sector_t</span><span class="w"> </span><span class="n">capacity</span><span class="p">);</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">sblkdev_remove</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="p">);</span>
+
+<span class="k">extern</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">dump_flag</span><span class="p">;</span>
+
+<span class="cp">#ifdef CONFIG_SBLKDEV_REQUESTS_BASED</span>
+<span class="k">static</span><span class="w"> </span><span class="kr">inline</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">process_request</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">request</span><span class="w"> </span><span class="o">*</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="o">*</span><span class="n">nr_bytes</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">bio_vec</span><span class="w"> </span><span class="n">bvec</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">req_iterator</span><span class="w"> </span><span class="n">iter</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rq</span><span class="o">-&gt;</span><span class="n">q</span><span class="o">-&gt;</span><span class="n">queuedata</span><span class="p">;</span>
+<span class="w">    </span><span class="n">loff_t</span><span class="w"> </span><span class="n">pos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">blk_rq_pos</span><span class="p">(</span><span class="n">rq</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">SECTOR_SHIFT</span><span class="p">;</span>
+<span class="w">    </span><span class="n">loff_t</span><span class="w"> </span><span class="n">dev_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">capacity</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">SECTOR_SHIFT</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">dump_stack</span><span class="p">();</span>
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s,%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">rq_for_each_segment</span><span class="p">(</span><span class="n">bvec</span><span class="p">,</span><span class="w"> </span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="n">iter</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">len</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bvec</span><span class="p">.</span><span class="n">bv_len</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">page_address</span><span class="p">(</span><span class="n">bvec</span><span class="p">.</span><span class="n">bv_page</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">bvec</span><span class="p">.</span><span class="n">bv_offset</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">pos</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">len</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">dev_size</span><span class="p">)</span>
+<span class="w">            </span><span class="n">len</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">)(</span><span class="n">dev_size</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">pos</span><span class="p">);</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rq_data_dir</span><span class="p">(</span><span class="n">rq</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s, %d write:"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">            </span><span class="n">memcpy</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">data</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">len</span><span class="p">);</span><span class="w"> </span><span class="cm">/* WRITE */</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s, %d read:"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">            </span><span class="n">memcpy</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">data</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">len</span><span class="p">);</span><span class="w"> </span><span class="cm">/* READ */</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">pos</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">len</span><span class="p">;</span>
+<span class="w">        </span><span class="o">*</span><span class="n">nr_bytes</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">len</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="n">blk_status_t</span><span class="w"> </span><span class="nf">_queue_rq</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">blk_mq_hw_ctx</span><span class="w"> </span><span class="o">*</span><span class="n">hctx</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">blk_mq_queue_data</span><span class="w"> </span><span class="o">*</span><span class="n">bd</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">nr_bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="n">blk_status_t</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BLK_STS_OK</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">request</span><span class="w"> </span><span class="o">*</span><span class="n">rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bd</span><span class="o">-&gt;</span><span class="n">rq</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">dump_stack</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s,%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//might_sleep();</span>
+<span class="w">    </span><span class="n">cant_sleep</span><span class="p">();</span><span class="w"> </span><span class="cm">/* cannot use any locks that make the thread sleep */</span>
+
+<span class="w">    </span><span class="n">blk_mq_start_request</span><span class="p">(</span><span class="n">rq</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">process_request</span><span class="p">(</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">nr_bytes</span><span class="p">))</span>
+<span class="w">        </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BLK_STS_IOERR</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">pr_debug</span><span class="p">(</span><span class="s">"request %llu:%d processed</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">blk_rq_pos</span><span class="p">(</span><span class="n">rq</span><span class="p">),</span><span class="w"> </span><span class="n">nr_bytes</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">blk_mq_end_request</span><span class="p">(</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">status</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">blk_mq_ops</span><span class="w"> </span><span class="n">mq_ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">queue_rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_queue_rq</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="cp">#else  </span><span class="cm">/* CONFIG_SBLKDEV_REQUESTS_BASED */</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kr">inline</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">process_bio</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">bio</span><span class="w"> </span><span class="o">*</span><span class="n">bio</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">bio_vec</span><span class="w"> </span><span class="n">bvec</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">bvec_iter</span><span class="w"> </span><span class="n">iter</span><span class="p">;</span>
+<span class="w">    </span><span class="n">loff_t</span><span class="w"> </span><span class="n">pos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_iter</span><span class="p">.</span><span class="n">bi_sector</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">SECTOR_SHIFT</span><span class="p">;</span>
+<span class="w">    </span><span class="n">loff_t</span><span class="w"> </span><span class="n">dev_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">capacity</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">SECTOR_SHIFT</span><span class="p">);</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">start_time</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">dump_stack</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s,%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">    </span><span class="n">start_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bio_start_io_acct</span><span class="p">(</span><span class="n">bio</span><span class="p">);</span>
+<span class="w">    </span><span class="n">bio_for_each_segment</span><span class="p">(</span><span class="n">bvec</span><span class="p">,</span><span class="w"> </span><span class="n">bio</span><span class="p">,</span><span class="w"> </span><span class="n">iter</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">len</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bvec</span><span class="p">.</span><span class="n">bv_len</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">page_address</span><span class="p">(</span><span class="n">bvec</span><span class="p">.</span><span class="n">bv_page</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">bvec</span><span class="p">.</span><span class="n">bv_offset</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">pos</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">len</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">dev_size</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="cm">/* len = (unsigned long)(dev_size - pos);*/</span>
+<span class="w">            </span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BLK_STS_IOERR</span><span class="p">;</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">bio_data_dir</span><span class="p">(</span><span class="n">bio</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">printk</span><span class="p">(</span><span class="s">"process_bio write</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">            </span><span class="n">memcpy</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">data</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">len</span><span class="p">);</span><span class="w"> </span><span class="cm">/* WRITE */</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">printk</span><span class="p">(</span><span class="s">"process_bio read</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">            </span><span class="n">memcpy</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">data</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="n">len</span><span class="p">);</span><span class="w"> </span><span class="cm">/* READ */</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="n">pos</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">len</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">bio_end_io_acct</span><span class="p">(</span><span class="n">bio</span><span class="p">,</span><span class="w"> </span><span class="n">start_time</span><span class="p">);</span>
+<span class="w">    </span><span class="n">bio_endio</span><span class="p">(</span><span class="n">bio</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">blk_qc_t</span><span class="w"> </span><span class="nf">_submit_bio</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">bio</span><span class="w"> </span><span class="o">*</span><span class="n">bio</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">blk_qc_t</span><span class="w"> </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BLK_QC_T_NONE</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_bdev</span><span class="o">-&gt;</span><span class="n">bd_disk</span><span class="o">-&gt;</span><span class="n">private_data</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s,%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">    </span><span class="n">might_sleep</span><span class="p">();</span>
+<span class="w">    </span><span class="c1">//cant_sleep(); /* cannot use any locks that make the thread sleep */</span>
+
+<span class="w">    </span><span class="n">process_bio</span><span class="p">(</span><span class="n">dev</span><span class="p">,</span><span class="w"> </span><span class="n">bio</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cp">#endif </span><span class="cm">/* CONFIG_SBLKDEV_REQUESTS_BASED */</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">_open</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">block_device</span><span class="w"> </span><span class="o">*</span><span class="n">bdev</span><span class="p">,</span><span class="w"> </span><span class="n">fmode_t</span><span class="w"> </span><span class="n">mode</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bdev</span><span class="o">-&gt;</span><span class="n">bd_disk</span><span class="o">-&gt;</span><span class="n">private_data</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">dump_flag</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s,%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">dev</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">"Invalid disk private_data</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ENXIO</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">pr_debug</span><span class="p">(</span><span class="s">"Device was opened</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">_release</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">gendisk</span><span class="w"> </span><span class="o">*</span><span class="n">disk</span><span class="p">,</span><span class="w"> </span><span class="n">fmode_t</span><span class="w"> </span><span class="n">mode</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">private_data</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s,%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">dev</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">"Invalid disk private_data</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">pr_debug</span><span class="p">(</span><span class="s">"Device was closed</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kr">inline</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">ioctl_hdio_getgeo</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">hd_geometry</span><span class="w"> </span><span class="n">geo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
+
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s,%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">    </span><span class="n">geo</span><span class="p">.</span><span class="n">start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">capacity</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">63</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">sector_t</span><span class="w"> </span><span class="n">quotient</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">geo</span><span class="p">.</span><span class="n">sectors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">63</span><span class="p">;</span>
+<span class="w">        </span><span class="n">quotient</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">capacity</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="mi">63</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">63</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">quotient</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">255</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">geo</span><span class="p">.</span><span class="n">heads</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">255</span><span class="p">;</span>
+<span class="w">            </span><span class="n">geo</span><span class="p">.</span><span class="n">cylinders</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">short</span><span class="p">)</span>
+<span class="w">                </span><span class="p">((</span><span class="n">quotient</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="mi">255</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">255</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">geo</span><span class="p">.</span><span class="n">heads</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="p">)</span><span class="n">quotient</span><span class="p">;</span>
+<span class="w">            </span><span class="n">geo</span><span class="p">.</span><span class="n">cylinders</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">geo</span><span class="p">.</span><span class="n">sectors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="p">)</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">capacity</span><span class="p">;</span>
+<span class="w">        </span><span class="n">geo</span><span class="p">.</span><span class="n">cylinders</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">        </span><span class="n">geo</span><span class="p">.</span><span class="n">heads</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">copy_to_user</span><span class="p">((</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">arg</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">geo</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">geo</span><span class="p">)))</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EINVAL</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">_ioctl</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">block_device</span><span class="w"> </span><span class="o">*</span><span class="n">bdev</span><span class="p">,</span><span class="w"> </span><span class="n">fmode_t</span><span class="w"> </span><span class="n">mode</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">cmd</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bdev</span><span class="o">-&gt;</span><span class="n">bd_disk</span><span class="o">-&gt;</span><span class="n">private_data</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">pr_debug</span><span class="p">(</span><span class="s">"contol command [0x%x] received</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">cmd</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s,%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="no">HDIO_GETGEO</span><span class="p">:</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ioctl_hdio_getgeo</span><span class="p">(</span><span class="n">dev</span><span class="p">,</span><span class="w"> </span><span class="n">arg</span><span class="p">);</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="no">CDROM_GET_CAPABILITY</span><span class="p">:</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EINVAL</span><span class="p">;</span>
+<span class="w">    </span><span class="k">default</span><span class="o">:</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ENOTTY</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="cp">#ifdef CONFIG_COMPAT</span>
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">_compat_ioctl</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">block_device</span><span class="w"> </span><span class="o">*</span><span class="n">bdev</span><span class="p">,</span><span class="w"> </span><span class="n">fmode_t</span><span class="w"> </span><span class="n">mode</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">cmd</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s,%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">// CONFIG_COMPAT is to allow running 32-bit userspace code on a 64-bit kernel</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ENOTTY</span><span class="p">;</span><span class="w"> </span><span class="c1">// not supported</span>
+<span class="p">}</span>
+<span class="cp">#endif</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">block_device_operations</span><span class="w"> </span><span class="n">fops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">owner</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">THIS_MODULE</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">open</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_open</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">release</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_release</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">ioctl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_ioctl</span><span class="p">,</span>
+<span class="cp">#ifdef CONFIG_COMPAT</span>
+<span class="w">    </span><span class="p">.</span><span class="n">compat_ioctl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_compat_ioctl</span><span class="p">,</span>
+<span class="cp">#endif</span>
+<span class="cp">#ifndef CONFIG_SBLKDEV_REQUESTS_BASED</span>
+<span class="w">    </span><span class="p">.</span><span class="n">submit_bio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_submit_bio</span><span class="p">,</span>
+<span class="cp">#endif</span>
+<span class="p">};</span>
+
+<span class="cm">/*</span>
+<span class="cm"> * sblkdev_remove() - Remove simple block device</span>
+<span class="cm"> */</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">sblkdev_remove</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s,%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">    </span><span class="n">del_gendisk</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">disk</span><span class="p">);</span>
+
+<span class="cp">#ifdef HAVE_BLK_MQ_ALLOC_DISK</span>
+<span class="cp">#ifdef HAVE_BLK_CLEANUP_DISK</span>
+<span class="w">    </span><span class="n">blk_cleanup_disk</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">disk</span><span class="p">);</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="n">put_disk</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">disk</span><span class="p">);</span>
+<span class="cp">#endif</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="n">blk_cleanup_queue</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">queue</span><span class="p">);</span>
+<span class="w">    </span><span class="n">put_disk</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">disk</span><span class="p">);</span>
+<span class="cp">#endif</span>
+
+<span class="cp">#ifdef CONFIG_SBLKDEV_REQUESTS_BASED</span>
+<span class="w">    </span><span class="n">blk_mq_free_tag_set</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">tag_set</span><span class="p">);</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="n">vfree</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">kfree</span><span class="p">(</span><span class="n">dev</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">pr_info</span><span class="p">(</span><span class="s">"simple block device was removed</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="cp">#ifdef CONFIG_SBLKDEV_REQUESTS_BASED</span>
+<span class="k">static</span><span class="w"> </span><span class="kr">inline</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">init_tag_set</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">blk_mq_tag_set</span><span class="w"> </span><span class="o">*</span><span class="n">set</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">data</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="s">"%s,%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//设置blk_mq_ops</span>
+<span class="w">    </span><span class="n">set</span><span class="o">-&gt;</span><span class="n">ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">mq_ops</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">//设置硬件队列个数</span>
+<span class="w">    </span><span class="n">set</span><span class="o">-&gt;</span><span class="n">nr_hw_queues</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="n">set</span><span class="o">-&gt;</span><span class="n">nr_maps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">//设置队列深度</span>
+<span class="w">    </span><span class="n">set</span><span class="o">-&gt;</span><span class="n">queue_depth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">128</span><span class="p">;</span>
+<span class="w">    </span><span class="n">set</span><span class="o">-&gt;</span><span class="n">numa_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">NUMA_NO_NODE</span><span class="p">;</span>
+<span class="w">    </span><span class="n">set</span><span class="o">-&gt;</span><span class="n">flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BLK_MQ_F_SHOULD_MERGE</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">BLK_MQ_F_STACKING</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">set</span><span class="o">-&gt;</span><span class="n">cmd_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="n">set</span><span class="o">-&gt;</span><span class="n">driver_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">data</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">blk_mq_alloc_tag_set</span><span class="p">(</span><span class="n">set</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="cp">#endif</span>
+<span class="cm">/*</span>
+<span class="cm"> * sblkdev_add() - Add simple block device</span>
+<span class="cm"> */</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">sblkdev_add</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">major</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">minor</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">name</span><span class="p">,</span>
+<span class="w">                  </span><span class="n">sector_t</span><span class="w"> </span><span class="n">capacity</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">gendisk</span><span class="w"> </span><span class="o">*</span><span class="n">disk</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">pr_info</span><span class="p">(</span><span class="s">"add device '%s' capacity %llu sectors</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">capacity</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kzalloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="p">),</span><span class="w"> </span><span class="n">GFP_KERNEL</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">dev</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">ENOMEM</span><span class="p">;</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">fail</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">INIT_LIST_HEAD</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">link</span><span class="p">);</span>
+<span class="w">    </span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">capacity</span><span class="p">;</span>
+<span class="w">    </span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__vmalloc</span><span class="p">(</span><span class="n">capacity</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">SECTOR_SHIFT</span><span class="p">,</span><span class="w"> </span><span class="n">GFP_NOIO</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">__GFP_ZERO</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">ENOMEM</span><span class="p">;</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">fail_kfree</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="cp">#ifdef CONFIG_SBLKDEV_REQUESTS_BASED</span>
+<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">init_tag_set</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">tag_set</span><span class="p">,</span><span class="w"> </span><span class="n">dev</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">"Failed to allocate tag set</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">fail_vfree</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">disk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">blk_mq_alloc_disk</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">tag_set</span><span class="p">,</span><span class="w"> </span><span class="n">dev</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="o">!</span><span class="n">disk</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">ENOMEM</span><span class="p">;</span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">"Failed to allocate disk</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">fail_free_tag_set</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">IS_ERR</span><span class="p">(</span><span class="n">disk</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PTR_ERR</span><span class="p">(</span><span class="n">disk</span><span class="p">);</span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">"Failed to allocate disk</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">fail_free_tag_set</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="cp">#else</span>
+<span class="w">    </span><span class="n">disk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">blk_alloc_disk</span><span class="p">(</span><span class="n">NUMA_NO_NODE</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">disk</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">"Failed to allocate disk</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">ENOMEM</span><span class="p">;</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">fail_vfree</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">disk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">disk</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/* only one partition */</span>
+<span class="cp">#ifdef GENHD_FL_NO_PART_SCAN</span>
+<span class="w">    </span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">flags</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">GENHD_FL_NO_PART_SCAN</span><span class="p">;</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">flags</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">GENHD_FL_NO_PART</span><span class="p">;</span>
+<span class="cp">#endif</span>
+
+<span class="w">    </span><span class="cm">/* removable device */</span>
+<span class="w">    </span><span class="cm">/* disk-&gt;flags |= GENHD_FL_REMOVABLE; */</span>
+
+<span class="w">    </span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">major</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">major</span><span class="p">;</span>
+<span class="w">    </span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">first_minor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">minor</span><span class="p">;</span>
+<span class="w">    </span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">minors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">fops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">fops</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">private_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dev</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">sprintf</span><span class="p">(</span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">disk_name</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">);</span>
+<span class="w">    </span><span class="n">set_capacity</span><span class="p">(</span><span class="n">disk</span><span class="p">,</span><span class="w"> </span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">capacity</span><span class="p">);</span>
+
+<span class="cp">#ifdef CONFIG_SBLKDEV_BLOCK_SIZE</span>
+<span class="w">    </span><span class="n">blk_queue_physical_block_size</span><span class="p">(</span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">queue</span><span class="p">,</span><span class="w"> </span><span class="n">CONFIG_SBLKDEV_BLOCK_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">blk_queue_logical_block_size</span><span class="p">(</span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">queue</span><span class="p">,</span><span class="w"> </span><span class="n">CONFIG_SBLKDEV_BLOCK_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">blk_queue_io_min</span><span class="p">(</span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">queue</span><span class="p">,</span><span class="w"> </span><span class="n">CONFIG_SBLKDEV_BLOCK_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">blk_queue_io_opt</span><span class="p">(</span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">queue</span><span class="p">,</span><span class="w"> </span><span class="n">CONFIG_SBLKDEV_BLOCK_SIZE</span><span class="p">);</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="n">blk_queue_physical_block_size</span><span class="p">(</span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">queue</span><span class="p">,</span><span class="w"> </span><span class="n">SECTOR_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">blk_queue_logical_block_size</span><span class="p">(</span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">queue</span><span class="p">,</span><span class="w"> </span><span class="n">SECTOR_SIZE</span><span class="p">);</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="n">blk_queue_max_hw_sectors</span><span class="p">(</span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">queue</span><span class="p">,</span><span class="w"> </span><span class="n">BLK_DEF_MAX_SECTORS</span><span class="p">);</span>
+<span class="w">    </span><span class="n">blk_queue_flag_set</span><span class="p">(</span><span class="n">QUEUE_FLAG_NOMERGES</span><span class="p">,</span><span class="w"> </span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">queue</span><span class="p">);</span>
+
+<span class="cp">#ifdef HAVE_ADD_DISK_RESULT</span>
+<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">add_disk</span><span class="p">(</span><span class="n">disk</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">"Failed to add disk '%s'</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">disk_name</span><span class="p">);</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">fail_put_disk</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="n">add_disk</span><span class="p">(</span><span class="n">disk</span><span class="p">);</span>
+<span class="cp">#endif</span>
+
+<span class="w">    </span><span class="n">pr_info</span><span class="p">(</span><span class="s">"Simple block device [%d:%d] was added</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">major</span><span class="p">,</span><span class="w"> </span><span class="n">minor</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">dev</span><span class="p">;</span>
+
+<span class="cp">#ifdef HAVE_ADD_DISK_RESULT</span>
+<span class="nl">fail_put_disk</span><span class="p">:</span>
+<span class="cp">#ifdef HAVE_BLK_MQ_ALLOC_DISK</span>
+<span class="cp">#ifdef HAVE_BLK_CLEANUP_DISK</span>
+<span class="w">    </span><span class="n">blk_cleanup_disk</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">disk</span><span class="p">);</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="n">put_disk</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">disk</span><span class="p">);</span>
+<span class="cp">#endif</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="n">blk_cleanup_queue</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">queue</span><span class="p">);</span>
+<span class="w">    </span><span class="n">put_disk</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">disk</span><span class="p">);</span>
+<span class="cp">#endif</span>
+<span class="cp">#endif </span><span class="cm">/* HAVE_ADD_DISK_RESULT */</span>
+
+<span class="cp">#ifdef CONFIG_SBLKDEV_REQUESTS_BASED</span>
+<span class="nl">fail_free_tag_set</span><span class="p">:</span>
+<span class="w">    </span><span class="n">blk_mq_free_tag_set</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">tag_set</span><span class="p">);</span>
+<span class="cp">#endif</span>
+<span class="nl">fail_vfree</span><span class="p">:</span>
+<span class="w">    </span><span class="n">vfree</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">);</span>
+<span class="nl">fail_kfree</span><span class="p">:</span>
+<span class="w">    </span><span class="n">kfree</span><span class="p">(</span><span class="n">dev</span><span class="p">);</span>
+<span class="nl">fail</span><span class="p">:</span>
+<span class="w">    </span><span class="n">pr_err</span><span class="p">(</span><span class="s">"Failed to add block device</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ERR_PTR</span><span class="p">(</span><span class="n">ret</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="cm">/*</span>
+<span class="cm"> * A module can create more than one block device.</span>
+<span class="cm"> * The configuration of block devices is implemented in the simplest way:</span>
+<span class="cm"> * using the module parameter, which is passed when the module is loaded.</span>
+<span class="cm"> * Example:</span>
+<span class="cm"> *    modprobe sblkdev catalog="sblkdev1,2048;sblkdev2,4096"</span>
+<span class="cm"> */</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">sblkdev_major</span><span class="p">;</span>
+<span class="k">static</span><span class="w"> </span><span class="n">LIST_HEAD</span><span class="p">(</span><span class="n">sblkdev_device_list</span><span class="p">);</span>
+<span class="k">static</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">sblkdev_catalog</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"sblkdev1,2048;sblkdev2,4096"</span><span class="p">;</span>
+
+<span class="cm">/*</span>
+<span class="cm"> * sblkdev_init() - Entry point 'init'.</span>
+<span class="cm"> *</span>
+<span class="cm"> * Executed when the module is loaded. Parses the catalog parameter and</span>
+<span class="cm"> * creates block devices.</span>
+<span class="cm"> */</span>
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">sblkdev_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">inx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">catalog</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">next_token</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">token</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">length</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">sblkdev_major</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">register_blkdev</span><span class="p">(</span><span class="n">sblkdev_major</span><span class="p">,</span><span class="w"> </span><span class="n">KBUILD_MODNAME</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sblkdev_major</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pr_info</span><span class="p">(</span><span class="s">"Unable to get major number</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">length</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strlen</span><span class="p">(</span><span class="n">sblkdev_catalog</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">length</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">(</span><span class="n">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pr_info</span><span class="p">(</span><span class="s">"Invalid module parameter 'catalog'</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">EINVAL</span><span class="p">;</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">fail_unregister</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">catalog</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kzalloc</span><span class="p">(</span><span class="n">length</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">GFP_KERNEL</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">catalog</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">ENOMEM</span><span class="p">;</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">fail_unregister</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">strcpy</span><span class="p">(</span><span class="n">catalog</span><span class="p">,</span><span class="w"> </span><span class="n">sblkdev_catalog</span><span class="p">);</span>
+<span class="w">    </span><span class="n">next_token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">catalog</span><span class="p">;</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">((</span><span class="n">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strsep</span><span class="p">(</span><span class="o">&amp;</span><span class="n">next_token</span><span class="p">,</span><span class="w"> </span><span class="s">";"</span><span class="p">)))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">name</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">capacity</span><span class="p">;</span>
+<span class="w">        </span><span class="n">sector_t</span><span class="w"> </span><span class="n">capacity_value</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strsep</span><span class="p">(</span><span class="o">&amp;</span><span class="n">token</span><span class="p">,</span><span class="w"> </span><span class="s">","</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">name</span><span class="p">)</span>
+<span class="w">            </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">        </span><span class="n">capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strsep</span><span class="p">(</span><span class="o">&amp;</span><span class="n">token</span><span class="p">,</span><span class="w"> </span><span class="s">","</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">capacity</span><span class="p">)</span>
+<span class="w">            </span><span class="k">continue</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kstrtoull</span><span class="p">(</span><span class="n">capacity</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">capacity_value</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sblkdev_add</span><span class="p">(</span><span class="n">sblkdev_major</span><span class="p">,</span><span class="w"> </span><span class="n">inx</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">capacity_value</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">IS_ERR</span><span class="p">(</span><span class="n">dev</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PTR_ERR</span><span class="p">(</span><span class="n">dev</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="n">list_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">link</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">sblkdev_device_list</span><span class="p">);</span>
+<span class="w">        </span><span class="n">inx</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">kfree</span><span class="p">(</span><span class="n">catalog</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="nl">fail_unregister</span><span class="p">:</span>
+<span class="w">    </span><span class="n">unregister_blkdev</span><span class="p">(</span><span class="n">sblkdev_major</span><span class="p">,</span><span class="w"> </span><span class="n">KBUILD_MODNAME</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*</span>
+<span class="cm"> * sblkdev_exit() - Entry point 'exit'.</span>
+<span class="cm"> *</span>
+<span class="cm"> * Executed when the module is unloaded. Remove all block devices and cleanup</span>
+<span class="cm"> * all resources.</span>
+<span class="cm"> */</span>
+<span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__exit</span><span class="w"> </span><span class="nf">sblkdev_exit</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">((</span><span class="n">dev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">list_first_entry_or_null</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sblkdev_device_list</span><span class="p">,</span>
+<span class="w">                           </span><span class="k">struct</span><span class="w"> </span><span class="nc">sblkdev_device</span><span class="p">,</span><span class="w"> </span><span class="n">link</span><span class="p">)))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">list_del</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">link</span><span class="p">);</span>
+<span class="w">        </span><span class="n">sblkdev_remove</span><span class="p">(</span><span class="n">dev</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sblkdev_major</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">        </span><span class="n">unregister_blkdev</span><span class="p">(</span><span class="n">sblkdev_major</span><span class="p">,</span><span class="w"> </span><span class="n">KBUILD_MODNAME</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">module_init</span><span class="p">(</span><span class="n">sblkdev_init</span><span class="p">);</span>
+<span class="n">module_exit</span><span class="p">(</span><span class="n">sblkdev_exit</span><span class="p">);</span>
+
+<span class="n">module_param_named</span><span class="p">(</span><span class="n">catalog</span><span class="p">,</span><span class="w"> </span><span class="n">sblkdev_catalog</span><span class="p">,</span><span class="w"> </span><span class="n">charp</span><span class="p">,</span><span class="w"> </span><span class="mo">0644</span><span class="p">);</span>
+<span class="n">MODULE_PARM_DESC</span><span class="p">(</span><span class="n">catalog</span><span class="p">,</span><span class="w"> </span><span class="s">"New block devices catalog in format '&lt;name&gt;,&lt;capacity sectors&gt;;...'"</span><span class="p">);</span>
+
+<span class="n">MODULE_LICENSE</span><span class="p">(</span><span class="s">"GPL"</span><span class="p">);</span>
+<span class="n">MODULE_AUTHOR</span><span class="p">(</span><span class="s">"Sergei Shtepa"</span><span class="p">);</span>
+</code></pre></div>
+<h2 id="_2">应用程序示例</h2>
+<div class="codehilite"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdio.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;unistd.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;fcntl.h&gt;</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">dump_f</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">buff</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">len</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">for</span><span class="p">(</span><span class="n">i</span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">len</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">21</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">            </span><span class="n">printf</span><span class="p">(</span><span class="s">"</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">        </span><span class="n">printf</span><span class="p">(</span><span class="s">"%x "</span><span class="p">,</span><span class="w"> </span><span class="n">buff</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">"</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">argv</span><span class="p">[])</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">fd</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">buf</span><span class="p">[</span><span class="mi">4096</span><span class="p">];</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span><span class="w"> </span><span class="c1">//run ./funtion.sh to trace vfs_read of this process</span>
+<span class="w">    </span><span class="n">fd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">open</span><span class="p">(</span><span class="s">"/dev/sblkdev1"</span><span class="p">,</span><span class="w"> </span><span class="n">O_RDWR</span><span class="p">);</span>
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">"fd ====:%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">fd</span><span class="p">);</span>
+
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(;;)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getopt</span><span class="p">(</span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="n">argv</span><span class="p">,</span><span class="w"> </span><span class="s">"rw"</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">printf</span><span class="p">(</span><span class="s">"not param.</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">case</span><span class="w"> </span><span class="sc">'r'</span><span class="p">:</span>
+<span class="w">                </span><span class="n">printf</span><span class="p">(</span><span class="s">"test read 1...............</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">                </span><span class="n">read</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">);</span>
+<span class="w">                </span><span class="n">dump_f</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="mi">42</span><span class="p">);</span>
+<span class="w">                </span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+<span class="w">                </span><span class="n">printf</span><span class="p">(</span><span class="s">"test read 2...............</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">                </span><span class="n">read</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">);</span>
+<span class="w">                </span><span class="n">dump_f</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="mi">42</span><span class="p">);</span>
+<span class="w">                </span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+<span class="w">                </span><span class="n">printf</span><span class="p">(</span><span class="s">"test read 3...............</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">                </span><span class="n">read</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">);</span>
+<span class="w">                </span><span class="n">dump_f</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="mi">42</span><span class="p">);</span>
+<span class="w">                </span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+<span class="w">                </span><span class="n">printf</span><span class="p">(</span><span class="s">"test read 4...............</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">                </span><span class="n">read</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">);</span>
+<span class="w">                </span><span class="n">dump_f</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="mi">42</span><span class="p">);</span>
+<span class="w">                </span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+<span class="w">                </span><span class="n">printf</span><span class="p">(</span><span class="s">"test read 5...............</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">                </span><span class="n">read</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">);</span>
+<span class="w">                </span><span class="n">dump_f</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="mi">42</span><span class="p">);</span>
+<span class="w">                </span><span class="k">while</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="w">                    </span><span class="n">sleep</span><span class="p">(</span><span class="mi">4</span><span class="p">);</span>
+<span class="w">                </span><span class="k">break</span><span class="p">;</span>
+<span class="w">            </span><span class="k">case</span><span class="w"> </span><span class="sc">'w'</span><span class="p">:</span>
+<span class="w">                </span><span class="k">for</span><span class="p">(</span><span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span><span class="n">i</span><span class="o">&lt;</span><span class="mi">4096</span><span class="p">;</span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
+<span class="w">                    </span><span class="n">buf</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
+<span class="w">                </span><span class="n">printf</span><span class="p">(</span><span class="s">"test write 1............</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">                </span><span class="n">write</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">);</span>
+<span class="w">                </span><span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+<span class="w">                </span><span class="n">printf</span><span class="p">(</span><span class="s">"test write 2............</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">                </span><span class="n">write</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">);</span>
+<span class="w">                </span><span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+<span class="w">                </span><span class="n">printf</span><span class="p">(</span><span class="s">"test write 3............</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">                </span><span class="n">write</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">);</span>
+<span class="w">                </span><span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+<span class="w">                </span><span class="n">printf</span><span class="p">(</span><span class="s">"test write 4............</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">                </span><span class="n">write</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">);</span>
+<span class="w">                </span><span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+<span class="w">                </span><span class="n">printf</span><span class="p">(</span><span class="s">"test write 5............</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">                </span><span class="n">write</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">);</span>
+<span class="w">                </span><span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+<span class="w">                </span><span class="k">while</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="w">                    </span><span class="n">sleep</span><span class="p">(</span><span class="mi">4</span><span class="p">);</span>
+<span class="w">                </span><span class="k">break</span><span class="p">;</span>
+<span class="w">            </span><span class="k">default</span><span class="o">:</span>
+<span class="w">                </span><span class="n">printf</span><span class="p">(</span><span class="s">"Not support</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<span class="w">       </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">while</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="w">        </span><span class="n">sleep</span><span class="p">(</span><span class="mi">4</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="trace">trace脚本</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">debugfs</span><span class="o">=/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span>
+
+<span class="n">echo</span><span class="w"> </span><span class="n">nop</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">$debugfs</span><span class="o">/</span><span class="n">tracing</span><span class="o">/</span><span class="n">current_tracer</span>
+
+<span class="n">echo</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">$debugfs</span><span class="o">/</span><span class="n">tracing</span><span class="o">/</span><span class="n">tracing_on</span>
+
+<span class="n">echo</span><span class="w"> </span><span class="err">`</span><span class="n">pidof</span><span class="w"> </span><span class="n">appxxx</span><span class="err">`</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">$debugfs</span><span class="o">/</span><span class="n">tracing</span><span class="o">/</span><span class="n">set_ftrace_pid</span>
+
+<span class="n">echo</span><span class="w"> </span><span class="n">function_graph</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">$debugfs</span><span class="o">/</span><span class="n">tracing</span><span class="o">/</span><span class="n">current_tracer</span>
+
+<span class="n">echo</span><span class="w"> </span><span class="n">vfs_read</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">$debugfs</span><span class="o">/</span><span class="n">tracing</span><span class="o">/</span><span class="n">set_graph_function</span>
+
+<span class="n">echo</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">$debugfs</span><span class="o">/</span><span class="n">tracing</span><span class="o">/</span><span class="n">tracing_on</span>
+</code></pre></div>
+<h2 id="_3">实验</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">insmod</span><span class="w"> </span><span class="n">simpleblk</span><span class="p">.</span><span class="n">ko</span>
+
+<span class="n">app</span><span class="w"> </span><span class="o">-</span><span class="n">w</span><span class="w"> </span><span class="o">&amp;</span>
+
+<span class="n">app</span><span class="w"> </span><span class="o">-</span><span class="n">r</span><span class="w"> </span><span class="o">&amp;</span>
+</code></pre></div>
+<h2 id="_4">代码分析</h2>
+<h3 id="_5">初始化请求队列</h3>
+<p>初始化请求队列在init_tag_set中实现，在init_tag_set函数中填充了struct blk_mq_tag_set *set数据结构，blk_mq_tag_set用于描述与存储设备相关的集合，对存储器IO特征进行的抽象。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">blk_mq_tag_set</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">blk_mq_queue_map</span><span class="w"> </span><span class="n">map</span><span class="p">[</span><span class="n">HCTX_MAX_TYPES</span><span class="p">];</span><span class="w"> </span><span class="n">软件队列CTX到硬件队列hctx的映射表</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w">        </span><span class="n">nr_maps</span><span class="p">;</span><span class="w">                 </span><span class="n">映射表的数量</span><span class="w">    </span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">blk_mq_ops</span><span class="w"> </span><span class="o">*</span><span class="n">ops</span><span class="p">;</span><span class="w">                </span><span class="n">块设备驱动的mq函数操作集合</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w">        </span><span class="n">nr_hw_queues</span><span class="p">;</span><span class="w">            </span><span class="n">块设备的硬件队列hctx数量</span><span class="err">，</span><span class="n">大多情况是1</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w">        </span><span class="n">queue_depth</span><span class="p">;</span><span class="w">             </span><span class="n">块设备硬件队列深度</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w">        </span><span class="n">reserved_tags</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w">        </span><span class="n">cmd_size</span><span class="p">;</span><span class="w">                </span><span class="n">块设备驱动为每个request分配的额外空间大小</span>
+<span class="w">    </span><span class="p">......</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>init_tag_set中调用blk_mq_alloc_tag_set为一个或者多个请求队列分配tag和request集合。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">blk_mq_alloc_tag_set</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">blk_mq_tag_set</span><span class="w"> </span><span class="o">*</span><span class="n">set</span><span class="p">)</span>
+
+<span class="w">    </span><span class="n">设置硬件队列数量</span><span class="err">、</span><span class="n">映射表数量</span><span class="err">（</span><span class="n">nr_maps</span><span class="err">）</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">set</span><span class="o">-&gt;</span><span class="n">nr_maps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xxx</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">set</span><span class="o">-&gt;</span><span class="n">nr_hw_queues</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xxx</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">set</span><span class="o">-&gt;</span><span class="n">queue_depth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xxx</span>
+
+<span class="w">    </span><span class="n">根据硬件队列数量拓展tags数组</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">blk_mq_alloc_tag_set_tags</span>
+
+<span class="w">    </span><span class="n">更新映射表</span><span class="err">（</span><span class="n">cpu</span><span class="w"> </span><span class="n">id</span><span class="o">-&gt;</span><span class="w"> </span><span class="n">hw</span><span class="w"> </span><span class="n">queue</span><span class="w"> </span><span class="n">id</span><span class="err">）</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">blk_mq_update_queue_map</span><span class="p">(</span><span class="n">set</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">分配request和tag</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">blk_mq_alloc_map_and_requests</span><span class="p">(</span><span class="n">set</span><span class="p">);</span>
+</code></pre></div>
+<h3 id="_6">数据处理</h3>
+<p>数据处理有两种方式，主要区别于block_device_operations中有没有实现submit_bio，如果实现了该函数文件系统下来的数据打包成bio后就直接回调该函数；如果没有实现该函数，文件系统下来的数据打包成bio后需要经过request queue进行处理，然后再派发回调到struct blk_mq_ops 注册的.queue_rq进行处理。</p>
+<p>请求队列（request queue）里面包含一系列(request)，在reqeust里面包含bio，真正的数据就存储在bio里面，因此对数据的处理就是从request_queue中取出一个一个的reqeust，然后再从reqeust里面取出bio，在处理请求时通过blk_mq_start_request和blk_mq_end_request来开始请求和结束请求。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_3b39892a88b0e1977741fd577a769fa7.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（三）/images/wp_editor_md_3b39892a88b0e1977741fd577a769fa7.jpg"/></a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/linux/一切皆文件之块设备驱动-二.html">← 一切皆文件之块设备驱动（二）</a>
+    <a class="next" href="/laumy.github.io/posts/linux/内存管理概述.html">内存管理概述 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

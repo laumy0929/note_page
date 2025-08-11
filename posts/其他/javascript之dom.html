@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>javascript之dom - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#dom">什么是dom</a><ul></ul></li><li><a href="#dom_1">获取dom元素</a><ul><li><a href="#getelementbyid">getElementById</a></li><li><a href="#getelementsbytagname">getElementsByTagName</a></li><li><a href="#getelementsbyclassname">getElementsByClassName</a></li></ul></li><li><a href="#_1">修改元素</a><ul><li><a href="#_2">修改元素内容</a></li><li><a href="#_3">修改元素属性</a></li></ul></li><li><a href="#dom_2">创建与添加DOM元素</a><ul><li><a href="#_5">创建元素</a></li><li><a href="#_6">添加元素</a></li></ul></li><li><a href="#dom_3">删除DOM元素</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>javascript之dom</h1>
+  <div class="meta">2024-12-14 · 其他</div>
+  <div class="post-content"><h2 id="dom">什么是dom</h2>
+<p>DOM（Document Object Model）是一个编程接口，它将 HTML 或 XML 文档呈现为一个由节点和对象（这些节点和对象其实是文档的各种元素、属性和文本内容等）组成的树形结构。这个树形结构允许开发者使用编程语言（如 JavaScript）来访问、修改和操作文档的内容、结构和样式。对于以下简单的 HTML 文档：</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="p">&lt;</span><span class="nt">html</span><span class="p">&gt;</span>
+<span class="p">&lt;</span><span class="nt">head</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">title</span><span class="p">&gt;</span>My Page<span class="p">&lt;/</span><span class="nt">title</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">head</span><span class="p">&gt;</span>
+<span class="p">&lt;</span><span class="nt">body</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">h1</span><span class="p">&gt;</span>Hello, World!<span class="p">&lt;/</span><span class="nt">h1</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">p</span> <span class="na">id</span><span class="o">=</span><span class="s">\\\"myParagraph\\\"</span><span class="p">&gt;</span>This is a paragraph.<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">body</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">html</span><span class="p">&gt;</span>
+</code></pre></div>
+<p>它的 DOM 树结构大致如下： - html 节点是根节点，它包含两个子节点：head 和 body。 - head 节点包含一个子节点 title，title 节点的文本内容是 \\\\\\\"My Page\\\\\\\"。 - body 节点包含两个子节点：h1 和 p。h1 节点的文本内容是 \\\\\\\"Hello, World!\\\\\\\"，p 节点有一个属性 id 为 \\\\\\\"myParagraph\\\\\\\"，其文本内容是 \\\\\\\"This is a paragraph.\\\\\\\"。</p>
+<h2 id="dom_1">获取dom元素</h2>
+<h3 id="getelementbyid">getElementById</h3>
+<p>这是最常用的方法之一，用于通过元素的id属性获取单个元素。id在HTML文档中应该是唯一的，语法如下。</p>
+<div class="codehilite"><pre><span></span><code>document.getElementById(\\\"elementId\\\");
+</code></pre></div>
+<p>在上面的 HTML 文档中，如果要获取p元素，可以使用以下 JavaScript 代码：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">var</span><span class="w"> </span><span class="n">paragraph</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span>\\\<span class="s2">"myParagraph</span><span class="se">\\\"</span><span class="s2">);</span>
+<span class="n">console</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">paragraph</span><span class="o">.</span><span class="n">textContent</span><span class="p">);</span><span class="w"> </span>
+<span class="o">//</span><span class="w"> </span><span class="err">输出：</span><span class="n">This</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">paragraph</span><span class="o">.</span>
+</code></pre></div>
+<h3 id="getelementsbytagname">getElementsByTagName</h3>
+<p>根据标签名获取元素集合。它返回一个类似数组的对象（HTMLCollection），包含所有匹配标签名的元素。语法如下：</p>
+<div class="codehilite"><pre><span></span><code>document.getElementsByTagName(\\\"tagName\\\");
+</code></pre></div>
+<p>要获取文档中的所有 h1 元素：</p>
+<div class="codehilite"><pre><span></span><code><span class="nf">var</span><span class="w"> </span><span class="n">h1Elements</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="p">.</span><span class="n">getElementsByTagName</span><span class="p">(</span><span class="err">\\\</span><span class="ss">"h1\\\"</span><span class="p">);</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="nf">var</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">h1Elements</span><span class="p">.</span><span class="n">length</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">    </span><span class="n">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">h1Elements</span><span class="o">[</span><span class="n">i</span><span class="o">]</span><span class="p">.</span><span class="n">textContent</span><span class="p">);</span><span class="w"> </span>
+<span class="w">    </span><span class="o">//</span><span class="w"> </span><span class="n">输出</span><span class="err">：</span><span class="n">Hello</span><span class="p">,</span><span class="w"> </span><span class="n">World</span><span class="err">!</span>
+<span class="err">}</span>
+</code></pre></div>
+<h3 id="getelementsbyclassname">getElementsByClassName</h3>
+<p>通过类名获取元素集合。同样返回一个 HTMLCollection，包含所有具有指定类名的元素。</p>
+<div class="codehilite"><pre><span></span><code>document.getElementsByClassName(\\\"className\\\");
+</code></pre></div>
+<p>假设HTML中有多个元素有highlight类，如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;p</span><span class="w"> </span><span class="na">class=</span><span class="s">\\\"highlight\\\"</span><span class="nt">&gt;</span>This<span class="w"> </span>is<span class="w"> </span>a<span class="w"> </span>highlighted<span class="w"> </span>paragraph.<span class="nt">&lt;/p&gt;</span>
+<span class="nt">&lt;span</span><span class="w"> </span><span class="na">class=</span><span class="s">\\\"highlight\\\"</span><span class="nt">&gt;</span>This<span class="w"> </span>is<span class="w"> </span>a<span class="w"> </span>highlighted<span class="w"> </span>span.<span class="nt">&lt;/span&gt;</span>
+</code></pre></div>
+<p>可以使用以下代码获取这些元素：</p>
+<div class="codehilite"><pre><span></span><code><span class="nf">var</span><span class="w"> </span><span class="n">highlightedElements</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="p">.</span><span class="n">getElementsByClassName</span><span class="p">(</span><span class="err">\\\</span><span class="ss">"highlight\\\"</span><span class="p">);</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="nf">var</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">highlightedElements</span><span class="p">.</span><span class="n">length</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">    </span><span class="n">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">highlightedElements</span><span class="o">[</span><span class="n">i</span><span class="o">]</span><span class="p">.</span><span class="n">textContent</span><span class="p">);</span><span class="w"> </span>
+<span class="w">    </span><span class="o">//</span><span class="w"> </span><span class="n">输出两个元素的文本内容</span>
+<span class="err">}</span>
+</code></pre></div>
+<h2 id="_1">修改元素</h2>
+<h3 id="_2">修改元素内容</h3>
+<h4 id="textcontent">textContent属性</h4>
+<p>用于获取或设置元素的文本内容，如改变前面获取的p元素的内容</p>
+<div class="codehilite"><pre><span></span><code><span class="k">var</span><span class="w"> </span><span class="n">paragraph</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span>\\\<span class="s2">"myParagraph</span><span class="se">\\\"</span><span class="s2">);</span>
+<span class="n">paragraph</span><span class="o">.</span><span class="n">textContent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>\\\<span class="s2">"This is a new paragraph content.</span><span class="se">\\\"</span><span class="s2">;</span>
+</code></pre></div>
+<h4 id="innerhtml">innerHTML属性</h4>
+<p>用于获取或设置元素内部的HTML内容。可以用于添加或修改元素内部的标签和文本。如在前面p元素内部添加一个strong标签：</p>
+<div class="codehilite"><pre><span></span><code>var<span class="w"> </span>paragraph<span class="w"> </span>=<span class="w"> </span>document.getElementById(\\\"myParagraph\\\");
+paragraph.innerHTML<span class="w"> </span>=<span class="w"> </span>\\\"This<span class="w"> </span>is<span class="w"> </span>a<span class="w"> </span><span class="nt">&lt;strong&gt;</span>modified<span class="nt">&lt;/strong&gt;</span><span class="w"> </span>paragraph.\\\";
+</code></pre></div>
+<h3 id="_3">修改元素属性</h3>
+<h4 id="_4">获取和设置属性</h4>
+<p>可以通过元素对象的属性来获取和设置大多数 HTML 属性。例如，对于一个  元素的 src 属性。假设 HTML 中有一个img元素，可以这样修改其src属性：</p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">img</span><span class="w"> </span><span class="n">id</span><span class="o">=</span>\\\<span class="s2">"myImage</span><span class="se">\\\"</span><span class="s2"> src=</span><span class="se">\\\"</span><span class="s2">original.jpg</span><span class="se">\\\"</span><span class="s2">&gt;</span>
+
+<span class="k">var</span><span class="w"> </span><span class="n">image</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span>\\\<span class="s2">"myImage</span><span class="se">\\\"</span><span class="s2">);</span>
+<span class="n">image</span><span class="o">.</span><span class="n">src</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>\\\<span class="s2">"new.jpg</span><span class="se">\\\"</span><span class="s2">;</span>
+</code></pre></div>
+<h4 id="setattributegetattribute">使用setAttribute和getAttribute</h4>
+<p>setAttribute 用于设置元素的属性，getAttribute 用于获取元素的属性。如对于上面的img元素，也可以这样操作：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">var</span><span class="w"> </span><span class="n">image</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span>\\\<span class="s2">"myImage</span><span class="se">\\\"</span><span class="s2">);</span>
+<span class="n">image</span><span class="o">.</span><span class="n">setAttribute</span><span class="p">(</span>\\\<span class="s2">"src</span><span class="se">\\\"</span><span class="s2">, </span><span class="se">\\\"</span><span class="s2">new.jpg</span><span class="se">\\\"</span><span class="s2">);</span>
+
+<span class="k">var</span><span class="w"> </span><span class="n">currentSrc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">image</span><span class="o">.</span><span class="n">getAttribute</span><span class="p">(</span>\\\<span class="s2">"src</span><span class="se">\\\"</span><span class="s2">);</span>
+<span class="n">console</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">currentSrc</span><span class="p">);</span><span class="w"> </span>
+<span class="o">//</span><span class="w"> </span><span class="err">输出：</span><span class="n">new</span><span class="o">.</span><span class="n">jpg</span>
+</code></pre></div>
+<h2 id="dom_2">创建与添加DOM元素</h2>
+<h3 id="_5">创建元素</h3>
+<p>使用createElement方法。具体为先使用 document.createElement(\\\\\\\"tagName\\\\\\\") 创建一个新的 HTML元素。如创建一个新的div元素并设置其 id 和内容，如下。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">var</span><span class="w"> </span><span class="n">newDiv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">createElement</span><span class="p">(</span>\\\<span class="s2">"div</span><span class="se">\\\"</span><span class="s2">);</span>
+<span class="n">newDiv</span><span class="o">.</span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>\\\<span class="s2">"newDiv</span><span class="se">\\\"</span><span class="s2">;</span>
+<span class="n">newDiv</span><span class="o">.</span><span class="n">textContent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>\\\<span class="s2">"This is a new div.</span><span class="se">\\\"</span><span class="s2">;</span>
+</code></pre></div>
+<h3 id="_6">添加元素</h3>
+<h4 id="appendchild">appendChild</h4>
+<p>使用appendChild方法，将一个元素添加为另一个元素的子元素。例如，将新创建的div元素添加到 body元素中。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">var</span><span class="w"> </span><span class="n">body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">getElementsByTagName</span><span class="p">(</span>\\\<span class="s2">"body</span><span class="se">\\\"</span><span class="s2">)[0];</span>
+<span class="k">var</span><span class="w"> </span><span class="n">newDiv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">createElement</span><span class="p">(</span>\\\<span class="s2">"div</span><span class="se">\\\"</span><span class="s2">);</span>
+<span class="n">newDiv</span><span class="o">.</span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>\\\<span class="s2">"newDiv</span><span class="se">\\\"</span><span class="s2">;</span>
+<span class="n">newDiv</span><span class="o">.</span><span class="n">textContent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>\\\<span class="s2">"This is a new div.</span><span class="se">\\\"</span><span class="s2">;</span>
+<span class="n">body</span><span class="o">.</span><span class="n">appendChild</span><span class="p">(</span><span class="n">newDiv</span><span class="p">);</span>
+</code></pre></div>
+<h4 id="insertbefore">insertBefore</h4>
+<p>在指定的子元素之前插入一个新元素。它需要两个参数：要插入的新元素和参考元素（新元素将插入在参考元素之前）。如假设有两个 p 元素在 body 中，在第一个 p 元素之前插入新的 div 元素。</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;body&gt;</span>
+<span class="w">    </span><span class="nt">&lt;p&gt;</span>First<span class="w"> </span>Paragraph<span class="nt">&lt;/p&gt;</span>
+<span class="w">    </span><span class="nt">&lt;p&gt;</span>Second<span class="w"> </span>Paragraph<span class="nt">&lt;/p&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+
+var<span class="w"> </span>body<span class="w"> </span>=<span class="w"> </span>document.getElementsByTagName(\\\"body\\\")[0];
+var<span class="w"> </span>newDiv<span class="w"> </span>=<span class="w"> </span>document.createElement(\\\"div\\\");
+newDiv.id<span class="w"> </span>=<span class="w"> </span>\\\"newDiv\\\";
+newDiv.textContent<span class="w"> </span>=<span class="w"> </span>\\\"This<span class="w"> </span>is<span class="w"> </span>a<span class="w"> </span>new<span class="w"> </span>div.\\\";
+var<span class="w"> </span>firstParagraph<span class="w"> </span>=<span class="w"> </span>document.getElementsByTagName(\\\"p\\\")[0];
+body.insertBefore(newDiv,<span class="w"> </span>firstParagraph);
+</code></pre></div>
+<h2 id="dom_3">删除DOM元素</h2>
+<p>用于从父元素中删除指定的子元素，语法如下。</p>
+<div class="codehilite"><pre><span></span><code>parentElement.removeChild(childElement);
+</code></pre></div>
+<p>如假设要删除前面添加的div元素（假设它有 id 为 \\\\\\\"newDiv\\\\\\\"）。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">var</span><span class="w"> </span><span class="n">divToRemove</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span>\\\<span class="s2">"newDiv</span><span class="se">\\\"</span><span class="s2">);</span>
+<span class="k">var</span><span class="w"> </span><span class="n">body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">getElementsByTagName</span><span class="p">(</span>\\\<span class="s2">"body</span><span class="se">\\\"</span><span class="s2">)[0];</span>
+<span class="n">body</span><span class="o">.</span><span class="n">removeChild</span><span class="p">(</span><span class="n">divToRemove</span><span class="p">);</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/其他/webrtc网页代码分析二.html">← webrtc网页代码分析二</a>
+    <a class="next" href="/laumy.github.io/posts/其他/快速搭建一个可访问的网页.html">快速搭建一个可访问的网页 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

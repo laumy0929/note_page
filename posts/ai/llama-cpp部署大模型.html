@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>llama.cpp部署大模型 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#llamacpp">安装llama.cpp</a><ul></ul></li><li><a href="#_1">模型下载</a><ul></ul></li><li><a href="#_2">模型测试</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>llama.cpp部署大模型</h1>
+  <div class="meta">2025-06-16 · ai</div>
+  <div class="post-content"><h2 id="llamacpp">安装llama.cpp</h2>
+<p>从GitHub上下载官方的源码。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">git</span><span class="w"> </span><span class="n">clone</span><span class="w"> </span><span class="n">https</span><span class="o">:</span><span class="c1">//github.com/ggml-org/llama.cpp.git</span>
+
+<span class="n">cd</span><span class="w"> </span><span class="n">llama</span><span class="p">.</span><span class="n">cpp</span>
+</code></pre></div>
+<p>使用camke进行编译，先创建build环境</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cmake</span><span class="w"> </span><span class="o">-</span><span class="n">B</span><span class="w"> </span><span class="n">build</span>
+</code></pre></div>
+<p>发现有报错curl没有安装。</p>
+<div class="codehilite"><pre><span></span><code><span class="o">--</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="n">compiler</span><span class="w"> </span><span class="n">identification</span><span class="w"> </span><span class="n">is</span><span class="w"> </span><span class="n">GNU</span><span class="w"> </span><span class="mf">11.3.0</span>
+<span class="o">--</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">CXX</span><span class="w"> </span><span class="n">compiler</span><span class="w"> </span><span class="n">identification</span><span class="w"> </span><span class="n">is</span><span class="w"> </span><span class="n">GNU</span><span class="w"> </span><span class="mf">11.3.0</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Detecting</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="n">compiler</span><span class="w"> </span><span class="n">ABI</span><span class="w"> </span><span class="n">info</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Detecting</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="n">compiler</span><span class="w"> </span><span class="n">ABI</span><span class="w"> </span><span class="n">info</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">done</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Check</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">working</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="n">compiler</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="n">cc</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">skipped</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Detecting</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="n">compile</span><span class="w"> </span><span class="n">features</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Detecting</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="n">compile</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">done</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Detecting</span><span class="w"> </span><span class="n">CXX</span><span class="w"> </span><span class="n">compiler</span><span class="w"> </span><span class="n">ABI</span><span class="w"> </span><span class="n">info</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Detecting</span><span class="w"> </span><span class="n">CXX</span><span class="w"> </span><span class="n">compiler</span><span class="w"> </span><span class="n">ABI</span><span class="w"> </span><span class="n">info</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">done</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Check</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">working</span><span class="w"> </span><span class="n">CXX</span><span class="w"> </span><span class="n">compiler</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="n">c</span><span class="o">++</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">skipped</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Detecting</span><span class="w"> </span><span class="n">CXX</span><span class="w"> </span><span class="n">compile</span><span class="w"> </span><span class="n">features</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Detecting</span><span class="w"> </span><span class="n">CXX</span><span class="w"> </span><span class="n">compile</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">done</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Found</span><span class="w"> </span><span class="n">Git</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="n">git</span><span class="w"> </span><span class="p">(</span><span class="n">found</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="s">"2.34.1"</span><span class="p">)</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Looking</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">pthread</span><span class="p">.</span><span class="n">h</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Looking</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">pthread</span><span class="p">.</span><span class="n">h</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">found</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Performing</span><span class="w"> </span><span class="n">Test</span><span class="w"> </span><span class="n">CMAKE_HAVE_LIBC_PTHREAD</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Performing</span><span class="w"> </span><span class="n">Test</span><span class="w"> </span><span class="n">CMAKE_HAVE_LIBC_PTHREAD</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">Success</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Found</span><span class="w"> </span><span class="n">Threads</span><span class="o">:</span><span class="w"> </span><span class="n">TRUE</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Warning</span><span class="o">:</span><span class="w"> </span><span class="n">ccache</span><span class="w"> </span><span class="k">not</span><span class="w"> </span><span class="n">found</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">consider</span><span class="w"> </span><span class="n">installing</span><span class="w"> </span><span class="n">it</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">faster</span><span class="w"> </span><span class="n">compilation</span><span class="w"> </span><span class="k">or</span><span class="w"> </span><span class="n">disable</span><span class="w"> </span><span class="k">this</span><span class="w"> </span><span class="n">warning</span><span class="w"> </span><span class="n">with</span><span class="w"> </span><span class="n">GGML_CCACHE</span><span class="o">=</span><span class="n">OFF</span>
+<span class="o">--</span><span class="w"> </span><span class="n">CMAKE_SYSTEM_PROCESSOR</span><span class="o">:</span><span class="w"> </span><span class="n">x86_64</span>
+<span class="o">--</span><span class="w"> </span><span class="n">GGML_SYSTEM_ARCH</span><span class="o">:</span><span class="w"> </span><span class="n">x86</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Including</span><span class="w"> </span><span class="n">CPU</span><span class="w"> </span><span class="n">backend</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Found</span><span class="w"> </span><span class="n">OpenMP_C</span><span class="o">:</span><span class="w"> </span><span class="o">-</span><span class="n">fopenmp</span><span class="w"> </span><span class="p">(</span><span class="n">found</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="s">"4.5"</span><span class="p">)</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Found</span><span class="w"> </span><span class="n">OpenMP_CXX</span><span class="o">:</span><span class="w"> </span><span class="o">-</span><span class="n">fopenmp</span><span class="w"> </span><span class="p">(</span><span class="n">found</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="s">"4.5"</span><span class="p">)</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Found</span><span class="w"> </span><span class="n">OpenMP</span><span class="o">:</span><span class="w"> </span><span class="n">TRUE</span><span class="w"> </span><span class="p">(</span><span class="n">found</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="s">"4.5"</span><span class="p">)</span>
+<span class="o">--</span><span class="w"> </span><span class="n">x86</span><span class="w"> </span><span class="n">detected</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Adding</span><span class="w"> </span><span class="n">CPU</span><span class="w"> </span><span class="n">backend</span><span class="w"> </span><span class="n">variant</span><span class="w"> </span><span class="n">ggml</span><span class="o">-</span><span class="n">cpu</span><span class="o">:</span><span class="w"> </span><span class="o">-</span><span class="n">march</span><span class="o">=</span><span class="n">native</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Could</span><span class="w"> </span><span class="n">NOT</span><span class="w"> </span><span class="n">find</span><span class="w"> </span><span class="n">CURL</span><span class="w"> </span><span class="p">(</span><span class="n">missing</span><span class="o">:</span><span class="w"> </span><span class="n">CURL_LIBRARY</span><span class="w"> </span><span class="n">CURL_INCLUDE_DIR</span><span class="p">)</span>
+<span class="n">CMake</span><span class="w"> </span><span class="n">Error</span><span class="w"> </span><span class="n">at</span><span class="w"> </span><span class="n">common</span><span class="o">/</span><span class="n">CMakeLists</span><span class="p">.</span><span class="n">txt</span><span class="o">:</span><span class="mi">85</span><span class="w"> </span><span class="p">(</span><span class="n">message</span><span class="p">)</span><span class="o">:</span>
+<span class="w">  </span><span class="n">Could</span><span class="w"> </span><span class="n">NOT</span><span class="w"> </span><span class="n">find</span><span class="w"> </span><span class="n">CURL</span><span class="p">.</span><span class="w">  </span><span class="n">Hint</span><span class="o">:</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">disable</span><span class="w"> </span><span class="k">this</span><span class="w"> </span><span class="n">feature</span><span class="p">,</span><span class="w"> </span><span class="n">set</span><span class="w"> </span><span class="o">-</span><span class="n">DLLAMA_CURL</span><span class="o">=</span><span class="n">OFF</span>
+</code></pre></div>
+<p>使用apt-get安装libcur14，如下。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">sudo</span><span class="w"> </span><span class="n">apt</span><span class="o">-</span><span class="n">get</span><span class="w"> </span><span class="n">update</span>
+<span class="n">sudo</span><span class="w"> </span><span class="n">apt</span><span class="o">-</span><span class="n">get</span><span class="w"> </span><span class="n">install</span><span class="w"> </span><span class="n">libcurl4</span><span class="o">-</span><span class="n">openssl</span><span class="o">-</span><span class="n">dev</span>
+</code></pre></div>
+<p>安装curl成功后，解决了，继续执行cmake -B build，会生成build目录。</p>
+<div class="codehilite"><pre><span></span><code><span class="w"> </span><span class="n">cmake</span><span class="w"> </span><span class="o">-</span><span class="n">B</span><span class="w"> </span><span class="n">build</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Warning</span><span class="o">:</span><span class="w"> </span><span class="n">ccache</span><span class="w"> </span><span class="k">not</span><span class="w"> </span><span class="n">found</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">consider</span><span class="w"> </span><span class="n">installing</span><span class="w"> </span><span class="n">it</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">faster</span><span class="w"> </span><span class="n">compilation</span><span class="w"> </span><span class="k">or</span><span class="w"> </span><span class="n">disable</span><span class="w"> </span><span class="k">this</span><span class="w"> </span><span class="n">warning</span><span class="w"> </span><span class="n">with</span><span class="w"> </span><span class="n">GGML_CCACHE</span><span class="o">=</span><span class="n">OFF</span>
+<span class="o">--</span><span class="w"> </span><span class="n">CMAKE_SYSTEM_PROCESSOR</span><span class="o">:</span><span class="w"> </span><span class="n">x86_64</span>
+<span class="o">--</span><span class="w"> </span><span class="n">GGML_SYSTEM_ARCH</span><span class="o">:</span><span class="w"> </span><span class="n">x86</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Including</span><span class="w"> </span><span class="n">CPU</span><span class="w"> </span><span class="n">backend</span>
+<span class="o">--</span><span class="w"> </span><span class="n">x86</span><span class="w"> </span><span class="n">detected</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Adding</span><span class="w"> </span><span class="n">CPU</span><span class="w"> </span><span class="n">backend</span><span class="w"> </span><span class="n">variant</span><span class="w"> </span><span class="n">ggml</span><span class="o">-</span><span class="n">cpu</span><span class="o">:</span><span class="w"> </span><span class="o">-</span><span class="n">march</span><span class="o">=</span><span class="n">native</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Found</span><span class="w"> </span><span class="n">CURL</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">x86_64</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnu</span><span class="o">/</span><span class="n">libcurl</span><span class="p">.</span><span class="n">so</span><span class="w"> </span><span class="p">(</span><span class="n">found</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="s">"7.81.0"</span><span class="p">)</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Configuring</span><span class="w"> </span><span class="n">done</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Generating</span><span class="w"> </span><span class="n">done</span>
+<span class="o">--</span><span class="w"> </span><span class="n">Build</span><span class="w"> </span><span class="n">files</span><span class="w"> </span><span class="n">have</span><span class="w"> </span><span class="n">been</span><span class="w"> </span><span class="n">written</span><span class="w"> </span><span class="n">to</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">autodl</span><span class="o">-</span><span class="n">tmp</span><span class="o">/</span><span class="n">llama</span><span class="p">.</span><span class="n">cpp</span><span class="o">/</span><span class="n">build</span>
+</code></pre></div>
+<p>接着llama.cpp的源码。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cmake</span><span class="w"> </span><span class="o">--</span><span class="n">build</span><span class="w"> </span><span class="n">build</span><span class="w"> </span><span class="o">--</span><span class="n">config</span><span class="w"> </span><span class="n">Release</span>
+
+<span class="n">编译完成之后</span><span class="err">，</span><span class="n">生成的二进制都在llama</span><span class="p">.</span><span class="n">cpp</span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">bin目录下</span><span class="err">。</span>
+</code></pre></div>
+<h2 id="_1">模型下载</h2>
+<p>使用wget下载模型。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">wget</span><span class="w"> </span><span class="n">https</span><span class="o">:</span><span class="c1">//huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q8_0.gguf</span>
+</code></pre></div>
+<p>llamap.cpp只能使用GGUF格式的大模型，使用的模型可以在Hugging Face获取<a href="https://huggingface.co/">https://huggingface.co/</a>。也可以在modelscope上获取<a href="https://modelscope.cn/models">https://modelscope.cn/models</a>。</p>
+<p>这里有个技巧，可能仓库里面有很多量化参数的模型，如果使用git全部clone下来会比较久，这里可以只下载指定的GGUF模型，<strong>点击要使用的模型</strong>，如下:</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_e0a172538da0ae8e59626eb4db1c25b5.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/ai应用/llama-cpp部署大模型/images/wp_editor_md_e0a172538da0ae8e59626eb4db1c25b5.jpg"/></a></p>
+<p>然后，获取到下面的下载链接。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_103fac35ecc33600c7019192a6778373.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/ai应用/llama-cpp部署大模型/images/wp_editor_md_103fac35ecc33600c7019192a6778373.jpg"/></a></p>
+<p>如果是modelsscope，找到<strong>下载</strong>，然后鼠标长按左键不松手拖到上面的输入网址框获取到下载链接。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_e20dd4d7c580d7f472248ff2ef607769.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/ai应用/llama-cpp部署大模型/images/wp_editor_md_e20dd4d7c580d7f472248ff2ef607769.jpg"/></a></p>
+<p>这样就可以使用wget进行下载了。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">wget</span><span class="w"> </span><span class="n">https</span><span class="o">:</span><span class="c1">//huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q8_0.gguf</span>
+
+<span class="n">wget</span><span class="w"> </span><span class="n">https</span><span class="o">:</span><span class="c1">//modelscope.cn/models/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/master/qwen2.5-3b-instruct-q8_0.gguf</span>
+</code></pre></div>
+<h2 id="_2">模型测试</h2>
+<p>运行大模型</p>
+<div class="codehilite"><pre><span></span><code><span class="p">.</span><span class="o">/</span><span class="n">llama</span><span class="p">.</span><span class="n">cpp</span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="n">llama</span><span class="o">-</span><span class="n">cli</span><span class="w"> </span><span class="o">-</span><span class="n">m</span><span class="w"> </span><span class="n">model</span><span class="o">/</span><span class="n">Llama</span><span class="mf">-3.2</span><span class="mi">-3</span><span class="n">B</span><span class="o">-</span><span class="n">Instruct</span><span class="o">-</span><span class="n">Q8_0</span><span class="p">.</span><span class="n">gguf</span>
+</code></pre></div>
+<p>运行日志如下，可以看到使用的是CPU，没有使用GPU，因为前面编译的时候没有使能CUDA。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_91fe9a4d29823b0fbd2c338a3c4ad431.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/ai应用/llama-cpp部署大模型/images/wp_editor_md_91fe9a4d29823b0fbd2c338a3c4ad431.jpg"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="nl">llama_perf_sampler_print</span><span class="p">:</span><span class="w">    </span><span class="n">sampling</span><span class="w"> </span><span class="n">time</span><span class="w"> </span><span class="o">=</span><span class="w">       </span><span class="mf">8.06</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="o">/</span><span class="w">    </span><span class="mi">80</span><span class="w"> </span><span class="n">runs</span><span class="w">   </span><span class="p">(</span><span class="w">    </span><span class="mf">0.10</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="n">token</span><span class="p">,</span><span class="w">  </span><span class="mf">9920.63</span><span class="w"> </span><span class="n">tokens</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="n">second</span><span class="p">)</span>
+<span class="nl">llama_perf_context_print</span><span class="p">:</span><span class="w">        </span><span class="n">load</span><span class="w"> </span><span class="n">time</span><span class="w"> </span><span class="o">=</span><span class="w">    </span><span class="mf">1070.39</span><span class="w"> </span><span class="n">ms</span>
+<span class="nl">llama_perf_context_print</span><span class="p">:</span><span class="w"> </span><span class="n">prompt</span><span class="w"> </span><span class="n">eval</span><span class="w"> </span><span class="n">time</span><span class="w"> </span><span class="o">=</span><span class="w">     </span><span class="mf">859.42</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="o">/</span><span class="w">    </span><span class="mi">15</span><span class="w"> </span><span class="n">tokens</span><span class="w"> </span><span class="p">(</span><span class="w">   </span><span class="mf">57.29</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="n">token</span><span class="p">,</span><span class="w">    </span><span class="mf">17.45</span><span class="w"> </span><span class="n">tokens</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="n">second</span><span class="p">)</span>
+<span class="nl">llama_perf_context_print</span><span class="p">:</span><span class="w">        </span><span class="n">eval</span><span class="w"> </span><span class="n">time</span><span class="w"> </span><span class="o">=</span><span class="w">   </span><span class="mf">20880.31</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="o">/</span><span class="w">    </span><span class="mi">65</span><span class="w"> </span><span class="n">runs</span><span class="w">   </span><span class="p">(</span><span class="w">  </span><span class="mf">321.24</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="n">token</span><span class="p">,</span><span class="w">     </span><span class="mf">3.11</span><span class="w"> </span><span class="n">tokens</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="n">second</span><span class="p">)</span>
+<span class="nl">llama_perf_context_print</span><span class="p">:</span><span class="w">       </span><span class="n">total</span><span class="w"> </span><span class="n">time</span><span class="w"> </span><span class="o">=</span><span class="w">   </span><span class="mf">37979.41</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="o">/</span><span class="w">    </span><span class="mi">80</span><span class="w"> </span><span class="n">tokens</span>
+</code></pre></div>
+<ul>
+<li>load time: 模型加载时间，耗时1070.39ms，属于一次性开销，与模型大小和硬件I/O性能相关。</li>
+<li>prompt eaval time: 有些也称为prefill（TPS），表示提示词处理时间，处理15个输入Token耗时859.42ms，平均57.29ms/Token，速度17.45 Token/s。</li>
+<li>eval time:有些也称为decode (TPS)， 表示生成推理时间，生成65个Token耗时20880.31ms，平均321.24ms/Token，速度仅3.11 Token/s，显著低于采样阶段的9920.63 Token/s，说明生成阶段存在计算瓶颈。</li>
+<li>sampling time: 采样80次仅8.06ms，速度高达9920.63 Token/s,表明采样算法本身效率极高，非性能瓶颈。</li>
+<li>total time: 输入到输出的总耗时，包括模型加载时间、提示词处理时间、生成推理时间，其他时间（可能含内存交换或调度延迟）</li>
+</ul>
+<p>可以使用vscode的打开多个终端，一个执行大模型交互，一个使用htop看看CPU和内存使用情况。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_28b48b767dcddf3f44160b9867b4580a.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/ai应用/llama-cpp部署大模型/images/wp_editor_md_28b48b767dcddf3f44160b9867b4580a.jpg"/></a></p>
+<p>从上面看输入是17.45 token/s，输出是3.11 token/s，速度还是比较慢。</p>
+<p>没有使用GPU，都是用cpu在推理。那么怎么使能使用gpu了？使用下面的方式，构建编译的时候打开CUDA，然后重新编译试一下。要用多线程编译，否则编译贼慢。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cd</span><span class="w"> </span><span class="n">llama</span><span class="p">.</span><span class="n">cpp</span>
+<span class="n">cmake</span><span class="w"> </span><span class="o">-</span><span class="n">B</span><span class="w"> </span><span class="n">build</span><span class="w"> </span><span class="o">-</span><span class="n">DGGML_CUDA</span><span class="o">=</span><span class="n">ON</span>
+<span class="n">cmake</span><span class="w"> </span><span class="o">--</span><span class="n">build</span><span class="w"> </span><span class="n">build</span><span class="w"> </span><span class="o">--</span><span class="n">config</span><span class="w"> </span><span class="n">Release</span><span class="w"> </span><span class="o">-</span><span class="n">j16</span>
+</code></pre></div>
+<p>重新运行模型后，看到硬件信息用了GPU了。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_06b476afbba5c4c17677f500135b2217.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/ai应用/llama-cpp部署大模型/images/wp_editor_md_06b476afbba5c4c17677f500135b2217.jpg"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="nl">llama_perf_sampler_print</span><span class="p">:</span><span class="w">    </span><span class="n">sampling</span><span class="w"> </span><span class="n">time</span><span class="w"> </span><span class="o">=</span><span class="w">      </span><span class="mf">10.88</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="o">/</span><span class="w">   </span><span class="mi">105</span><span class="w"> </span><span class="n">runs</span><span class="w">   </span><span class="p">(</span><span class="w">    </span><span class="mf">0.10</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="n">token</span><span class="p">,</span><span class="w">  </span><span class="mf">9649.85</span><span class="w"> </span><span class="n">tokens</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="n">second</span><span class="p">)</span>
+<span class="nl">llama_perf_context_print</span><span class="p">:</span><span class="w">        </span><span class="n">load</span><span class="w"> </span><span class="n">time</span><span class="w"> </span><span class="o">=</span><span class="w">     </span><span class="mf">959.88</span><span class="w"> </span><span class="n">ms</span>
+<span class="nl">llama_perf_context_print</span><span class="p">:</span><span class="w"> </span><span class="n">prompt</span><span class="w"> </span><span class="n">eval</span><span class="w"> </span><span class="n">time</span><span class="w"> </span><span class="o">=</span><span class="w">     </span><span class="mf">573.18</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="o">/</span><span class="w">    </span><span class="mi">14</span><span class="w"> </span><span class="n">tokens</span><span class="w"> </span><span class="p">(</span><span class="w">   </span><span class="mf">40.94</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="n">token</span><span class="p">,</span><span class="w">    </span><span class="mf">24.43</span><span class="w"> </span><span class="n">tokens</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="n">second</span><span class="p">)</span>
+<span class="nl">llama_perf_context_print</span><span class="p">:</span><span class="w">        </span><span class="n">eval</span><span class="w"> </span><span class="n">time</span><span class="w"> </span><span class="o">=</span><span class="w">   </span><span class="mf">17212.83</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="o">/</span><span class="w">    </span><span class="mi">91</span><span class="w"> </span><span class="n">runs</span><span class="w">   </span><span class="p">(</span><span class="w">  </span><span class="mf">189.15</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="n">token</span><span class="p">,</span><span class="w">     </span><span class="mf">5.29</span><span class="w"> </span><span class="n">tokens</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="n">second</span><span class="p">)</span>
+<span class="nl">llama_perf_context_print</span><span class="p">:</span><span class="w">       </span><span class="n">total</span><span class="w"> </span><span class="n">time</span><span class="w"> </span><span class="o">=</span><span class="w">   </span><span class="mf">34584.56</span><span class="w"> </span><span class="n">ms</span><span class="w"> </span><span class="o">/</span><span class="w">   </span><span class="mi">105</span><span class="w"> </span><span class="n">tokens</span>
+</code></pre></div>
+<p>输出token有提升，但是看起来不明显，为啥了？</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/risc-v/端侧vscode-ai开发环境搭建.html">← 端侧vscode AI开发环境搭建</a>
+    <a class="next" href="/laumy.github.io/posts/ai/自注意力机制.html">自注意力机制 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

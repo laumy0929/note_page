@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>内存初始化基本概念 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#nodezonepage">三级结构Node、Zone、Page</a><ul><li><a href="#nodeumanuma">Node与内存架构UMA、NUMA</a></li></ul></li><li><a href="#_2">三种内存模型</a><ul><li><a href="#flat-memory-model">FLAT memory model</a></li><li><a href="#discontiguous-memory-model">Discontiguous memory model</a></li><li><a href="#sparse-memory-model">Sparse memory model</a></li></ul></li><li><a href="#_3">内核虚拟地址空间分布</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>内存初始化基本概念</h1>
+  <div class="meta">2023-06-10 · linux</div>
+  <div class="post-content"><h2 id="nodezonepage">三级结构Node、Zone、Page</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_6d2fb92edac71f0ea5c3246ddc3268c6.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_6d2fb92edac71f0ea5c3246ddc3268c6.jpg"/></a></p>
+<h3 id="nodeumanuma">Node与内存架构UMA、NUMA</h3>
+<h4 id="umauniform-memory-acces">UMA架构（uniform memory acces）</h4>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_0a1c139caeb6c241c942e721cc090c95.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_0a1c139caeb6c241c942e721cc090c95.jpg"/></a></p>
+<p>一致内存访问，所有CPU访问内存都需要过总线，距离都是一样的，所以每个处理器访问各个内存块都是同样快。如上图4个CPU都通过系统总线来访问物理内存DDR。目前大部分嵌入式系统或台式机系统采用UMA架构。</p>
+<h4 id="numanon-uniform-memory-acces">NUMA架构（Non-uniform memory acces）</h4>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b08b157023aa1ddb245823aec5045b2b.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_b08b157023aa1ddb245823aec5045b2b.jpg"/></a></p>
+<p>非统一内存访问，系统中有多个内存节点和多个CPU簇，CPU访问本地内存节点的速度最快，访问远端的内存节点速度要慢一点。如上图该系统使用NUMA架构，有两个内存节点，其中CPU0和CPU1组成一个节点（Node0）,他们可以通过系统总线访问本地DDR物理内存，同理CPU2和CPU3组成另外一个节点（Node1）,他们也可以通过系统总线访问本地DDR物理内存。两个节点通过超路径互联总线连接，那么CPU0可以通过这个内部总线访问远端内存节点的物理内存，但是访问速度要比访问本地物理内存慢很多。</p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="n">linux</span><span class="o">/</span><span class="n">mmzone</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">pglist_data</span><span class="w"> </span><span class="p">{</span><span class="w"> </span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">zone</span><span class="w"> </span><span class="n">node_zones</span><span class="p">[</span><span class="n">MAX_NR_ZONES</span><span class="p">];</span><span class="w">  </span><span class="c1">//节点中物理内存区域</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">zonelist</span><span class="w"> </span><span class="n">node_zonelists</span><span class="p">[</span><span class="n">MAX_ZONELISTS</span><span class="p">];</span><span class="w"> </span><span class="c1">//节点备用列表</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">nr_zones</span><span class="p">;</span><span class="w"> </span><span class="c1">//节点内存区域个数</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">page</span><span class="w"> </span><span class="o">*</span><span class="n">node_mem_map</span><span class="p">;</span><span class="w">  </span><span class="cm">/*NUMA节点内管理所有物理页page的数组*/</span>
+<span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">node_start_pfn</span><span class="p">;</span><span class="w">  </span><span class="cm">/*NUMA节点第一个物理页的pfn*/</span>
+<span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">node_present_pages</span><span class="p">;</span><span class="w"> </span><span class="cm">/* 物理内存页的总数 */</span><span class="w"> </span>
+<span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">node_spanned_pages</span><span class="p">;</span><span class="w"> </span><span class="cm">/* 物理内存页的总长度，包含洞在内 */</span><span class="w"> </span>
+<span class="kt">int</span><span class="w"> </span><span class="n">node_id</span><span class="p">;</span><span class="w">  </span><span class="c1">//NUMA节点id</span>
+<span class="n">wait_queue_head_t</span><span class="w"> </span><span class="n">kswapd_wait</span><span class="p">;</span><span class="w"> </span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">task_struct</span><span class="w"> </span><span class="o">*</span><span class="n">kswapd</span><span class="p">;</span><span class="w"> </span>
+<span class="kt">int</span><span class="w"> </span><span class="n">kswapd_max_order</span><span class="p">;</span><span class="w"> </span>
+<span class="p">......</span>
+<span class="p">}</span><span class="w"> </span><span class="n">pg_data_t</span><span class="p">;</span>
+</code></pre></div>
+<h4 id="zone">物理内存分区（zone）</h4>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f4956ab199544d2b9d3fb6eae04f8415.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_f4956ab199544d2b9d3fb6eae04f8415.jpg"/></a></p>
+<p>物理内存是以页（4KB）来进行管理的，理想状态任何种类的数据都可以存放在页框中，但实际上受计算机体现结构硬件方面的制约，限制了页框的使用方式，如在X86体系结构下，ISA总线的DMA控制器，只能对内存前16MB进行寻址，所以导致ISA设备不能在整个32位地址空间指向DMA，只能使用物理内存的前16MB进行DMA操作，因此物理内存前16MB专门留给内核用于DMA分配，称之DMA ZONE。 32位的处理器只支持4G的虚拟地址，其中1G的地址空间给内核，如果物理内存实际有4G，那么1G的内核空间地址无法一一映射，Linux内核提出的解决方案将物理内存分成2部分，一部分直接做线性映射，另一部分采用动态映射，称为高端内存。如果是64位的处理器一般不会有高端内存，应该地址空间足够大。 16~896MB的物理空间区域被直接映射到内核态虚拟地址空间3G+16M~3G+896M这个范围。 剩余的128M，显然剩余的3200M的ZONE HIGH区域是无法通过直接映射的方式进行映射的，因此物理内存中的ZONE_HIGHMEM区域就只能采用动态映射的方式映射128M大小内核虚拟内存空间。 注意DMA_ZONE不是说只给DMA用，DMA要是不用还是可以继续给其他用，只要设置分配内存为GFP_DMA。 - ZONE_DMA(24): isa设备的DMA操作，寻址范围0~16M。 - ZONE_DMA32: 对于64位系统中，16M的空间不够用，于是定义可以寻址到4G，满足32位的DMA寻址。 - ZONE_NORMAL: 线性映射物理内存 - ZONE_HIGHMEM:高端内存，标记超出内核虚拟地址空间的物理内存段。64位架构没有该ZONE - ZONE_MOVABLE:虚拟内存域，防止内存碎片的机制中会使用到该内存区域。（从逻辑上划分） ZONE_DEVICE:为支持热插拔而分配的非易失性内存。（从逻辑上划分）</p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="n">linux</span><span class="o">/</span><span class="n">mmzone</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<span class="k">enum</span><span class="w"> </span><span class="n">zone_type</span><span class="w"> </span><span class="p">{</span><span class="w"> </span>
+<span class="n">ZONE_DMA</span><span class="p">,</span>
+<span class="n">ZONE_DMA32</span><span class="p">,</span>
+<span class="n">ZONE_NORMAL</span><span class="p">,</span>
+<span class="n">ZONE_HIGHMEM</span><span class="p">,</span>
+<span class="n">ZONE_MOVABLE</span><span class="p">,</span>
+<span class="n">ZONE_DEVICE</span><span class="p">,</span>
+<span class="p">}</span><span class="w"> </span><span class="p">;</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">zone</span><span class="w"> </span><span class="p">{</span>
+<span class="p">...</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">pglist_data</span><span class="w">  </span><span class="o">*</span><span class="n">zone_pgdat</span><span class="p">;</span>
+<span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w">  </span><span class="n">zone_start_pfn</span><span class="p">;</span>
+<span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w">  </span><span class="n">spanned_pages</span><span class="p">;</span>
+<span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w">   </span><span class="n">present_pages</span><span class="p">;</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">free_area</span><span class="w">  </span><span class="n">free_area</span><span class="p">[</span><span class="n">MAX_ORDER</span><span class="p">];</span>
+<span class="n">atomic_long_t</span><span class="w">   </span><span class="n">vm_stat</span><span class="p">[</span><span class="n">NR_VM_ZONE_STAT_ITEMS</span><span class="p">];</span>
+<span class="p">}</span>
+</code></pre></div>
+<h4 id="page">page</h4>
+<p>page（页）是linux内核管理物理内存的最小单元，内核将整个物理内存按照页对齐方式划分成成千上万个页进行管理，内核为了管理这些页将每个页抽象成struct page结构管理每个页状态及属性。struct page结构本身就占有一定内存，所以struct page不能过大。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_d6712698068a1faf1c43e2bbd75f27d7.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_d6712698068a1faf1c43e2bbd75f27d7.jpg"/></a></p>
+<p>PFN（page frame number）：PFN与struct page一一对应，内核提供两个宏来完成PFN与物理页结构struct page之间相互转换,分别是page_to_pfn与pfn_to_page。 在Linux内核中，struct page数据结构通常与实际的物理内存页帧是一一对应的。Linux内核使用一个双向链表来跟踪所有可用和不可用的物理页面。 在初始化期间，内核通过调用\"memblock_init()\"等函数将系统中所有的物理内存区域划分为相同大小的页面，并为每个页面分配一个struct page数据结构。这些页面的struct page结构体被组织成一个双向链表，并存储在pgdat_list全局变量中。 当需要分配物理页面时，内核会从pgdat_list中选择一个合适的节点，并在该节点的伙伴系统上查找一个可用的物理页面。如果找到了一个可用页面，则将该页面的struct page结构体标记为已占用，并返回一个指向该页面的指针。反之，则会尝试从其他NUMA节点或者交换空间中获取可用页面。 因此，无论是通过伙伴系统获取物理页面，还是直接访问某个物理地址，都可以通过struct page数据结构来跟踪和管理实际的物理内存页面。</p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="n">linux</span><span class="o">/</span><span class="n">mm_types</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">page</span><span class="w"> </span><span class="p">{</span>
+<span class="mf">1.</span><span class="n">标志位</span>
+<span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">flags</span><span class="p">;</span><span class="w">        </span><span class="cm">/* Atomic flags, some possibly</span>
+<span class="cm">2.5个字的联合体（32位20字节，64位40字节），分别有8个部分。用于匿名页面、文件映射、slab分配器等描述。</span>
+<span class="cm">union {</span>
+<span class="cm">    2.1 管理匿名/文件页面  </span>
+<span class="cm">        struct {    /* Page cache and anonymous pages */</span>
+<span class="w">            </span><span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w"> </span><span class="n">lru</span><span class="p">;</span>
+<span class="w">            </span><span class="k">struct</span><span class="w"> </span><span class="nc">address_space</span><span class="w"> </span><span class="o">*</span><span class="n">mapping</span><span class="p">;</span>
+<span class="w">            </span><span class="n">pgoff_t</span><span class="w"> </span><span class="n">index</span><span class="p">;</span><span class="w">      </span><span class="cm">/* Our offset within mapping. */</span>
+<span class="w">            </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">private</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">        </span><span class="mf">2.2</span><span class="p">.</span><span class="n">管理网络协议栈</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w">    </span><span class="cm">/* page_pool used by netstack */</span>
+<span class="w">            </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">pp_magic</span><span class="p">;</span>
+<span class="w">            </span><span class="k">struct</span><span class="w"> </span><span class="nc">page_pool</span><span class="w"> </span><span class="o">*</span><span class="n">pp</span><span class="p">;</span>
+<span class="w">            </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">_pp_mapping_pad</span><span class="p">;</span>
+<span class="w">            </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">dma_addr</span><span class="p">;</span>
+<span class="w">            </span><span class="k">union</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">dma_addr_upper</span><span class="p">;</span>
+<span class="w">                </span><span class="n">atomic_long_t</span><span class="w"> </span><span class="n">pp_frag_count</span><span class="p">;</span>
+<span class="w">            </span><span class="p">};</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">        </span><span class="mf">2.3</span><span class="p">.</span><span class="w"> </span><span class="n">slab相关描述</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w">    </span><span class="cm">/* slab, slob and slub */</span>
+<span class="w">            </span><span class="k">union</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w"> </span><span class="n">slab_list</span><span class="p">;</span>
+<span class="w">                </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w">    </span><span class="cm">/* Partial pages */</span>
+<span class="w">                    </span><span class="k">struct</span><span class="w"> </span><span class="nc">page</span><span class="w"> </span><span class="o">*</span><span class="n">next</span><span class="p">;</span>
+<span class="cp">#ifdef CONFIG_64BIT</span>
+<span class="w">                    </span><span class="kt">int</span><span class="w"> </span><span class="n">pages</span><span class="p">;</span><span class="w">  </span><span class="cm">/* Nr of pages left */</span>
+<span class="w">                    </span><span class="kt">int</span><span class="w"> </span><span class="n">pobjects</span><span class="p">;</span><span class="w">   </span><span class="cm">/* Approximate count */</span>
+<span class="cp">#else</span>
+<span class="w">                    </span><span class="kt">short</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">pages</span><span class="p">;</span>
+<span class="w">                    </span><span class="kt">short</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">pobjects</span><span class="p">;</span>
+<span class="cp">#endif</span>
+<span class="w">                </span><span class="p">};</span>
+<span class="w">            </span><span class="p">};</span>
+<span class="w">            </span><span class="k">struct</span><span class="w"> </span><span class="nc">kmem_cache</span><span class="w"> </span><span class="o">*</span><span class="n">slab_cache</span><span class="p">;</span><span class="w"> </span><span class="cm">/* not slob */</span>
+<span class="w">            </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">freelist</span><span class="p">;</span><span class="w">     </span><span class="cm">/* first free object */</span>
+<span class="w">            </span><span class="k">union</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">s_mem</span><span class="p">;</span><span class="w">    </span><span class="cm">/* slab: first object */</span>
+<span class="w">                </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">counters</span><span class="p">;</span><span class="w">     </span><span class="cm">/* SLUB */</span>
+<span class="w">                </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w">            </span><span class="cm">/* SLUB */</span>
+<span class="w">                    </span><span class="kt">unsigned</span><span class="w"> </span><span class="n">inuse</span><span class="o">:</span><span class="mi">16</span><span class="p">;</span>
+<span class="w">                    </span><span class="kt">unsigned</span><span class="w"> </span><span class="n">objects</span><span class="o">:</span><span class="mi">15</span><span class="p">;</span>
+<span class="w">                    </span><span class="kt">unsigned</span><span class="w"> </span><span class="n">frozen</span><span class="o">:</span><span class="mi">1</span><span class="p">;</span>
+<span class="w">                </span><span class="p">};</span>
+<span class="w">            </span><span class="p">};</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">        </span><span class="mf">2.4</span><span class="w"> </span><span class="n">用于复合页尾页描述</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w">    </span><span class="cm">/* Tail pages of compound page */</span>
+<span class="w">            </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">compound_head</span><span class="p">;</span><span class="w">    </span><span class="cm">/* Bit zero is set */</span>
+
+<span class="w">            </span><span class="cm">/* First tail page only */</span>
+<span class="w">            </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">compound_dtor</span><span class="p">;</span>
+<span class="w">            </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">compound_order</span><span class="p">;</span>
+<span class="w">            </span><span class="n">atomic_t</span><span class="w"> </span><span class="n">compound_mapcount</span><span class="p">;</span>
+<span class="w">            </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">compound_nr</span><span class="p">;</span><span class="w"> </span><span class="cm">/* 1 &lt;&lt; compound_order */</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">        </span><span class="mf">2.5</span><span class="w"> </span><span class="n">复合页的第二个尾页描述</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w">    </span><span class="cm">/* Second tail page of compound page */</span>
+<span class="w">            </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">_compound_pad_1</span><span class="p">;</span><span class="w">  </span><span class="cm">/* compound_head */</span>
+<span class="w">            </span><span class="n">atomic_t</span><span class="w"> </span><span class="n">hpage_pinned_refcount</span><span class="p">;</span>
+<span class="w">            </span><span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w"> </span><span class="n">deferred_list</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">        </span><span class="mf">2.6</span><span class="w"> </span><span class="n">页表页面描述</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w">    </span><span class="cm">/* Page table pages */</span>
+<span class="w">            </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">_pt_pad_1</span><span class="p">;</span><span class="w">    </span><span class="cm">/* compound_head */</span>
+<span class="w">            </span><span class="n">pgtable_t</span><span class="w"> </span><span class="n">pmd_huge_pte</span><span class="p">;</span><span class="w"> </span><span class="cm">/* protected by page-&gt;ptl */</span>
+<span class="w">            </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">_pt_pad_2</span><span class="p">;</span><span class="w">    </span><span class="cm">/* mapping */</span>
+<span class="w">            </span><span class="k">union</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">struct</span><span class="w"> </span><span class="nc">mm_struct</span><span class="w"> </span><span class="o">*</span><span class="n">pt_mm</span><span class="p">;</span><span class="w"> </span><span class="cm">/* x86 pgds only */</span>
+<span class="w">                </span><span class="n">atomic_t</span><span class="w"> </span><span class="n">pt_frag_refcount</span><span class="p">;</span><span class="w"> </span><span class="cm">/* powerpc */</span>
+<span class="w">            </span><span class="p">};</span>
+<span class="cp">#if ALLOC_SPLIT_PTLOCKS</span>
+<span class="w">            </span><span class="n">spinlock_t</span><span class="w"> </span><span class="o">*</span><span class="n">ptl</span><span class="p">;</span>
+<span class="cp">#else</span>
+<span class="w">            </span><span class="n">spinlock_t</span><span class="w"> </span><span class="n">ptl</span><span class="p">;</span>
+<span class="cp">#endif</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">       </span><span class="mf">2.7</span><span class="w"> </span><span class="n">ZONE_DEVICE页面描述</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w">    </span><span class="cm">/* ZONE_DEVICE pages */</span>
+<span class="w">            </span><span class="k">struct</span><span class="w"> </span><span class="nc">dev_pagemap</span><span class="w"> </span><span class="o">*</span><span class="n">pgmap</span><span class="p">;</span>
+<span class="w">            </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">zone_device_data</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">      </span><span class="mf">2.8</span><span class="w"> </span><span class="n">rcu描述</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">rcu_head</span><span class="w"> </span><span class="n">rcu_head</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="mf">3.4</span><span class="n">个字节的联合体</span><span class="err">，</span><span class="n">用于管理_mapcount等使用计数</span>
+<span class="w">    </span><span class="k">union</span><span class="w"> </span><span class="p">{</span><span class="w">     </span><span class="cm">/* This union is 4 bytes in size. */</span>
+<span class="w">        </span><span class="n">atomic_t</span><span class="w"> </span><span class="n">_mapcount</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">page_type</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">active</span><span class="p">;</span><span class="w">        </span><span class="cm">/* SLAB */</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">units</span><span class="p">;</span><span class="w">          </span><span class="cm">/* SLOB */</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="mf">4.</span><span class="n">用于管理引用计数</span>
+<span class="w">    </span><span class="cm">/* Usage count. *DO NOT USE DIRECTLY*. See page_ref.h */</span>
+<span class="w">    </span><span class="n">atomic_t</span><span class="w"> </span><span class="n">_refcount</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">_struct_page_alignment</span><span class="p">;</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f093117278494b3fa37354efe957a2a7.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_f093117278494b3fa37354efe957a2a7.jpg"/></a></p>
+<p>struct page数据结构可以分为4个部分： - 标志位：页面的标志位。 - 5字联合体：用于匿名/文件页面描述，slab分配器描述等8个部分。 - 4字节联合体：用于管理页面使用的情况。 - 4字节引用：用于管理页面引用情况。</p>
+<h5 id="_1">标志位</h5>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="n">linux</span><span class="o">/</span><span class="n">page</span><span class="o">-</span><span class="n">flags</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<span class="k">enum</span><span class="w"> </span><span class="n">pageflags</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">PG_locked</span><span class="p">,</span><span class="w">      </span><span class="cm">/* Page is locked. Don't touch. */</span>
+<span class="w">    </span><span class="n">PG_referenced</span><span class="p">,</span>
+<span class="w">    </span><span class="n">PG_uptodate</span><span class="p">,</span><span class="w">    </span><span class="n">表示页面的数据已经从块设备成功读取</span>
+<span class="w">    </span><span class="n">PG_dirty</span><span class="p">,</span><span class="w">        </span><span class="n">表示页面内容发生改变</span><span class="err">，</span><span class="n">为脏页</span><span class="err">。</span><span class="n">没有跟外部存储器同步</span><span class="err">。</span>
+<span class="w">    </span><span class="n">PG_lru</span><span class="p">,</span><span class="w">          </span><span class="n">页面在LRU链表中</span>
+<span class="w">    </span><span class="n">PG_active</span><span class="p">,</span><span class="w">      </span>
+<span class="w">    </span><span class="n">PG_workingset</span><span class="p">,</span>
+<span class="w">    </span><span class="n">PG_waiters</span><span class="p">,</span><span class="w">     </span><span class="cm">/* Page has waiters, check its waitqueue. Must be bit #7 and in the same byte as "PG_locked" */</span>
+<span class="w">    </span><span class="n">PG_error</span><span class="p">,</span>
+<span class="w">    </span><span class="n">PG_slab</span><span class="p">,</span>
+<span class="w">    </span><span class="n">PG_owner_priv_1</span><span class="p">,</span><span class="w">    </span><span class="cm">/* Owner use. If pagecache, fs may use*/</span>
+<span class="w">    </span><span class="n">PG_arch_1</span><span class="p">,</span>
+<span class="w">    </span><span class="n">PG_reserved</span><span class="p">,</span>
+<span class="w">    </span><span class="n">PG_private</span><span class="p">,</span><span class="w">     </span><span class="cm">/* If pagecache, has fs-private data */</span>
+<span class="w">    </span><span class="n">PG_private_2</span><span class="p">,</span><span class="w">       </span><span class="cm">/* If pagecache, has fs aux data */</span>
+<span class="w">    </span><span class="n">PG_writeback</span><span class="p">,</span><span class="w">       </span><span class="cm">/* Page is under writeback */</span>
+<span class="w">    </span><span class="n">PG_head</span><span class="p">,</span><span class="w">        </span><span class="cm">/* A head page */</span>
+<span class="w">    </span><span class="n">PG_mappedtodisk</span><span class="p">,</span><span class="w">    </span><span class="cm">/* Has blocks allocated on-disk */</span>
+<span class="w">    </span><span class="n">PG_reclaim</span><span class="p">,</span><span class="w">     </span><span class="cm">/* To be reclaimed asap */</span>
+<span class="w">    </span><span class="n">PG_swapbacked</span><span class="p">,</span><span class="w">      </span><span class="cm">/* Page is backed by RAM/swap */</span>
+<span class="w">    </span><span class="n">PG_unevictable</span><span class="p">,</span><span class="w">     </span><span class="cm">/* Page is "unevictable"  */</span>
+<span class="cp">#ifdef CONFIG_MMU</span>
+<span class="w">    </span><span class="n">PG_mlocked</span><span class="p">,</span><span class="w">     </span><span class="cm">/* Page is vma mlocked */</span>
+<span class="cp">#endif</span>
+<span class="cp">#ifdef CONFIG_ARCH_USES_PG_UNCACHED</span>
+<span class="w">    </span><span class="n">PG_uncached</span><span class="p">,</span><span class="w">        </span><span class="cm">/* Page has been mapped as uncached */</span>
+<span class="cp">#endif</span>
+<span class="cp">#ifdef CONFIG_MEMORY_FAILURE</span>
+<span class="w">    </span><span class="n">PG_hwpoison</span><span class="p">,</span><span class="w">        </span><span class="cm">/* hardware poisoned page. Don't touch */</span>
+<span class="cp">#endif</span>
+<span class="cp">#if defined(CONFIG_PAGE_IDLE_FLAG) &amp;&amp; defined(CONFIG_64BIT)</span>
+<span class="w">    </span><span class="n">PG_young</span><span class="p">,</span>
+<span class="w">    </span><span class="n">PG_idle</span><span class="p">,</span>
+<span class="cp">#endif</span>
+<span class="cp">#ifdef CONFIG_64BIT</span>
+<span class="w">    </span><span class="n">PG_arch_2</span><span class="p">,</span>
+<span class="cp">#endif</span>
+<span class="cp">#ifdef CONFIG_KASAN_HW_TAGS</span>
+<span class="w">    </span><span class="n">PG_skip_kasan_poison</span><span class="p">,</span>
+<span class="cp">#endif</span>
+<span class="cp">#ifdef CONFIG_64BIT</span>
+<span class="w">    </span><span class="n">PG_oem_reserved</span><span class="p">,</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="n">__NR_PAGEFLAGS</span><span class="p">,</span>
+
+<span class="w">    </span><span class="cm">/* Filesystems */</span>
+<span class="w">    </span><span class="n">PG_checked</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PG_owner_priv_1</span><span class="p">,</span>
+
+<span class="w">    </span><span class="cm">/* SwapBacked */</span>
+<span class="w">    </span><span class="n">PG_swapcache</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PG_owner_priv_1</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Swap page: swp_entry_t in private */</span>
+
+<span class="w">    </span><span class="cm">/* Two page bits are conscripted by FS-Cache to maintain local caching</span>
+<span class="cm">     * state.  These bits are set on pages belonging to the netfs's inodes</span>
+<span class="cm">     * when those inodes are being locally cached.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">PG_fscache</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PG_private_2</span><span class="p">,</span><span class="w">  </span><span class="cm">/* page backed by cache */</span>
+
+<span class="w">    </span><span class="cm">/* XEN */</span>
+<span class="w">    </span><span class="cm">/* Pinned in Xen as a read-only pagetable page. */</span>
+<span class="w">    </span><span class="n">PG_pinned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PG_owner_priv_1</span><span class="p">,</span>
+<span class="w">    </span><span class="cm">/* Pinned as part of domain save (see xen_mm_pin_all()). */</span>
+<span class="w">    </span><span class="n">PG_savepinned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PG_dirty</span><span class="p">,</span>
+<span class="w">    </span><span class="cm">/* Has a grant mapping of another (foreign) domain's page. */</span>
+<span class="w">    </span><span class="n">PG_foreign</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PG_owner_priv_1</span><span class="p">,</span>
+<span class="w">    </span><span class="cm">/* Remapped by swiotlb-xen. */</span>
+<span class="w">    </span><span class="n">PG_xen_remapped</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PG_owner_priv_1</span><span class="p">,</span>
+<span class="w">    </span><span class="cm">/* SLOB */</span>
+<span class="w">    </span><span class="n">PG_slob_free</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PG_private</span><span class="p">,</span>
+<span class="w">    </span><span class="cm">/* Compound pages. Stored in first tail page's flags */</span>
+<span class="w">    </span><span class="n">PG_double_map</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PG_workingset</span><span class="p">,</span>
+<span class="cp">#ifdef CONFIG_MEMORY_FAILURE</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Compound pages. Stored in first tail page's flags.</span>
+<span class="cm">     * Indicates that at least one subpage is hwpoisoned in the</span>
+<span class="cm">     * THP.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">PG_has_hwpoisoned</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PG_mappedtodisk</span><span class="p">,</span>
+<span class="cp">#endif</span>
+
+<span class="w">    </span><span class="cm">/* non-lru isolated movable page */</span>
+<span class="w">    </span><span class="n">PG_isolated</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PG_reclaim</span><span class="p">,</span>
+
+<span class="w">    </span><span class="cm">/* Only valid for buddy pages. Used to track pages that are reported */</span>
+<span class="w">    </span><span class="n">PG_reported</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PG_uptodate</span><span class="p">,</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>有相关函数用于操作这些标志，如下： - Pagexxx()：用于检查页面是否设置了PG_xxx标志位，如PageDirty检查是否PG_dirty被置位。 - SetPagexxx():设置页面的PG_xxx标志位，如SetPageDirty用于设置PG_dirty标志位 - ClearPagexxx():清楚PG_xxx标志位</p>
+<h5 id="mapping">mapping</h5>
+<p>在struct page中mapping成员表示当前页面的数据来源，主要分为3种情况： - 匿名页面：mapping指向VMA的anon_vma数据结构，数据原始来源于用户空间。 - 文件页面：mapping指向文件所属的address_space数据结构，包含文件所属的存储介质信息，如inode。 - swap页面（文件页面）：指向交换分区的swapper_spaces。</p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="n">linux</span><span class="o">/</span><span class="n">fs</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">address_space</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">inode</span><span class="w">        </span><span class="o">*</span><span class="n">host</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">xarray</span><span class="w">       </span><span class="n">i_pages</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">rw_semaphore</span><span class="w"> </span><span class="n">invalidate_lock</span><span class="p">;</span>
+<span class="w">    </span><span class="n">gfp_t</span><span class="w">           </span><span class="n">gfp_mask</span><span class="p">;</span>
+<span class="w">    </span><span class="n">atomic_t</span><span class="w">        </span><span class="n">i_mmap_writable</span><span class="p">;</span>
+<span class="cp">#ifdef CONFIG_READ_ONLY_THP_FOR_FS</span>
+<span class="w">    </span><span class="cm">/* number of thp, only for non-shmem files */</span>
+<span class="w">    </span><span class="n">atomic_t</span><span class="w">        </span><span class="n">nr_thps</span><span class="p">;</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">rb_root_cached</span><span class="w">   </span><span class="n">i_mmap</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">rw_semaphore</span><span class="w"> </span><span class="n">i_mmap_rwsem</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w">       </span><span class="n">nrpages</span><span class="p">;</span>
+<span class="w">    </span><span class="n">pgoff_t</span><span class="w">         </span><span class="n">writeback_index</span><span class="p">;</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">address_space_operations</span><span class="w"> </span><span class="o">*</span><span class="n">a_ops</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w">       </span><span class="n">flags</span><span class="p">;</span>
+<span class="w">    </span><span class="n">errseq_t</span><span class="w">        </span><span class="n">wb_err</span><span class="p">;</span>
+<span class="w">    </span><span class="n">spinlock_t</span><span class="w">      </span><span class="n">private_lock</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w">    </span><span class="n">private_list</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">void</span><span class="w">            </span><span class="o">*</span><span class="n">private_data</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">ANDROID_KABI_RESERVE</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ANDROID_KABI_RESERVE</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ANDROID_KABI_RESERVE</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ANDROID_KABI_RESERVE</span><span class="p">(</span><span class="mi">4</span><span class="p">);</span>
+<span class="p">}</span><span class="w"> </span><span class="n">__attribute__</span><span class="p">((</span><span class="n">aligned</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">long</span><span class="p">))))</span><span class="w"> </span><span class="n">__randomize_layout</span><span class="p">;</span>
+</code></pre></div>
+<p>mapping指向数据的低2位可以用于判断当前页面的类型： - bit[0]:用于判断是否为匿名页。PageAnon()函数 - bit[0]:用于判断是否为非LRU页面。_PageMovable()函数 - Bit[0:1]:若都为11，则表示KSM页面。PageKsm()函数 page_mapping()返回page数据结构种mapping成员指向的地址空间，即address_space。</p>
+<h5 id="_refcount">_refcount</h5>
+<p>表示内核引用页面的次数 - _refcount=0:页面为空闲页面或即将要被释放的页面 - _refcount&gt;0:页面已经被分配且内核正在使用，暂时不会被释放。get_page()会让其+1,put_page()让其-1。 在使用alloc_pages分配页面时，_refcount会变成1。当页面加入LRU时，页面被kswpad内核线程使用会+1。在页面被映射到其他用户进程的PTE时，_refcount会+1。</p>
+<h5 id="_mapcount">_mapcount</h5>
+<p>表示这个页面被进程映射的个数，即映射了多少个用户PTE。page_mapped（）函数用于判断该页面是否映射到用户PTE - _mapcount=-1：没有PTE映射到页面 - _mapcount=0：只有一个进程映射到页面 - _mapcount&gt;0：有多个进程映射到这个页面</p>
+<h2 id="_2">三种内存模型</h2>
+<p>物理内存被划分为多个相同长度的页，如何组织管理这些页的方式称为物理内存模型，不同的物理内存模型，对应的page_to_pfn和pfn_to_page计算逻辑不一样。</p>
+<h3 id="flat-memory-model">FLAT memory model</h3>
+<p>所有的物理内存是连续的，中间内存没有空洞，划分出来的一页一页的物理页必然也是连续的，并且每页的大小是固定的，Linux早期使用的就是这种内存模型。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1ebfe0cafce7b8f89266e5df543372b4.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_1ebfe0cafce7b8f89266e5df543372b4.jpg"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="k">asm</span><span class="o">-</span><span class="n">generic</span><span class="o">/</span><span class="n">memory_model</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<span class="cp">#if defined(CONFIG_FLATMEM)</span>
+
+<span class="cp">#ifndef ARCH_PFN_OFFSET</span>
+<span class="cp">#define ARCH_PFN_OFFSET     (0UL)</span>
+<span class="cp">#endif</span>
+
+<span class="cp">#define __pfn_to_page(pfn)  (mem_map + ((pfn) - ARCH_PFN_OFFSET))</span>
+<span class="cp">#define __page_to_pfn(page) ((unsigned long)((page) - mem_map) + \\</span>
+<span class="cp">                 ARCH_PFN_OFFSET)</span>
+<span class="cp">#endif</span>
+</code></pre></div>
+<p>在平坦内存模型下，page_to_pfn与pfn_to_page计算逻辑基于mem_map数组进行偏移操作。</p>
+<h3 id="discontiguous-memory-model">Discontiguous memory model</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8cf8ff134d2f47ac98a22ca7540814d0.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_8cf8ff134d2f47ac98a22ca7540814d0.jpg"/></a>   平坦度内存模型适用于一整块连续的物理内存，而对于多块非连续的物理内存使用平坦度内存模型会造成很大的空间浪费（平坦度模型使用数组mem_map[]来进行管理，而数组是连续的，从0开始递增的，而物理内存有空洞，那么中间就会出现mem_map一段指向空，但是还占用了内存空间），所以为了组织和管理不连续的物理内存，内核引入了DISCONTIGMEM非连续内存模型，用来消除这些不联系的内存地址空洞对mem_map的空间浪费。</p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="k">asm</span><span class="o">-</span><span class="n">generic</span><span class="o">/</span><span class="n">memory_model</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<span class="cp">#if defined(CONFIG_DISCONTIGMEM)</span>
+<span class="cp">#define __pfn_to_page(pfn)          \\</span>
+<span class="cp">({  unsigned long __pfn = (pfn);        \\</span>
+<span class="cp">    unsigned long __nid = arch_pfn_to_nid(__pfn);  \\</span>
+<span class="cp">    NODE_DATA(__nid)-&gt;node_mem_map + arch_local_page_offset(__pfn, __nid);\\</span>
+<span class="cp">})</span>
+
+<span class="cp">#define __page_to_pfn(pg)                       \\</span>
+<span class="cp">({  const struct page *__pg = (pg);                 \\</span>
+<span class="cp">    struct pglist_data *__pgdat = NODE_DATA(page_to_nid(__pg)); \\</span>
+<span class="cp">    (unsigned long)(__pg - __pgdat-&gt;node_mem_map) +         \\</span>
+<span class="cp">     __pgdat-&gt;node_start_pfn;                   \\</span>
+<span class="cp">})</span>
+<span class="cp">#endif</span>
+
+<span class="mf">5.15</span><span class="n">内核版本已经没有非连续性内存模型的</span><span class="err">，</span><span class="n">使用了Sparse</span><span class="w"> </span><span class="n">memory</span><span class="w"> </span><span class="n">model替换</span><span class="p">.</span>
+</code></pre></div>
+<p>通过arch_pfn_to_nid根据物理页的PFN定位到物理页所在的node，再根据node中node_mem_map算偏移。   通过page_to_nid根据struct page定义page所在的node。</p>
+<h3 id="sparse-memory-model">Sparse memory model</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fdc496aba23c8bb7647a8eccb45c500f.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_fdc496aba23c8bb7647a8eccb45c500f.jpg"/></a></p>
+<p>随着内存技术的发展，内核可以支持物理内存热插拔，这样node节点中的物理内存可能也不是连续的，为了解决这个问题，内核又引入了稀疏内存模型。</p>
+<p><a href="http://8.134.108.235/wp-content/uploads/2023/11/wp_editor_md_88d32e7b1f5ddb711d94581d3e5540d5.jpg"><img alt="" src="images/wp_editor_md_88d32e7b1f5ddb711d94581d3e5540d5.jpg"/></a></p>
+<p>稀疏内存模型使用struct mem_section结构体来表示，用于管理连续内存块单元的被称为section，通常情况下物理页为4K，section大小为128M，物理页16K，section大小为512M。这些小的连续物理内存通过数组的方式被组织管理，每个struct mem_sction结构体中有一个指针指向section中管理连续内存的page数组。所有的mem_section被存放在一个全局数组中，每个mem_section都可以在系统运行时改变系统运行offline/online状态，以支持热插拔功能。   为了减少管理内存占用的数据结构空间，稀疏内存模型的思想与多级页表的思想类似，一级页表是必须要分配内存的，但是后面的几级进行按需分配，这里也类似，先定义一个静态的数组指针，每个数组指针管理一大块内存（4K物理页，就是128M），数组指向的实例根据实际进行动态分配空间。</p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="k">asm</span><span class="o">-</span><span class="n">generic</span><span class="o">/</span><span class="n">memory_model</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">mem_section</span><span class="w"> </span><span class="n">mem_section</span><span class="p">[</span><span class="n">NR_SECTION_ROOTS</span><span class="p">][</span><span class="n">SECTIONS_PER_ROOT</span><span class="p">]</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="k">asm</span><span class="o">-</span><span class="n">generic</span><span class="o">/</span><span class="n">memory_model</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+<span class="cp">#if defined(CONFIG_SPARSEMEM)</span>
+<span class="cm">/*</span>
+<span class="cm"> * Note: section's mem_map is encoded to reflect its start_pfn.</span>
+<span class="cm"> * section[i].section_mem_map == mem_map's address - start_pfn;</span>
+<span class="cm"> */</span>
+<span class="cp">#define __page_to_pfn(pg)                   \\</span>
+<span class="cp">({  const struct page *__pg = (pg);             \\</span>
+<span class="cp">    int __sec = page_to_section(__pg);          \\</span>
+<span class="cp">    (unsigned long)(__pg - __section_mem_map_addr(__nr_to_section(__sec))); \\</span>
+<span class="cp">})</span>
+
+<span class="cp">#define __pfn_to_page(pfn)              \\</span>
+<span class="cp">({  unsigned long __pfn = (pfn);            \\</span>
+<span class="cp">    struct mem_section *__sec = __pfn_to_section(__pfn);    \\</span>
+<span class="cp">    __section_mem_map_addr(__sec) + __pfn;      \\</span>
+<span class="cp">})</span>
+<span class="cp">#endif </span><span class="cm">/* CONFIG_FLATMEM/DISCONTIGMEM/SPARSEMEM */</span>
+</code></pre></div>
+<h2 id="_3">内核虚拟地址空间分布</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fb6718bc276e68f64c77bea7b2344085.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_fb6718bc276e68f64c77bea7b2344085.jpg"/></a></p>
+<p>上图表示的是整个虚拟地址空间，虚拟地址使用了48bit来寻址，因此寻址范围为2^48=256TB。在实际应用过程中，可以通过内核的配置选项来确定虚拟地址的位宽。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f00e16d03228cad703e5e78f9390c9d5.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_f00e16d03228cad703e5e78f9390c9d5.jpg"/></a></p>
+<p>PABITS指的是物理地址的寻址范围，一般物理地址的寻址范围由硬件决定，内核只需要配置成与硬件一样即可，通常ARM64位的PABITS=48。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/linux/内存初始化之页表基本操作.html">← 内存初始化之页表基本操作</a>
+    <a class="next" href="/laumy.github.io/posts/linux/文件系统缓存.html">文件系统缓存 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

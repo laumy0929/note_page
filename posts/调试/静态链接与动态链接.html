@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>静态链接与动态链接 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">静态链接</a><ul><li><a href="#_2">空间与地址分配</a></li><li><a href="#_3">符号解析与重定位</a></li><li><a href="#_4">小结</a></li></ul></li><li><a href="#_5">动态链接</a><ul><li><a href="#_6">地址无关代码</a></li><li><a href="#_7">地址和空间分配</a></li><li><a href="#plt">延迟绑定PLT</a></li><li><a href="#_8">动态链接相关结构</a></li><li><a href="#elf">ELF加载过程</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>静态链接与动态链接</h1>
+  <div class="meta">2024-01-15 · 调试</div>
+  <div class="post-content"><p>经过[ELF格式解析](https://www.laumy.tech/1085.html \\"ELF格式解析\\")章节描述，对ELF文件有了一定的了解，本章节继续来探讨处于链接阶段的：静态链接与动态链接。</p>
+<h2 id="_1">静态链接</h2>
+<p>以下是本小节的实验代码。</p>
+<div class="codehilite"><pre><span></span><code><span class="o">----&gt;</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">c</span>
+<span class="k">extern</span><span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">shared</span><span class="p">;</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">s</span><span class="p">;</span>
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">100</span><span class="p">;</span>
+<span class="w">        </span><span class="n">swap</span><span class="p">(</span><span class="o">&amp;</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">shared</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="o">----&gt;</span><span class="w"> </span><span class="n">b</span><span class="p">.</span><span class="n">c</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">shared</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">z</span><span class="p">;</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">swap</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="o">*</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="o">*</span><span class="n">b</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="o">*</span><span class="n">a</span><span class="w"> </span><span class="o">^=</span><span class="w"> </span><span class="o">*</span><span class="n">b</span><span class="w"> </span><span class="o">^=</span><span class="w"> </span><span class="o">*</span><span class="n">a</span><span class="w"> </span><span class="o">^=</span><span class="w"> </span><span class="o">*</span><span class="n">b</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="n">编译生产a</span><span class="p">.</span><span class="n">o和b</span><span class="p">.</span><span class="n">o命令</span><span class="err">：</span><span class="n">gcc</span><span class="w"> </span><span class="o">-</span><span class="n">c</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">c</span><span class="w"> </span><span class="n">b</span><span class="p">.</span><span class="n">c</span>
+<span class="nl">链接生成ab</span><span class="p">:</span><span class="n">ld</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">o</span><span class="w"> </span><span class="n">b</span><span class="p">.</span><span class="n">o</span><span class="w"> </span><span class="o">-</span><span class="n">e</span><span class="w"> </span><span class="n">main</span><span class="w"> </span><span class="o">-</span><span class="n">o</span><span class="w"> </span><span class="n">ab</span><span class="p">,</span><span class="o">-</span><span class="n">e</span><span class="w"> </span><span class="n">main表示将main函数作为程序入口</span><span class="err">，</span><span class="n">因为ld链接器默认使用c库_start作为入口</span><span class="err">。</span>
+</code></pre></div>
+<p>静态链接是一种将可执行文件与其依赖的库文件（也称为静态库，实际上是多个.o的打包）打包成一个单独的、独立的二进制文件的技术。在静态链接中，编译器将被引用的库文件的代码和数据复制到最终的可执行文件中，因此这些库的函数和变量不再需要单独的共享库文件。静态链接适用于需要独立部署的应用程序或小规模的程序，对于大型程序和库，使用动态链接更为合适。</p>
+<p>以上是静态链接的概念，来自Chatgpt。</p>
+<h3 id="_2">空间与地址分配</h3>
+<p>这里的空间和地址有两个含义：一个是输出的可执行文件空间，另一个是装载运行后的虚拟地址空间。对于有实际数据的段，如.text和.data来说，它们在可执行文件中和虚拟地址中都要分配空间。而对于.bss，不需要分配可执行文件空间，因为他在文件中并没有内容（不占用文件大小），但是需要分配虚拟地址空间。</p>
+<p>需要注意的是：对于使用MMU的OS来说，使用的是虚拟地址，而如果没有MMU那么直接使用的就是物理地址空间。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_3a5fd321b0149ea88c936a9277eb0ea0.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_3a5fd321b0149ea88c936a9277eb0ea0.jpg"/></a></p>
+<p>上图中a.o和b.o中的.text，.data，.bss依次进行了合并，.bss不占用实际空间，只是方便描述。在空间与地址分配过程中，扫描所有的输入目标文件，获取各个目标文件中的各个section的长度、属性、位置，然后将相同属性的section合并，然后计算出输出文件中各个段合并后的长度和位置。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_05aa96444cbbbcd7e1eea92ed1f7a17e.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_05aa96444cbbbcd7e1eea92ed1f7a17e.jpg"/></a></p>
+<p>上图是使用objdump -h 分别查看a.o,b.o以及输出的ab链接前后地址分配情况。VMA就是虚拟地址空间（如果没有使用MMU，那么代表的就是时间的物理地址空间），对应虚拟地址空间的分配也主要关注VMA这部分，因为VMA代表的是程序被加载到内核时间运行的地址范围。可以看出a.o和b.o中各个sections的VMA都是为0，因为a.o和b.o没有经过链接器进行链接，所以还没有分配地址空间。当使用链接器ld将a.o和b.o进行链接生成ab后，可以看出各个section都分配了VMA地址。需要注意的是上图中的size是VMA的size，.text和.data实际占用大小与VMA大小相等，而.bss实际占用大小为0，VMA却不是。</p>
+<p>总结：链接器的第一步是输出一个可执行文件空间（合并后的section范围）和装载运行后的虚拟地址空间（VMA范围），简称为空间与地址分配。</p>
+<h3 id="_3">符号解析与重定位</h3>
+<p>先来思考一个问题，在示例代码中a.c调用了外部swap函数，而swap在b.c中使用gcc -c a.c不会编译报错？之所以不报错，是因为编译器当遇到外部符号是，先占个\\\\"坑\\\\"，等后续链接阶段再来填。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_812327e074adccb5bfe930b0416af902.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_812327e074adccb5bfe930b0416af902.jpg"/></a></p>
+<p>如上图，通过objdump -d a.o和objdump -d ab可以看出，在a.o中执行swap函数时，偏移值是0（e8是callq操作码），而到ab中偏移值已经修正为(0x07)。</p>
+<p>因此在单独编译每个目标文件（模块）时，遇到外部符号会暂时使用地址0（或其他值）占个\\\\"坑\\\\"代替，把真正地址计算工作留给链接器处理，在上一小节中链接器完成地址和空间分配之后已经确定了所有符号的虚拟地址（也就是说swap函数地址已确定），那么链接器就可以根据符号的地址对每个需要重定位的指令进行修正（修正的是地址不是操作码）。</p>
+<p>在链接阶段需要重定位的指令做修正，那么链接器是如何判断哪些指令地址需要修正了？在ELF文件中，专门一个重定位表(.rel.xxx)专门用来保存需要修正的地址。如代码段.text需要被重定位，在会有一个.rel.text保存重定位信息，数据段.data需要被重定位，则会有一个.rel.data来保存重定位信息，可以使用objdump -r来查询目标文件重定位表。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_2cb49c260e411c862d12c6f356f19a64.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_2cb49c260e411c862d12c6f356f19a64.jpg"/></a></p>
+<p>如上图可知a.o中.text和.eh_frame 这两个sections有需要被重定位，b.o中有.eh_frame一处需要被重定位，ab是没有的，在a.o中.text OFFSET表明了修正的偏移位置。</p>
+<p>链接器根据重定位表知道哪些位置需要被修正，就会去查找有所有输入目标文件的符号表组成的全局符号表（这个过程就是符号解析），找到对应的符号后获取地址进行修正。</p>
+<p>可以使用readelf -s xx来查询符号表。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_a550d3a43063394586c5e0c30bbd28c3.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_a550d3a43063394586c5e0c30bbd28c3.jpg"/></a></p>
+<h3 id="_4">小结</h3>
+<p>静态链接可以让各程序文件（模块）单独编译生产目标文件，最终通过链接器合并起来，链接器会将各个模块需要外部代码复制进来打包成一个可执行文件。链接器在链接阶段主要使用了空间和地址分配、符号解析和重定位方法，前者确定了最终可执行文件空间和虚拟地址，后者使得程序在编译的时候可以独立编译最终在链接阶段整合。符号解析和重定位是静态链接的核心内容，主要核心思想是使用.rel.xxx重定位表记录要重定向的地址，然后通过解析全局符号搜索地址完成重定位地址的修正。</p>
+<h2 id="_5">动态链接</h2>
+<p>以下是本小节的实验代码。</p>
+<div class="codehilite"><pre><span></span><code><span class="o">----&gt;</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">c</span>
+<span class="k">extern</span><span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">shared</span><span class="p">;</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">s</span><span class="p">;</span>
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">100</span><span class="p">;</span>
+<span class="w">        </span><span class="n">swap</span><span class="p">(</span><span class="o">&amp;</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">shared</span><span class="p">);</span>
+<span class="w">        </span><span class="k">while</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="w">            </span><span class="n">sleep</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="o">----&gt;</span><span class="w"> </span><span class="n">b</span><span class="p">.</span><span class="n">c</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">shared</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">z</span><span class="p">;</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">swap</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="o">*</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="o">*</span><span class="n">b</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="o">*</span><span class="n">a</span><span class="w"> </span><span class="o">^=</span><span class="w"> </span><span class="o">*</span><span class="n">b</span><span class="w"> </span><span class="o">^=</span><span class="w"> </span><span class="o">*</span><span class="n">a</span><span class="w"> </span><span class="o">^=</span><span class="w"> </span><span class="o">*</span><span class="n">b</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="n">编译生成libt</span><span class="p">.</span><span class="n">so</span><span class="err">：</span><span class="n">gcc</span><span class="w"> </span><span class="o">-</span><span class="n">fPIC</span><span class="w"> </span><span class="o">-</span><span class="n">shared</span><span class="w"> </span><span class="o">-</span><span class="n">o</span><span class="w"> </span><span class="n">libt</span><span class="p">.</span><span class="n">so</span><span class="w"> </span><span class="n">b</span><span class="p">.</span><span class="n">c</span>
+<span class="n">链接成a</span><span class="p">.</span><span class="n">out</span><span class="o">:</span><span class="w"> </span><span class="n">gcc</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">c</span><span class="w"> </span><span class="p">.</span><span class="o">/</span><span class="n">libt</span><span class="p">.</span><span class="n">so</span>
+</code></pre></div>
+<p>静态链接和动态链接是两种不同的链接方式，下面对比下静态链接的优缺点。</p>
+<p>静态链接（Static Linking）：静态链接在编译时进行，将所有的函数和库代码复制到最终可执行文件中。执行程序时，所有的代码和依赖项都包含在一个单独的可执行文件中。</p>
+<ul>
+<li>
+<p>优点：可执行文件独立，不需要依赖外部库文件。简单、快速，没有额外的运行时开销。</p>
+</li>
+<li>
+<p>缺点：造成代码冗余，多个应用程序使用相同的库会导致重复的代码。更新库需要重新编译整个程序。占用更多的磁盘空间。</p>
+</li>
+</ul>
+<p>动态链接（Dynamic Linking）：动态链接在运行时进行，程序在执行前并不包含完整的依赖项。执行程序时，运行时链接器将程序与所需的共享库动态加载到内存中。共享库可以被多个程序共享，减少了代码冗余。</p>
+<ul>
+<li>优点：节省内存和磁盘空间，共享库在内存中只需加载一次。更新库时，不需要重新编译整个程序，只需替换共享库文件即可。支持库版本管理和动态升级。</li>
+<li>缺点：需要依赖外部的共享库文件。运行时链接会增加性能开销，包括加载和解析共享库的时间。</li>
+</ul>
+<p>为什么要有动态链接？</p>
+<ul>
+<li>节省资源：动态链接使多个程序可以共享同一个库，减少了代码冗余和内存占用。</li>
+<li>灵活性和可扩展性：通过动态链接，可以更方便地更新和升级共享库，而不需要重新编译整个程序。</li>
+<li>模块化：动态链接使得程序可以使用第三方库来提供特定功能，促进了模块化开发和代码复用。</li>
+<li>共享库的维护：多个应用程序使用同一个共享库，可以更容易地进行库的维护和更新，减少了开发和测试的工作量。</li>
+</ul>
+<p>总而言之，动态链接在节省资源和提高灵活性方面具有优势，但可能会带来一些运行时开销。选择使用哪种链接方式取决于具体的应用场景和需求。</p>
+<h3 id="_6">地址无关代码</h3>
+<p>地址无关代码在编译时地址是从0开始，不是实际运行的地址，只有在装载的时候由装载器确定地址。 地址无关代码可以做到程序模块中共享指令部分在装载时不需要因为装载地址的改变而改变，实现的基本思想就是把指令中哪些需要被修改的部分分离出来，跟数据部分放在一起，这样指令部分就可以保持不变，对于共享模块的地址引用可以按照模块划分为两类：模块内部引用和模块外部引用，按照引用方式可以分为指令引用（函数）和数据引用（变量），所以可以分为以下四种：</p>
+<ul>
+<li>模块内部函数调用、跳转</li>
+<li>模块内部数据访问、如全局变量、静态变量。</li>
+<li>模块外部函数调用、跳转</li>
+<li>模块外部数据访问、如定义其他模块中的全局变量</li>
+</ul>
+<p>模块内部调用，调用的函数与调用者都在同一个模块中，他们之间的相对位置是固定的，根据相对地址的调用就可以实现，因此这种调用不需要重定位。 模块间的调用，模块间的数据访问目标地址需要等到装载时才能确定，所以在装载运行时才能找到目标地址，那么只能把跟地址相关的部分放到数据段里面，这些其他模块的全局变量地址跟模块装载地址有关。这个数据段里面存储的是指向全局变量的地址，称为全局偏移表（GOT）。为引用外部符号生成一个全局GOT表，这个GOT在编译期间已经生成，只是这期间的内容不是指向正确的地址，因为目标地址还不知道，等到运行装载时，目标地址确定了，由装载器进行更新这个表，这样就可以通过GOT表访问到外部符号。</p>
+<p>使用静态链接时，调用外部模块的符号时可以通过链接器进行符号解析并重定位修正地址，而要使用动态链接时，因为在链接时外部符号的地址是不确定的，不清楚加载到那个位置，因为可执行程序和动态库是独立的不是一个整体，只有在运行的时候才加载动态库，也就是说在运行阶段才能进行修正，那么问题又来了，在运行阶段.text是只读属性，没法进行修改了指令了，要解决这个问题，ELF的做法就是在数据段里面建立一个表用于存储要修改的符号地址，称为全局偏移表（Gloabal Offset Table），当需要修正的代码统一先跳转到GOT的位置，而GOT又是在数据段便可以进行修改，在运行阶段扫描获取外部符号的运行地址进行填充，那么解决了这个问题。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_2c448f1f7245745c7b8b424e53faea53.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_2c448f1f7245745c7b8b424e53faea53.jpg"/></a></p>
+<p>如上图a.out应用了libt.so中的变量b和swap函数，在编译链接生成a.out时，解析出b和swap是外部符号，那么就统一跳转到GOT表中，根据GOT中变量所对应的表项找到目标地址执行。 GOT表的填充是在程序加载时（要运行前）就完成了，加载程序会解析a.out中的.interp找到要加载的动态链接器ld的位置（解释器），然后通过.dymamic段获取动态库的信息（依赖哪些动态库、动态链接符号表位置等），最后通过.symtab动态符号表（与静态链接的符号表类似）和.rel.xxx(.rel.dyn和.rel.plt分别对应数据，函数的修正)符号解析和重定位。</p>
+<h3 id="_7">地址和空间分配</h3>
+<p>先来看下a.out实际运行时，地址的范围情况：</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_fcaf6ef4633b08af093b6253bb32e446.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_fcaf6ef4633b08af093b6253bb32e446.jpg"/></a></p>
+<p>a.out实际运行时，虚拟地址空间中的模块可以分为几个部分：a.out、libc-2.19.so、libt.so、ld-2.19.so、stack等，a.out的可执行代码地址范围0x00400000~0x00401000,数据段:0x00601000~0x00602000;libt.so的地址范围：0x7f1d921ab000-0x7f1d923ad000。</p>
+<p>使用objdump -h a.out查看section情况，VMA与落在运行时的地址范围。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_19752c18a32677f9a637d2f026c9716d.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_19752c18a32677f9a637d2f026c9716d.jpg"/></a></p>
+<p>使用objdump -h libt.so查看section情况如下。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_0103bdff8b22045de86f88aa3e116de4.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_0103bdff8b22045de86f88aa3e116de4.jpg"/></a></p>
+<p>因为libt.so编译时使用了-fPIC参数，表示地址无关，地址是从0x00000000开始的，这地址不是实际运行的地址，代表的只是偏移，实际地址落在0x7f1d921ab000-0x7f1d923ad000中。共享对象的最终装载地址在编译时时不确定的，而是在装载时，装载器根据当前地址空间空闲情况，动态分配一块足够大小的虚拟地址空间给相应的共享对象。</p>
+<p>可执行文件与静态链接地址和空间分配没什么差异，而动态库是有差别的，虚拟地址空间分配的是相对值，其实际运行的虚拟地址需要到被调用的可执行文件运行时才会分配。</p>
+<h3 id="plt">延迟绑定PLT</h3>
+<p>前面描述了动态链接在运行时重定位比静态链接更灵活，但是也有不少缺点：</p>
+<ul>
+<li>外部符号的访问需要先定位GOT表，然后再间接跳转，如此一来运行速度降低，据统计动态链接比静态链接运行性能慢1%~5%不等。</li>
+<li>动态链接的链接工作在程序开始执行时完成，链接器寻找并装载所需要的共享对象，然后进行符号查找地址重定位，这个过程就会减慢程序启动速度。</li>
+</ul>
+<p>正如上面第二点缺点，程序开始执行前动态链接会消耗不少时间用于解决模块之间的函数引用的符号查找并进行重定位工作，但是一个程序在运行过程中，可能很多外部函数符号在执行结束都可能用不到，比如一些错误处理等，如果一开始就把所有外部函数符号都进行一次性链接那么实际上是种浪费，因此ELF采用了延迟绑定（Lazy Bingding）来进行优化，核心思想就是函数第一次被用到时才进行绑定（符号查找，重定位），如果没有用到则不进行绑定。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_d3964d0796ef5f0a53fa9d0418c68d14.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_d3964d0796ef5f0a53fa9d0418c68d14.jpg"/></a></p>
+<p>引入延时绑定后ELF的构成就变成如上图所示。</p>
+<ul>
+<li>.plt: 每个外部符号都对应一个plt项，plt中的内容存放着几条指令，主要的作用是先跳转到got表中查询是否有目标地址，如果没有就调用_dl_runtime_resolve查询全局符号表将目标地址填充到.got表中，跳转运行。填充好后，下次再调用时就可以直接从got表中跳转，不需要再调用_dl_runtime_resolve查询。</li>
+<li>.got:保存全局变量引用的地址。</li>
+<li>.got.plt:保存函数引用的地址，与.got还有一个特殊的地方就是前3项存储的是.dynamic的地址，模块的ID，_dl_runtime_resolve地址。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_9ef19d58966e7420165c919c4b889026.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_9ef19d58966e7420165c919c4b889026.jpg"/></a></p>
+<p>上图以调用外部swap函数为例，说明流程。 ①：执行到swap函数，跳转到swap@plt。 ②：swap@plt在.plt的第4个表项PLT[3]，从上图中PLT[3]存储了3条指令，第一条指令jmpq _GOT[3]处，GOT[3]中存储的是400616,即下一条指令，因为是第一次调用，swap在got表项并没有目标地址，GOT[3]中存储的是PLT[3]第二条指令地址，先入栈偏移量，这里的偏移是swap函数在got.plt的偏移量，便于查找到实际的swap地址填充到.got.plt表中，接着再下一条指令就是跳转到PLT[0]的地址执行。 ③：PLT[0]的第一条指令是pushq *GOT[1]，而_GOT[1]存储的是依赖库的module id，该id是用于寻找库的，将module ID压入栈，接着jmpq到*GOT[2],而GOT[2]保存的正好是_dl_runtime_resolve的地址。由此可知PLT[0]是公共表项，存储的2条指令用于跳转到_dl_runtime_resolve运行。 ④：调用_dl_runtime_resolve执行符号解析和重定位工作，并将swap的目标地址填充到GOT[3]。 至此，第一次调用流程完成，swap的地址已经填充到GOT表中，下次再执行swap函数时，就从GOT[3]获取到地址直接跳转，就没有查询过程。</p>
+<p>下面是通过反汇编objdump -D获取.plt实际情况。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_7b4608aa50847c30c83d443fad85d73b.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_7b4608aa50847c30c83d443fad85d73b.jpg"/></a></p>
+<h3 id="_8">动态链接相关结构</h3>
+<h4 id="interp">.interp</h4>
+<p>interp是interpreter解释器的缩写，决定动态链接器ld的位置，里面一般就是一个字符串\\\\"/lib/ld-linux.so.2\\\\"</p>
+<div class="codehilite"><pre><span></span><code><span class="n">$</span><span class="w"> </span><span class="n">riscv64</span><span class="o">-</span><span class="n">unknown</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnu</span><span class="o">-</span><span class="n">objdump</span><span class="w"> </span><span class="o">-</span><span class="n">s</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">out</span>
+
+<span class="n">a</span><span class="p">.</span><span class="n">out</span><span class="o">:</span><span class="w">     </span><span class="n">file</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="n">elf64</span><span class="o">-</span><span class="n">littleriscv</span>
+
+<span class="n">Contents</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">section</span><span class="w"> </span><span class="p">.</span><span class="n">interp</span><span class="o">:</span>
+<span class="w"> </span><span class="mi">10238</span><span class="w"> </span><span class="mf">2f</span><span class="mi">6</span><span class="n">c6962</span><span class="w"> </span><span class="mf">2f</span><span class="mi">6</span><span class="n">c642d</span><span class="w"> </span><span class="mi">6</span><span class="n">c696e75</span><span class="w"> </span><span class="mi">782</span><span class="n">d7269</span><span class="w">  </span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">ld</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">ri</span>
+<span class="w"> </span><span class="mi">10248</span><span class="w"> </span><span class="mi">73637636</span><span class="w"> </span><span class="mi">342</span><span class="n">d6c70</span><span class="w"> </span><span class="mi">3634642</span><span class="n">e</span><span class="w"> </span><span class="mf">736f2e31</span><span class="w">  </span><span class="n">scv64</span><span class="o">-</span><span class="n">lp64d</span><span class="p">.</span><span class="n">so</span><span class="mf">.1</span>
+<span class="w"> </span><span class="mi">10258</span><span class="w"> </span><span class="mo">00</span><span class="w">                                   </span><span class="p">.</span>
+</code></pre></div>
+<h4 id="dynmaic">.dynmaic</h4>
+<p>.dynamic:保存动态链接器ld需要的基本信息，如依赖哪些共享对象、动态链接符号表位置、动态链接重定位表位置、共享对象初始化代码地址等。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">dynamic</span><span class="p">{</span>
+<span class="w">  </span><span class="n">Elf32_Sword</span><span class="w"> </span><span class="n">d_tag</span><span class="p">;</span>
+<span class="w">  </span><span class="k">union</span><span class="p">{</span>
+<span class="w">    </span><span class="n">Elf32_Sword</span><span class="w"> </span><span class="n">d_val</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf32_Addr</span><span class="w">  </span><span class="n">d_ptr</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="n">d_un</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">Elf32_Dyn</span><span class="p">;</span>
+
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">Elf64_Sxword</span><span class="w"> </span><span class="n">d_tag</span><span class="p">;</span><span class="w">       </span><span class="cm">/* entry tag value */</span>
+<span class="w">  </span><span class="k">union</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">Elf64_Xword</span><span class="w"> </span><span class="n">d_val</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Elf64_Addr</span><span class="w"> </span><span class="n">d_ptr</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="n">d_un</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">Elf64_Dyn</span><span class="p">;</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="n">$</span><span class="w"> </span><span class="n">riscv64</span><span class="o">-</span><span class="n">unknown</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnu</span><span class="o">-</span><span class="n">readelf</span><span class="w"> </span><span class="o">-</span><span class="n">d</span><span class="w"> </span><span class="n">qemu</span><span class="o">-</span><span class="n">opensbi</span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">generic</span><span class="o">/</span><span class="n">firmware</span><span class="o">/</span><span class="n">fw_jump</span><span class="p">.</span><span class="n">elf</span>
+
+<span class="n">Dynamic</span><span class="w"> </span><span class="n">section</span><span class="w"> </span><span class="n">at</span><span class="w"> </span><span class="n">offset</span><span class="w"> </span><span class="mh">0x21980</span><span class="w"> </span><span class="n">contains</span><span class="w"> </span><span class="mi">13</span><span class="w"> </span><span class="n">entries</span><span class="o">:</span>
+<span class="w">  </span><span class="n">Tag</span><span class="w">        </span><span class="n">Type</span><span class="w">                         </span><span class="n">Name</span><span class="o">/</span><span class="n">Value</span>
+<span class="w"> </span><span class="mh">0x0000000000000004</span><span class="w"> </span><span class="p">(</span><span class="n">HASH</span><span class="p">)</span><span class="w">               </span><span class="mh">0x8001bd30</span>
+<span class="w"> </span><span class="mh">0x000000006ffffef5</span><span class="w"> </span><span class="p">(</span><span class="n">GNU_HASH</span><span class="p">)</span><span class="w">           </span><span class="mh">0x8001be68</span>
+<span class="w"> </span><span class="mh">0x0000000000000005</span><span class="w"> </span><span class="p">(</span><span class="n">STRTAB</span><span class="p">)</span><span class="w">             </span><span class="mh">0x8001b9f0</span>
+<span class="w"> </span><span class="mh">0x0000000000000006</span><span class="w"> </span><span class="p">(</span><span class="n">SYMTAB</span><span class="p">)</span><span class="w">             </span><span class="mh">0x8001c000</span>
+<span class="w"> </span><span class="mh">0x000000000000000a</span><span class="w"> </span><span class="p">(</span><span class="n">STRSZ</span><span class="p">)</span><span class="w">              </span><span class="mi">825</span><span class="w"> </span><span class="p">(</span><span class="n">bytes</span><span class="p">)</span>
+<span class="w"> </span><span class="mh">0x000000000000000b</span><span class="w"> </span><span class="p">(</span><span class="n">SYMENT</span><span class="p">)</span><span class="w">             </span><span class="mi">24</span><span class="w"> </span><span class="p">(</span><span class="n">bytes</span><span class="p">)</span>
+<span class="w"> </span><span class="mh">0x0000000000000015</span><span class="w"> </span><span class="p">(</span><span class="n">DEBUG</span><span class="p">)</span><span class="w">              </span><span class="mh">0x0</span>
+<span class="w"> </span><span class="mh">0x0000000000000007</span><span class="w"> </span><span class="p">(</span><span class="n">RELA</span><span class="p">)</span><span class="w">               </span><span class="mh">0x8001c3a8</span>
+<span class="w"> </span><span class="mh">0x0000000000000008</span><span class="w"> </span><span class="p">(</span><span class="n">RELASZ</span><span class="p">)</span><span class="w">             </span><span class="mi">9240</span><span class="w"> </span><span class="p">(</span><span class="n">bytes</span><span class="p">)</span>
+<span class="w"> </span><span class="mh">0x0000000000000009</span><span class="w"> </span><span class="p">(</span><span class="n">RELAENT</span><span class="p">)</span><span class="w">            </span><span class="mi">24</span><span class="w"> </span><span class="p">(</span><span class="n">bytes</span><span class="p">)</span>
+<span class="w"> </span><span class="mh">0x000000006ffffffb</span><span class="w"> </span><span class="p">(</span><span class="n">FLAGS_1</span><span class="p">)</span><span class="w">            </span><span class="n">Flags</span><span class="o">:</span><span class="w"> </span><span class="n">PIE</span>
+<span class="w"> </span><span class="mh">0x000000006ffffff9</span><span class="w"> </span><span class="p">(</span><span class="n">RELACOUNT</span><span class="p">)</span><span class="w">          </span><span class="mi">385</span>
+<span class="w"> </span><span class="mh">0x0000000000000000</span><span class="w"> </span><span class="p">(</span><span class="nb">NULL</span><span class="p">)</span><span class="w">               </span><span class="mh">0x0</span>
+</code></pre></div>
+<h4 id="dynsym">.dynsym</h4>
+<p>为了完成动态链接，最关键的是所依赖符号和相关文件的信息，其存储在该段中，使用readelf -sD xxx可以获取查询。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">riscv64</span><span class="o">-</span><span class="n">unknown</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnu</span><span class="o">-</span><span class="n">readelf</span><span class="w"> </span><span class="o">-</span><span class="n">sD</span><span class="w"> </span><span class="n">qemu</span><span class="o">-</span><span class="n">opensbi</span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">generic</span><span class="o">/</span><span class="n">firmware</span><span class="o">/</span><span class="n">fw_jump</span><span class="p">.</span><span class="n">elf</span>
+
+<span class="n">Symbol</span><span class="w"> </span><span class="n">table</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">image</span><span class="w"> </span><span class="n">contains</span><span class="w"> </span><span class="mi">39</span><span class="w"> </span><span class="n">entries</span><span class="o">:</span>
+<span class="w">   </span><span class="nl">Num</span><span class="p">:</span><span class="w">    </span><span class="n">Value</span><span class="w">          </span><span class="n">Size</span><span class="w"> </span><span class="n">Type</span><span class="w">    </span><span class="n">Bind</span><span class="w">   </span><span class="n">Vis</span><span class="w">      </span><span class="n">Ndx</span><span class="w"> </span><span class="n">Name</span>
+<span class="w">     </span><span class="mi">0</span><span class="o">:</span><span class="w"> </span><span class="mo">0000000000000000</span><span class="w">     </span><span class="mi">0</span><span class="w"> </span><span class="n">NOTYPE</span><span class="w">  </span><span class="n">LOCAL</span><span class="w">  </span><span class="n">DEFAULT</span><span class="w">  </span><span class="n">UND</span>
+<span class="w">     </span><span class="mi">1</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80000000</span><span class="w">     </span><span class="mi">0</span><span class="w"> </span><span class="n">SECTION</span><span class="w"> </span><span class="n">LOCAL</span><span class="w">  </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span>
+<span class="w">     </span><span class="mi">2</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">800208</span><span class="n">a8</span><span class="w">     </span><span class="mi">8</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">sbi_hart_expecte</span><span class="p">[...]</span>
+<span class="w">     </span><span class="mi">3</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80020090</span><span class="w">     </span><span class="mi">8</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_reset_driver</span><span class="p">[...]</span>
+<span class="w">     </span><span class="mi">4</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">800200</span><span class="n">c8</span><span class="w">     </span><span class="mi">8</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_irqchip_driv</span><span class="p">[...]</span>
+<span class="w">     </span><span class="mi">5</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80020078</span><span class="w">     </span><span class="mi">8</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_serial_drive</span><span class="p">[...]</span>
+<span class="w">     </span><span class="mi">6</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80020070</span><span class="w">     </span><span class="mi">8</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_timer_driver</span><span class="p">[...]</span>
+<span class="w">     </span><span class="mi">7</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80020300</span><span class="w">    </span><span class="mi">48</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">platform_overrid</span><span class="p">[...]</span>
+<span class="w">     </span><span class="mi">8</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80021388</span><span class="w">    </span><span class="mi">16</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_gpio_drivers</span>
+<span class="w">     </span><span class="mi">9</span><span class="o">:</span><span class="w"> </span><span class="mf">00000000800031f</span><span class="n">c</span><span class="w">    </span><span class="mi">26</span><span class="w"> </span><span class="n">FUNC</span><span class="w">    </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="n">sbi_tlb_local_fence_i</span>
+<span class="w">    </span><span class="mi">10</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80021188</span><span class="w">    </span><span class="mi">24</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_irqchip_drivers</span>
+<span class="w">    </span><span class="mi">11</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">800209</span><span class="n">b8</span><span class="w">    </span><span class="mi">16</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_timer_drivers</span>
+<span class="w">    </span><span class="mi">12</span><span class="o">:</span><span class="w"> </span><span class="mf">00000000800032f</span><span class="mi">0</span><span class="w">   </span><span class="mi">134</span><span class="w"> </span><span class="n">FUNC</span><span class="w">    </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="n">sbi_tlb_local_hf</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">13</span><span class="o">:</span><span class="w"> </span><span class="mf">00000000800200e8</span><span class="w">     </span><span class="mi">8</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_i2c_adapter_</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">14</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">8000</span><span class="n">da80</span><span class="w">     </span><span class="mi">0</span><span class="w"> </span><span class="n">NOTYPE</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="n">__thead_pre_star</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">15</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">8000318</span><span class="n">a</span><span class="w">   </span><span class="mi">114</span><span class="w"> </span><span class="n">FUNC</span><span class="w">    </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="n">sbi_tlb_local_sf</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">16</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">8000</span><span class="n">da98</span><span class="w">     </span><span class="mi">0</span><span class="w"> </span><span class="n">NOTYPE</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="n">__reset_thead_cs</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">17</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80020</span><span class="n">a80</span><span class="w">    </span><span class="mi">72</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_serial_drivers</span>
+<span class="w">    </span><span class="mi">18</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80020810</span><span class="w">   </span><span class="mi">152</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">root</span>
+<span class="w">    </span><span class="mi">19</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">8000328</span><span class="n">a</span><span class="w">   </span><span class="mi">102</span><span class="w"> </span><span class="n">FUNC</span><span class="w">    </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="n">sbi_tlb_local_hf</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">20</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">800370</span><span class="n">d8</span><span class="w">    </span><span class="mi">56</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">   </span><span class="mi">13</span><span class="w"> </span><span class="n">plicsw</span>
+<span class="w">    </span><span class="mi">21</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80003216</span><span class="w">   </span><span class="mi">116</span><span class="w"> </span><span class="n">FUNC</span><span class="w">    </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="n">sbi_tlb_local_hf</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">22</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80020040</span><span class="w">     </span><span class="mi">4</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">last_hartid_havi</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">23</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80003136</span><span class="w">    </span><span class="mi">84</span><span class="w"> </span><span class="n">FUNC</span><span class="w">    </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="n">sbi_tlb_local_sf</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">24</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">800200</span><span class="n">d0</span><span class="w">     </span><span class="mi">8</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_ipi_drivers_size</span>
+<span class="w">    </span><span class="mi">25</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80020058</span><span class="w">     </span><span class="mi">8</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">platform_overrid</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">26</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80020068</span><span class="w">     </span><span class="mi">8</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">sbi_ecall_exts_size</span>
+<span class="w">    </span><span class="mi">27</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">800212</span><span class="n">c8</span><span class="w">    </span><span class="mi">16</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_ipi_drivers</span>
+<span class="w">    </span><span class="mi">28</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">800200</span><span class="n">d8</span><span class="w">     </span><span class="mi">8</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_gpio_drivers_size</span>
+<span class="w">    </span><span class="mi">29</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80004690</span><span class="w">     </span><span class="mi">0</span><span class="w"> </span><span class="n">NOTYPE</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="n">__ae350_enable_c</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">30</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80020</span><span class="n">ec0</span><span class="w">    </span><span class="mi">56</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_reset_drivers</span>
+<span class="w">    </span><span class="mi">31</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80020570</span><span class="w">    </span><span class="mi">96</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">sbi_ecall_exts</span>
+<span class="w">    </span><span class="mi">32</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">8002</span><span class="n">efe0</span><span class="w">  </span><span class="mi">1024</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">   </span><span class="mi">13</span><span class="w"> </span><span class="n">hartid_to_domain</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">33</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80036</span><span class="n">c80</span><span class="w">    </span><span class="mi">40</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">   </span><span class="mi">13</span><span class="w"> </span><span class="n">plmt</span>
+<span class="w">    </span><span class="mi">34</span><span class="o">:</span><span class="w"> </span><span class="mf">000000008002e660</span><span class="w">  </span><span class="mi">1024</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">   </span><span class="mi">13</span><span class="w"> </span><span class="n">hartid_to_scratc</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">35</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">8000</span><span class="n">da78</span><span class="w">     </span><span class="mi">0</span><span class="w"> </span><span class="n">NOTYPE</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="n">__fdt_reset_thea</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">36</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80021900</span><span class="w">    </span><span class="mi">16</span><span class="w"> </span><span class="n">OBJECT</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">8</span><span class="w"> </span><span class="n">fdt_i2c_adapter_</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">37</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">8000</span><span class="n">be28</span><span class="w">     </span><span class="mi">0</span><span class="w"> </span><span class="n">NOTYPE</span><span class="w">  </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="n">__sbi_expected_t</span><span class="p">[...]</span>
+<span class="w">    </span><span class="mi">38</span><span class="o">:</span><span class="w"> </span><span class="mo">00000000</span><span class="mi">80003376</span><span class="w">   </span><span class="mi">108</span><span class="w"> </span><span class="n">FUNC</span><span class="w">    </span><span class="n">GLOBAL</span><span class="w"> </span><span class="n">DEFAULT</span><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="n">sbi_tlb_local_hf</span><span class="p">[...]</span>
+</code></pre></div>
+<h4 id="relxxx">.rel.xxx</h4>
+<p>.rel.dyn/plt对应的是.rel.text和.rel.data,是动态链接重定位表,.rel.dyn表示对数据引用的修正，其修正的位置位于.got数据段；.rel.plt对函数引用的修正，所修正的位置位于.got.plt段。 可以使用readelf -r xxx。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">riscv64</span><span class="o">-</span><span class="n">unknown</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnu</span><span class="o">-</span><span class="n">readelf</span><span class="w"> </span><span class="o">-</span><span class="n">r</span><span class="w"> </span><span class="n">qemu</span><span class="o">-</span><span class="n">opensbi</span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">generic</span><span class="o">/</span><span class="n">firmware</span><span class="o">/</span><span class="n">fw_jump</span><span class="p">.</span><span class="n">elf</span>
+
+<span class="n">Relocation</span><span class="w"> </span><span class="n">section</span><span class="w"> </span><span class="err">'</span><span class="p">.</span><span class="n">rela</span><span class="p">.</span><span class="n">dyn</span><span class="err">'</span><span class="w"> </span><span class="n">at</span><span class="w"> </span><span class="n">offset</span><span class="w"> </span><span class="mh">0x1d3a8</span><span class="w"> </span><span class="n">contains</span><span class="w"> </span><span class="mi">385</span><span class="w"> </span><span class="n">entries</span><span class="o">:</span>
+<span class="w">  </span><span class="n">Offset</span><span class="w">          </span><span class="n">Info</span><span class="w">           </span><span class="n">Type</span><span class="w">           </span><span class="n">Sym</span><span class="p">.</span><span class="w"> </span><span class="n">Value</span><span class="w">    </span><span class="n">Sym</span><span class="p">.</span><span class="w"> </span><span class="n">Name</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">Addend</span>
+<span class="mo">0000</span><span class="mi">80020018</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80000000</span>
+<span class="mo">0000</span><span class="mi">80020028</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80038000</span>
+<span class="mo">0000</span><span class="mi">80020120</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mf">80000e7</span><span class="n">c</span>
+<span class="mo">0000</span><span class="mi">80020158</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mf">80000e8</span><span class="n">c</span>
+<span class="mo">0000</span><span class="mi">80020160</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80001316</span>
+<span class="mo">0000</span><span class="mi">80020168</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80020168</span>
+<span class="mo">0000</span><span class="mi">80020170</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80020168</span>
+<span class="mo">0000</span><span class="mi">80020198</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80002</span><span class="n">a18</span>
+<span class="mo">0000</span><span class="mi">800201</span><span class="n">a0</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80002</span><span class="n">a28</span>
+<span class="mo">0000</span><span class="mi">800201</span><span class="n">c8</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">800034</span><span class="n">ae</span>
+<span class="mo">0000</span><span class="mi">800201</span><span class="n">d0</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">8000358</span><span class="n">a</span>
+<span class="mo">0000</span><span class="mi">800201</span><span class="n">d8</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80003474</span>
+<span class="mo">0000</span><span class="mi">80020238</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80020250</span>
+<span class="mo">0000</span><span class="mi">80020248</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">8002</span><span class="n">eac8</span>
+<span class="mo">0000</span><span class="mi">80020250</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">800040</span><span class="n">b0</span>
+<span class="mo">0000</span><span class="mi">80020258</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">8000429</span><span class="n">a</span>
+<span class="mo">0000</span><span class="mi">80020260</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">800040</span><span class="n">dc</span>
+<span class="mo">0000</span><span class="mi">80020268</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mf">800042f</span><span class="mi">0</span>
+<span class="mo">0000</span><span class="mi">80020270</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80004146</span>
+<span class="mo">0000</span><span class="mi">80020278</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">8000416</span><span class="n">c</span>
+<span class="mo">0000</span><span class="mi">80020290</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80004192</span>
+<span class="mo">0000</span><span class="mi">80020298</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80004230</span>
+<span class="mo">0000</span><span class="mi">800202</span><span class="n">a0</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80004212</span>
+<span class="mo">0000</span><span class="mi">800202</span><span class="n">a8</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">800042</span><span class="n">be</span>
+<span class="mo">0000</span><span class="mi">800202</span><span class="n">b0</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">800041</span><span class="n">ec</span>
+<span class="mo">0000</span><span class="mi">800202</span><span class="n">b8</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mf">8000f</span><span class="mi">9</span><span class="n">cc</span>
+<span class="mo">0000</span><span class="mi">800202</span><span class="n">c0</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mf">8000f</span><span class="mi">97</span><span class="n">e</span>
+<span class="mo">0000</span><span class="mi">800202</span><span class="n">c8</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">800108</span><span class="n">b2</span>
+<span class="mo">0000</span><span class="mi">800202</span><span class="n">d0</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80010892</span>
+<span class="mo">0000</span><span class="mi">800202</span><span class="n">d8</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">800041</span><span class="n">c0</span>
+<span class="mf">0000800202e0</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">8000</span><span class="n">be80</span>
+<span class="mf">0000800202e8</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">8000</span><span class="n">be60</span>
+<span class="mf">0000800202f</span><span class="mi">0</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80004104</span>
+<span class="mf">0000800202f</span><span class="mi">8</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80004122</span>
+<span class="mo">0000</span><span class="mi">80020300</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80021478</span>
+<span class="mo">0000</span><span class="mi">80020308</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80021518</span>
+<span class="mo">0000</span><span class="mi">80020310</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80021618</span>
+<span class="mo">0000</span><span class="mi">80020318</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">800216</span><span class="n">d8</span>
+<span class="mo">0000</span><span class="mi">80020320</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">80020370</span>
+<span class="mo">0000</span><span class="mi">80020328</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mf">800204e0</span>
+<span class="mo">0000</span><span class="mi">80020350</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mf">800045e4</span>
+<span class="mo">0000</span><span class="mi">80020358</span><span class="w">  </span><span class="mo">000000000003</span><span class="w"> </span><span class="n">R_RISCV_RELATIVE</span><span class="w">                     </span><span class="mi">8000455</span><span class="n">c</span>
+</code></pre></div>
+<h3 id="elf">ELF加载过程</h3>
+<ol>
+<li>检查ELF可执行文件格式的有效性，比如魔术、程序头表段的数量。</li>
+<li>寻找动态链接的.interp段，设置动态链接器路径。</li>
+<li>根据ELF可执行文件的程序头表描述，对ELF文件进行映射，比如代码、数据、只读数据。</li>
+<li>初始化ELF进程环境，比如进程启动时寄存器配置。</li>
+<li>将系统调用的返回地址修改为ELF可执行文件的入口点，如果是静态链接的ELF就是ELF文件中e_entry地址，如果是动态链接的ELF就是动态链接器LD。</li>
+</ol>
+<p>总结下，常用工具链调试命令。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_9e28a09d7562e1c3a8e9d6140b2131bd.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_9e28a09d7562e1c3a8e9d6140b2131bd.jpg"/></a></p>
+<p>最后总结下动态链接的核心思想：编译成位置无关的库，当需要调用到这些库中的符号时，在数据段生成.got（外部变量表）和.got.plt（外部函数表），在程序开始要运行时，就执行查找到依赖的外部符号（变量或函数）地址填充到表中，即可运行。为了解决不需要把所有的符号在运行时一下全填充进.got_中，且降低刚启动寻址的时间，使用了延时绑定技术，先生成.plt表，表中存储在动态库中搜索符号的逻辑指令填充到.got_表中，第一次运行找不到符号时就在库中查找填充到.got_表中，下次就直接可以在.got_跳转运行。</p>
+<p>参考：&lt;程序员的自我修养 链接、装载与库&gt;</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/阅读/金字塔原理.html">← 金字塔原理</a>
+    <a class="next" href="/laumy.github.io/posts/调试/elf格式解析.html">ELF格式解析 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

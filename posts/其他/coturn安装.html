@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>coturn安装 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">安装</a><ul></ul></li><li><a href="#_2">配置</a><ul></ul></li><li><a href="#_3">启停</a><ul></ul></li><li><a href="#_4">调试</a><ul></ul></li><li><a href="#_5">测试</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>coturn安装</h1>
+  <div class="meta">2024-11-30 · 其他</div>
+  <div class="post-content"><h2 id="_1">安装</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">yum</span><span class="w"> </span><span class="n">install</span><span class="w"> </span><span class="n">coturn</span><span class="w"> </span><span class="o">-</span><span class="n">y</span>
+</code></pre></div>
+<h2 id="_2">配置</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">vim</span><span class="w"> </span><span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">coturn</span><span class="o">/</span><span class="n">turnserver</span><span class="p">.</span><span class="n">conf</span>
+
+<span class="n">listening</span><span class="o">-</span><span class="n">port</span><span class="o">=</span><span class="mi">3478</span>
+<span class="cp">#指定 coturn 监听的端口。默认的 TURN 协议端口是 3478，用于接收 TURN 客户端的连接请求。</span>
+<span class="n">tls</span><span class="o">-</span><span class="n">listening</span><span class="o">-</span><span class="n">port</span><span class="o">=</span><span class="mi">5349</span>
+<span class="cp">#指定用于 TLS (传输层安全协议) 加密连接的监听端口。TURN 支持通过 TLS 来增强通信的安全性，默认的端口是 5349。</span>
+<span class="n">relay</span><span class="o">-</span><span class="n">ip</span><span class="o">=</span><span class="mf">172.20.65.5</span>
+<span class="cp">#指定 TURN 服务器用于中继流量的 IP 地址。这个 IP 地址通常是内部的局域网地址，用于数据中继传输。</span>
+<span class="n">relay</span><span class="o">-</span><span class="n">ip</span><span class="o">=</span><span class="n">fe80</span><span class="o">::</span><span class="mi">216</span><span class="o">:</span><span class="mi">3</span><span class="n">eff</span><span class="o">:</span><span class="n">fe01</span><span class="o">:</span><span class="mi">105</span><span class="n">b</span>
+<span class="cp">#指定 TURN 服务器的 IPv6 地址，通常用于支持 IPv6 网络的环境中。</span>
+<span class="n">external</span><span class="o">-</span><span class="n">ip</span><span class="o">=</span><span class="mf">8.134.108.235</span>
+<span class="cp">#指定TURN服务器的外部公网 IP 地址。当 TURN 服务器位于 NAT 后面时，external-ip 用于告知客户端如何访问该服务器。</span>
+<span class="n">relay</span><span class="o">-</span><span class="n">threads</span><span class="o">=</span><span class="mi">50</span>
+<span class="cp">#指定服务器处理中继流量时使用的线程数量。增加线程数有助于提高并发连接的处理能力。</span>
+<span class="n">min</span><span class="o">-</span><span class="n">port</span><span class="o">=</span><span class="mi">40000</span>
+<span class="n">max</span><span class="o">-</span><span class="n">port</span><span class="o">=</span><span class="mi">65535</span>
+<span class="cp">#指定 coturn 使用的最小和最大端口范围。coturn 会在该范围内选择端口来建立临时的媒体连接。这个端口范围通常需要开放，供客户端进行通讯。</span>
+<span class="n">server</span><span class="o">-</span><span class="n">name</span><span class="o">=</span><span class="n">www</span><span class="p">.</span><span class="n">laumy</span><span class="p">.</span><span class="n">tech</span>
+<span class="cp">#指定 TURN 服务器的名称。这通常用于身份验证或显示给客户端的服务器标识。</span>
+<span class="n">lt</span><span class="o">-</span><span class="n">cred</span><span class="o">-</span><span class="n">mech</span>
+<span class="cp"># 打开这个表示要使用加密，默认是打开的，加密的话就需要验证username和密码，如下的user字段。</span>
+<span class="n">no</span><span class="o">-</span><span class="n">auth</span>
+<span class="cp">#如果打开这个，表示不需要加密，和lt-cred-mech是二选一。</span>
+<span class="n">user</span><span class="o">=</span><span class="n">laumy</span><span class="o">:</span><span class="n">A8xxxx22</span>
+<span class="cp">#指定允许连接到 TURN 服务器的用户名和密码。格式为 username:password，用于身份验证。laumy 是用户名，A8xxxx22 是密码。</span>
+<span class="n">realm</span><span class="o">=</span><span class="n">www</span><span class="p">.</span><span class="n">laumy</span><span class="p">.</span><span class="n">tech</span>
+<span class="cp">#指定 TURN 服务器的“域”名，用于标识一个身份验证域。这个域通常与 user 结合使用，确保身份验证的正确性。</span>
+<span class="n">cert</span><span class="o">=/</span><span class="n">etc</span><span class="o">/</span><span class="n">xxx</span><span class="o">/</span><span class="n">cert</span><span class="o">/</span><span class="n">www</span><span class="p">.</span><span class="n">laumy</span><span class="p">.</span><span class="n">tech</span><span class="p">.</span><span class="n">pem</span>
+<span class="n">pkey</span><span class="o">=/</span><span class="n">etc</span><span class="o">/</span><span class="n">nginx</span><span class="o">/</span><span class="n">cert</span><span class="o">/</span><span class="n">www</span><span class="p">.</span><span class="n">laumy</span><span class="p">.</span><span class="n">tech</span><span class="p">.</span><span class="n">key</span>
+<span class="cp"># 设置证书密钥</span>
+</code></pre></div>
+<h2 id="_3">启停</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">启动</span><span class="err">：</span>
+
+<span class="n">systemctl</span><span class="w"> </span><span class="n">start</span><span class="w"> </span><span class="n">coturn</span>
+
+<span class="n">ps</span><span class="w"> </span><span class="o">-</span><span class="n">ef</span><span class="w"> </span><span class="o">|</span><span class="n">grep</span><span class="w"> </span><span class="n">turnserver</span>
+
+<span class="n">关闭</span><span class="err">：</span>
+
+<span class="n">systemctl</span><span class="w"> </span><span class="n">stop</span><span class="w"> </span><span class="n">coturn</span>
+</code></pre></div>
+<h2 id="_4">调试</h2>
+<p>查看启动日志</p>
+<div class="codehilite"><pre><span></span><code><span class="o">/</span><span class="n">var</span><span class="o">/</span><span class="n">log</span><span class="o">/</span><span class="n">coturn</span><span class="o">/</span><span class="n">turnserver</span><span class="p">.</span><span class="n">log</span>
+</code></pre></div>
+<h2 id="_5">测试</h2>
+<p><a href="\" title="https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/\">https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/</a></p>
+<p>参考：</p>
+<ol>
+<li><a href="\" title="https://www.zhiboblog.com/2105.html\">https://www.zhiboblog.com/2105.html</a></li>
+</ol></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/其他/部署mqtt云服务.html">← 部署MQTT云服务</a>
+    <a class="next" href="/laumy.github.io/posts/网络/stun协议.html">STUN协议 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

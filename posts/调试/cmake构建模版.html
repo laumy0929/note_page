@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cmake构建模版 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>Cmake构建模版</h1>
+  <div class="meta">2024-12-01 · 调试</div>
+  <div class="post-content"><div class="codehilite"><pre><span></span><code><span class="cp"># 指定 CMake 的最低版本要求。它应该是 CMakeLists.txt 文件中的第一个命令。</span>
+<span class="n">cmake_minimum_required</span><span class="p">(</span><span class="n">VERSION</span><span class="w"> </span><span class="mf">3.10</span><span class="p">)</span>
+
+<span class="cp"># 定义项目的名称</span>
+<span class="n">project</span><span class="p">(</span><span class="n">mpp_webrtc</span><span class="p">)</span>
+
+<span class="cp"># 要编译的源文件,先收集在SRCS变量中。</span>
+<span class="n">file</span><span class="p">(</span><span class="n">GLOB</span><span class="w"> </span><span class="n">SRCS</span><span class="w"> </span><span class="s">"*.c"</span>
+<span class="w">    </span><span class="s">"common/*.c"</span><span class="p">)</span>
+
+<span class="cp"># 编译源文件的头文件路径</span>
+<span class="n">include_directories</span><span class="p">(</span>
+<span class="w">    </span><span class="n">$</span><span class="p">{</span><span class="n">CMAKE_SOURCE_DIR</span><span class="p">}</span><span class="o">/</span><span class="n">src</span>
+<span class="w">    </span><span class="n">$</span><span class="p">{</span><span class="n">CMAKE_SOURCE_DIR</span><span class="p">}</span><span class="o">/</span><span class="n">example</span><span class="o">/</span><span class="n">common</span>
+<span class="w">    </span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">xxx</span><span class="o">/</span><span class="n">a</span>
+<span class="w">    </span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">xxx</span><span class="o">/</span><span class="n">b</span>
+<span class="p">)</span>
+
+<span class="cp"># 需要链接的库路径</span>
+<span class="n">link_directories</span><span class="p">(</span>
+<span class="w">    </span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">A</span>
+<span class="w">    </span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">B</span>
+<span class="w">    </span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">C</span>
+<span class="p">)</span>
+
+<span class="cp">#可执行文件名称，以及依赖的源文件</span>
+<span class="n">add_executable</span><span class="p">(</span><span class="n">mpp_webrtc</span><span class="w"> </span><span class="n">$</span><span class="p">{</span><span class="n">SRCS</span><span class="p">})</span>
+
+<span class="cp"># 需要链接的库，如libwav.a, libaac.a等。其中可以使用-Wl,--start-group</span>
+<span class="cp"># 和-Wl,--end-group编译参数。</span>
+<span class="n">target_link_libraries</span><span class="p">(</span><span class="n">mpp_webrtc</span>
+<span class="w">    </span><span class="n">peer</span><span class="w"> </span><span class="n">pthread</span>
+<span class="w">    </span><span class="o">-</span><span class="n">Wl</span><span class="p">,</span><span class="o">--</span><span class="n">start</span><span class="o">-</span><span class="n">group</span>
+<span class="w">    </span><span class="n">wav</span><span class="w"> </span><span class="n">aac</span><span class="w"> </span><span class="n">VE</span>
+<span class="w">    </span><span class="n">vencoder</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">    </span><span class="o">-</span><span class="n">Wl</span><span class="p">,</span><span class="o">--</span><span class="n">end</span><span class="o">-</span><span class="n">group</span>
+<span class="p">)</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/其他/openwrt规则编译cmake软件包.html">← openwrt规则编译cmake软件包</a>
+    <a class="next" href="/laumy.github.io/posts/其他/部署mqtt云服务.html">部署MQTT云服务 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

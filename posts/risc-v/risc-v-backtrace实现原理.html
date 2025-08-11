@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RISC-V backtrace实现原理 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>RISC-V backtrace实现原理</h1>
+  <div class="meta">2024-05-21 · risc-v</div>
+  <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_28488988b05ce9451cdfe90bd5aecc29.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v-backtrace实现原理/images/wp_editor_md_28488988b05ce9451cdfe90bd5aecc29.jpg"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="n">start_kernel</span>
+<span class="w">    </span><span class="n">addi</span><span class="w"> </span><span class="n">sp</span><span class="p">,</span><span class="n">sp</span><span class="p">,</span><span class="mi">-16</span><span class="w">                      </span><span class="o">---</span><span class="n">①</span><span class="w"> </span><span class="n">分配栈帧sp</span><span class="o">=</span><span class="n">sp</span><span class="mi">-16</span><span class="p">,</span><span class="n">sp指向栈顶</span>
+<span class="w">    </span><span class="n">sw</span><span class="w"> </span><span class="n">ra</span><span class="p">,</span><span class="mi">12</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span><span class="w">                        </span><span class="o">---</span><span class="n">②</span><span class="w"> </span><span class="n">将ra存储到sp</span><span class="o">+</span><span class="mi">12</span><span class="n">的位置</span>
+<span class="w">    </span><span class="n">sw</span><span class="w"> </span><span class="n">s0</span><span class="p">,</span><span class="mi">8</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+
+<span class="w">    </span><span class="n">xxxxxx</span>
+<span class="w">    </span><span class="n">jal</span><span class="w"> </span><span class="n">ra</span><span class="p">,</span><span class="w"> </span><span class="mi">6000</span><span class="n">dba2</span><span class="w"> </span><span class="o">&lt;</span><span class="n">backtrace</span><span class="o">&gt;</span>
+<span class="w">    </span><span class="n">xxxxxx</span>
+
+<span class="w">    </span><span class="n">lw</span><span class="w"> </span><span class="n">s0</span><span class="p">,</span><span class="mi">8</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">    </span><span class="n">lw</span><span class="w"> </span><span class="n">ra</span><span class="p">,</span><span class="mi">12</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">    </span><span class="n">addi</span><span class="w"> </span><span class="n">sp</span><span class="p">,</span><span class="n">sp</span><span class="p">,</span><span class="mi">16</span>
+
+<span class="n">_backtrace</span>
+<span class="w">    </span><span class="k">for</span><span class="p">(</span><span class="n">level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">level</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">BT_LEVEL_LIMIT</span><span class="p">;</span><span class="w"> </span><span class="n">level</span><span class="o">++</span><span class="p">)</span>
+<span class="w">        </span><span class="n">backtrace_from_stack</span><span class="p">(</span><span class="o">&amp;</span><span class="n">SP</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">PC</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">LR</span><span class="p">,</span><span class="w"> </span><span class="n">print_func</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">            </span><span class="k">for</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">BT_SCAN_MAX_LIMIT</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span>
+<span class="w">                </span><span class="n">riscv_ins16_get_push_lr_framesize</span><span class="p">(</span><span class="n">ins16</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">offset</span><span class="p">);</span>
+<span class="w">            </span><span class="c1">//获取到分配栈帧的位置，地址为parse_addr，该位置也是函数的起始位置，如上的①</span>
+<span class="w">            </span><span class="c1">//同时也获取到ra的在栈中的偏移位置offset，通过类似sw ra,12(sp)计算得出。</span>
+
+<span class="w">            </span><span class="k">for</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">parse_addr</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">PC</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span>
+<span class="w">                </span><span class="n">riscv_ins16_backtrace_stask_push</span><span class="p">(</span><span class="n">ins16</span><span class="p">);</span>
+<span class="w">            </span><span class="c1">//计算函数的起始位置到当前运行的PC位置，使用了多少栈空间。存储到framesize中。</span>
+
+<span class="w">            </span><span class="n">LR</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="n">SP</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">offset</span><span class="p">);</span>
+<span class="w">            </span><span class="c1">//计算LR的值，如上②，RA是存储到SP+offset的位置。</span>
+
+<span class="w">            </span><span class="o">*</span><span class="n">pSP</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">SP</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">framesize</span><span class="p">;</span>
+<span class="w">            </span><span class="c1">//*pSP即为栈底位置，即为上一个函数的栈顶，为下一次遍历做准备</span>
+
+<span class="w">            </span><span class="n">offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">find_lr_offset</span><span class="p">(</span><span class="n">LR</span><span class="p">,</span><span class="w"> </span><span class="n">print_func</span><span class="p">);</span>
+<span class="w">                </span><span class="n">print_backtrace</span><span class="p">(</span><span class="n">print_func</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">)</span><span class="n">LR_fixed</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">offset</span><span class="p">);</span><span class="c1">//打印位置</span>
+<span class="w">            </span><span class="o">*</span><span class="n">pPC</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">LR</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">offset</span><span class="p">;</span>
+<span class="w">            </span><span class="c1">//因为RA存储的是跳转指令的下一条指令，所以需要减去一条指令就得到跳转的位置。</span>
+<span class="w">            </span><span class="c1">//到这里*pSP、*pPC就更新到上一个函数的值，再接着继续遍历即可。</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/rtos/freertos栈溢出检测原理.html">← freertos栈溢出检测原理</a>
+    <a class="next" href="/laumy.github.io/posts/risc-v/risc-v动态链接实验.html">RISC-V动态链接实验 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

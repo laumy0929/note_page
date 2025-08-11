@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>pip install - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">是什么</a><ul></ul></li><li><a href="#_2">怎么用</a><ul><li><a href="#_3">在线安装</a></li><li><a href="#_4">离线升级</a></li><li><a href="#_5">升级</a></li><li><a href="#_6">软件包源</a></li><li><a href="#_11">卸载</a></li><li><a href="#_12">查看</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>pip install</h1>
+  <div class="meta">2025-07-22 · ai</div>
+  <div class="post-content"><h2 id="_1">是什么</h2>
+<p>pip install 是python包管理器，用于python软件包的下载、安装、卸载等功能。</p>
+<h2 id="_2">怎么用</h2>
+<h3 id="_3">在线安装</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="n">install</span> <span class="n">软件包名</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="n">软件包名</span><span class="o">==</span><span class="n">版本号</span>
+
+<span class="n">例如pip</span> <span class="n">install</span> <span class="n">requests</span><span class="err">，</span><span class="n">或pip</span> <span class="n">install</span> <span class="n">requests</span><span class="o">==</span><span class="mf">1.1</span><span class="err">。</span>
+</code></pre></div>
+<p>也可以从文件列表中获取安装</p>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">r</span> <span class="n">requirements</span><span class="o">.</span><span class="n">txt</span>
+</code></pre></div>
+<p>从requirements.txt文件安装依赖，通常用于项目的依赖管理。</p>
+<p>pip的软件包一般有两种格式：</p>
+<ul>
+<li>whl (Wheel) 格式： 文件是一种预编译的Python包格式，类似于Windows的<code>.exe</code>安装文件，但专门用于Python。</li>
+<li>tar.gz：包含了Python包的源代码，需要先解压，然后pip会根据其中的setup.py文件进行编译和安装。</li>
+</ul>
+<p>whl文件是pip推荐的安装包格式，因为它更快，而<code>.tar.gz</code>文件则用于源代码分发和离线安装。</p>
+<p>torchvision-0.17.1-cp311-cp311-macosx_10_13_x86_64.whl 这个命名规则是什么？第一个cp311是编译是python版本为3.11，第二个cp311表示ABI（应用二进制接口）兼容 Python 3.1，确保与 Python 3.11 环境完全适；操作系统架构为macos 10.13以上，x86_64 intel/AMD 64位。</p>
+<h3 id="_4">离线升级</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="n">install</span> <span class="o">--</span><span class="n">no</span><span class="o">-</span><span class="n">index</span> <span class="o">--</span><span class="n">find</span><span class="o">-</span><span class="n">links</span><span class="o">=./</span><span class="n">offline_packages</span> <span class="o">-</span><span class="n">r</span> <span class="n">requirements</span><span class="o">.</span><span class="n">txt</span>
+</code></pre></div>
+<ul>
+<li>no-index:表示不从网上获取安装。</li>
+<li>find-links:选择本地包的路径</li>
+<li>r:下载所有依赖，可省略。</li>
+</ul>
+<p>获取软件包可以通过u盘或者下载的方式，看看怎么下载。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="n">download</span> <span class="o">-</span><span class="n">d</span> <span class="o">./</span><span class="n">offline_packages</span> <span class="o">-</span><span class="n">r</span> <span class="n">requirements</span><span class="o">.</span><span class="n">txt</span>
+</code></pre></div>
+<h3 id="_5">升级</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="n">install</span> <span class="o">--</span><span class="n">upgrade</span> <span class="n">软件包名</span>
+
+<span class="n">或简写方式</span><span class="p">:</span> <span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">U</span> <span class="n">软件包</span>
+</code></pre></div>
+<p>用于升级软件包名称。包括升级pip。</p>
+<h3 id="_6">软件包源</h3>
+<h4 id="_7">查看源</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="n">config</span> <span class="nb">list</span>
+</code></pre></div>
+<p>安装软件时不指定源就会默认从当前的源获取，对应的配置文件路径：~/.config/pip/pip.conf</p>
+<h4 id="_8">设置源</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="n">config</span> <span class="nb">set</span> <span class="k">global</span><span class="o">.</span><span class="n">index</span><span class="o">-</span><span class="n">url</span> <span class="o">&lt;</span><span class="n">源地址</span><span class="o">&gt;</span>
+
+<span class="n">示例</span><span class="err">：</span><span class="n">pip</span> <span class="n">config</span> <span class="nb">set</span> <span class="k">global</span><span class="o">.</span><span class="n">index</span><span class="o">-</span><span class="n">url</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">pypi</span><span class="o">.</span><span class="n">tuna</span><span class="o">.</span><span class="n">tsinghua</span><span class="o">.</span><span class="n">edu</span><span class="o">.</span><span class="n">cn</span><span class="o">/</span><span class="n">simple</span>
+</code></pre></div>
+<p>永久设置源，将会写到配置文件。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="n">config</span> <span class="n">unset</span> <span class="k">global</span><span class="o">.</span><span class="n">index</span><span class="o">-</span><span class="n">url</span>
+</code></pre></div>
+<p>删除全局配置的源。</p>
+<h4 id="_9">指定源</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="n">install</span> <span class="n">xxx</span> <span class="o">-</span><span class="n">i</span> <span class="n">https</span><span class="p">:</span><span class="n">xxx</span>
+
+<span class="n">或者pip</span> <span class="n">install</span> <span class="n">xxx</span> <span class="o">--</span><span class="n">index</span><span class="o">-</span><span class="n">url</span> <span class="n">https</span><span class="p">:</span><span class="n">xxx</span>
+</code></pre></div>
+<p>也可以从github中获取</p>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="n">install</span> <span class="n">git</span><span class="o">+&lt;</span><span class="n">仓库地址</span><span class="o">&gt;</span>
+</code></pre></div>
+<h4 id="_10">常用源</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">清华大学</span><span class="err">：</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">pypi</span><span class="o">.</span><span class="n">tuna</span><span class="o">.</span><span class="n">tsinghua</span><span class="o">.</span><span class="n">edu</span><span class="o">.</span><span class="n">cn</span><span class="o">/</span><span class="n">simple</span>
+<span class="n">阿里云</span><span class="err">：</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">mirrors</span><span class="o">.</span><span class="n">aliyun</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">pypi</span><span class="o">/</span><span class="n">simple</span><span class="o">/</span>
+<span class="n">中国科学技术大学</span><span class="err">：</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">pypi</span><span class="o">.</span><span class="n">mirrors</span><span class="o">.</span><span class="n">ustc</span><span class="o">.</span><span class="n">edu</span><span class="o">.</span><span class="n">cn</span><span class="o">/</span><span class="n">simple</span><span class="o">/</span>
+</code></pre></div>
+<h3 id="_11">卸载</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="n">uninstall</span> <span class="n">软件包名</span>
+</code></pre></div>
+<p>卸载对应的软件包。</p>
+<h3 id="_12">查看</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="o">--</span><span class="n">version</span>
+</code></pre></div>
+<p>查看pip的版本。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="nb">list</span>
+</code></pre></div>
+<p>列出安装了那些包</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/ai/lerobot搭建.html">← lerobot搭建</a>
+    <a class="next" href="/laumy.github.io/posts/ai/onnx-runtime-c-端侧模型部署yolov5.html">ONNX Runtime C++端侧模型部署YOLOv5 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

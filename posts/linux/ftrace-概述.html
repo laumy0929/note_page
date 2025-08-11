@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ftrace-概述 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#tracers">tracers</a><ul></ul></li><li><a href="#events">events</a><ul></ul></li><li><a href="#trace_options">trace_options</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>ftrace-概述</h1>
+  <div class="meta">2024-08-27 · linux</div>
+  <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_1bb420627685200b9cfc21e886ecadcc.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/性能工具/ftrace-概述/images/wp_editor_md_1bb420627685200b9cfc21e886ecadcc.jpg"/></a></p>
+<p>ftrace是一个内部跟踪器，用于帮助开发人员查找内核正在发生的事情，它可用于调试或分析用户空间之外发生的延迟和性能问题。ftrace从名称上看是function trace，函数跟踪器，但它实际并不限制函数跟踪，而是多个不同跟踪实用程序的框架。延迟跟踪可以检查在禁用和启用中断之间发生的情况，以及抢占和从唤醒任务到实际运行任务的时间。 ftrace最常见的用途之一是用于事件跟踪(event tracing)，整个内核有数百个静态事件点，可以通过tracefs文件系统启用这些事件点，以查看内核某些部分正在发生的事件。 ftrace使用tracefs文件系统来保存控制文件以及显示输出的文件，当tracefs配置到内核中时，将创建目录/sys/kernel/tracing。要挂载此目录，可以将其添加到/etc/fstab文件中。</p>
+<div class="codehilite"><pre><span></span><code><span class="w"> </span><span class="n">tracefs</span><span class="w">       </span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">tracing</span><span class="w">       </span><span class="n">tracefs</span><span class="w"> </span><span class="n">defaults</span><span class="w">        </span><span class="mi">0</span><span class="w">       </span><span class="mi">0</span>
+</code></pre></div>
+<p>当然也可以进行命令挂载：mount -t tracefs nodev /sys/kernel/tracing。需要注意的是在4.1内核之前，所有的ftrace跟踪控制文件都在debugfs文件系统中，该文件系统位于/sys/kernel/debug/tracing，因此为了向后兼容，在挂载debugfs文件系统时，tracefs就会自动挂载/sys/kernel/debug/tracing。 挂载tracefs后，可以访问ftrace的控制和输出文件，以下是关键文件节点：</p>
+<ul>
+<li>current_tracer:用于设置或显示当前配置的跟踪器，更改当前跟踪器会清除环形缓冲区内容。</li>
+<li>available_tracers:保存已经编译到内核中的不同类型跟踪器，该类型用于配置上面的current_tracer。</li>
+<li>tracing_on:用于设置是否开启对跟踪环形缓冲区的写入（0/1启停），需要注意的时即使禁止环形缓冲区的写入，跟踪开销可能仍然在发生。每次写current_tracer后，tracing_on会默认设置0。</li>
+<li>events:这个目录包含了内核中可用的跟踪事件列表。它定义了各种内核事件，比如 sched_switch（任务调度切换）、irq_handler_entry（中断处理入口）等。通过这些事件，可以捕获并分析内核的各种活动。</li>
+<li>trace_options:用于控制trace输出文件的显示数据量，还可以更改堆栈跟踪、时间戳等。</li>
+<li>options:这是一个目录，包含每个可用跟踪选项的文件，也可以通过具有选项名称的</li>
+<li>set_ftrace_filter:用于dynamic ftrace，代码被动态修改（text重写）以禁用对函数分析器（mcount）的调用，这样就可以在几乎不影响性能的情况下配置跟踪。设置函数跟踪过滤后，跟踪器就只会跟踪设置的函数。</li>
+<li>set_ftrace_notrace：与set_ftrace_filter相反，添加的函数不会被跟踪。</li>
+<li>set_ftrace_pid:函数跟踪器只跟踪PID列再次文件中的线程。如果设置了”function-fork”选项，则当PID列在此文件中的任务分叉时，子任务的PID将自动添加到此文件中，并且函数跟踪器也会跟踪子任务。</li>
+<li>set_event_pid:让event只跟踪PID列在此文件的任务。</li>
+<li>set_graph_function:此文件中列出的函数将导致函数图跟踪器仅跟踪这些函数及其调用的函数。需要注意的时set_ftrace_filter/set_ftrace_notrace仍然会影响正在跟踪的函数，即function tracer和graph tracer叠加。</li>
+<li>available_filter_functions:列出ftrace已处理并可以跟踪的函数。即上面set_ftrace_filter/set_graph_function设置的函数名称。</li>
+</ul>
+<h2 id="tracers">tracers</h2>
+<p>Tracer是 Ftrace 预设的多种内核行为追踪模块，通过不同 tracer 可观测特定类型的内核事件。列出当前常用的跟踪器，可以通过cat available_tracers获取当前支持那些跟踪器。</p>
+<ul>
+<li>function:函数调用跟踪器，用于跟踪所有内核函数。</li>
+<li>function_graph:与函数跟踪器类似，不同之处在于函数跟踪器在函数入口出探测函数，而函数图跟踪器在函数入口和出口处跟踪进行跟踪，然后，它能够绘制类似C代码的函数调用图。</li>
+<li>blk:块跟踪器，blktrace应用程序使用的跟踪器。</li>
+<li>hwlat:硬件延迟跟踪器，用于检测硬件是否产生任何延迟。</li>
+<li>irqsoff:跟踪禁用中断区域并保存最大延迟最长的跟踪。当中断被禁止时，系统无法响应外部事件，比如鼠标和键盘，时钟也无法产生tick中断，这也意味着系统响应延迟，irqsoff这个tracer能够跟踪并记录内核中哪些函数禁止了中断，对于其中中断禁止时间最长的，irqsoff将在Log文件中第一行标记出来，从而使开发者可以迅速定位造成响应延迟的罪魁祸首</li>
+<li>preemptoff:与irqsoff类型，但跟踪并记录禁用抢占的时间量。</li>
+<li>preemptirqsoff:与irqsoff和preemptoff类似，但跟踪并记录禁用irqs或抢占的最大时间。</li>
+<li>wakeup:跟踪并记录在唤醒最高优先级任务后对其进展调度所需要的最大延迟。</li>
+<li>wakeup_rt:跟踪并记录仅RT任务所需要的最大延迟。</li>
+<li>wakeup_dl:跟踪并记录SCHED_DEADLINE任务所需的最大延迟。</li>
+<li>nop:不跟踪任务内容。</li>
+</ul>
+<p>以下是使用tracer的典型示例，输出格式如下</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_a09b71756eeee0771f6e35dc11e8421e.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/性能工具/ftrace-概述/images/wp_editor_md_a09b71756eeee0771f6e35dc11e8421e.jpg"/></a></p>
+<p>上面是一个function tracer的输出示例，打印的标题包含跟踪器的名称。在本例中，tracer是function，entries-in-buffer表示缓冲区的事件数，entries-written是写入的数目，差异是由于缓冲区填满而丢失的数据。标题解释了event内容。第一行内容表示Task 为bash，PID为1977，运作在CPU0上，运行的时间戳格式为\.\，表示进入该函数的时间。被跟踪的函数是sys_close，以及调用此函数的父函数为system_call_fastpath。 下面是irqsoff tracer的示例，输出格式如下：</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_acdb8deb35b51510796febc9f546c143.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/性能工具/ftrace-概述/images/wp_editor_md_acdb8deb35b51510796febc9f546c143.jpg"/></a></p>
+<p>上图表示tracer是irqsoff，给出了irqsoff latency trace的版本为v1.1.5运行待3.8.0内核上。跟踪的条目和总数均为4个，最大的延时是259us。VP,KP,SP,HP始终为0用于后续使用，#P表示当前在线的CPU数量。task是延迟发生时正在运行的进程。导致延迟最大的启动和停止函数（分别禁用和启动中断的函数）是__lock_task_sighand（关中断）和_raw_spin_unlock_irqrestore（开中断）。 下面接着再来解释一条trace的内容。</p>
+<ul>
+<li>cmd:跟踪中进程的名称</li>
+<li>pid：该进程的pid</li>
+<li>CPU#:进程正在运行的CPU</li>
+<li>irq-soff: “d”表示中断被禁用，否则为 “.”。如果架构不支持irq标志变量，这里为打印“X”。</li>
+<li>need-resched: “N”表示TIF_NEED_RESCHED和“PREEMPT_NEED_RESCHED”都设置了。“n”仅设置了TIF_NEED_RESCHED，“p”仅设置了PREEMPT_NEED_RESCHED。否则为“.”。</li>
+<li>hardirq/softirq:当前是否发生硬件中断、软件中断，“Z”表示NMI发生在hardirq中，“z”表示NMI正在运行，“H”硬件中断发生在软中断中。“h”硬件中断正在运行，“s”软解中断正在运行。“.”正常的上下文。</li>
+<li>preempt-depth: 被抢占的调用深度。</li>
+<li>time:相对于tracer开始的时间戳，这里是相对时间，表示tracer过程中中断被关闭的时间。</li>
+<li>delay:延时的标号，“$”表示大于1S，“@”表示大于100ms，“*”表示大于10ms，“#”表示大于1000us，“!”表示大于100us，“+”表示大于10us，“ ”表示小于等于10us。</li>
+</ul>
+<h2 id="events">events</h2>
+<p>events 是 ftrace 的另一种跟踪机制，允许跟踪内核中的特定事件。Events是基于内核静态埋点（Tracepoints）或动态探针（Kprobes）的细粒度追踪机制。这些事件可以是内核中发生的各种操作，如任务调度、系统调用、内存分配、中断等。与tracer不同，events跟踪的是特定的内核事件。可以通过cat available_events或者ll /sys/kernel/tracing/events查看当前打开了哪些events。</p>
+<div class="codehilite"><pre><span></span><code><span class="nl">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">tracing</span><span class="o">/</span><span class="n">events</span><span class="err">#</span><span class="w"> </span><span class="n">ls</span>
+<span class="n">alarmtimer</span><span class="w">               </span><span class="n">ipi</span><span class="w">                      </span><span class="n">rpm</span>
+<span class="n">asoc</span><span class="w">                     </span><span class="n">irq</span><span class="w">                      </span><span class="n">rtc</span>
+<span class="n">block</span><span class="w">                    </span><span class="n">jbd2</span><span class="w">                     </span><span class="n">sched</span>
+<span class="n">bridge</span><span class="w">                   </span><span class="n">kmem</span><span class="w">                     </span><span class="n">scsi</span>
+<span class="n">cfg80211</span><span class="w">                 </span><span class="n">kyber</span><span class="w">                    </span><span class="n">signal</span>
+<span class="n">cfg802154</span><span class="w">                </span><span class="n">l2tp</span><span class="w">                     </span><span class="n">skb</span>
+<span class="n">cgroup</span><span class="w">                   </span><span class="n">mac80211</span><span class="w">                 </span><span class="n">smbus</span>
+<span class="n">clk</span><span class="w">                      </span><span class="n">mac802154</span><span class="w">                </span><span class="n">sock</span>
+<span class="n">cma</span><span class="w">                      </span><span class="n">migrate</span><span class="w">                  </span><span class="n">spi</span>
+<span class="n">compaction</span><span class="w">               </span><span class="n">mmap</span><span class="w">                     </span><span class="n">sunxi_ccu</span>
+<span class="n">cpuhp</span><span class="w">                    </span><span class="n">mmap_lock</span><span class="w">                </span><span class="n">sunxi_uart</span>
+<span class="n">dev</span><span class="w">                      </span><span class="n">mmc</span><span class="w">                      </span><span class="n">sunxi_udc</span>
+<span class="n">devfreq</span><span class="w">                  </span><span class="n">module</span><span class="w">                   </span><span class="n">swiotlb</span>
+<span class="n">dma_fence</span><span class="w">                </span><span class="n">napi</span><span class="w">                     </span><span class="n">syscalls</span>
+<span class="n">enable</span><span class="w">                   </span><span class="n">neigh</span><span class="w">                    </span><span class="n">task</span>
+<span class="n">error_report</span><span class="w">             </span><span class="n">net</span><span class="w">                      </span><span class="n">tcp</span>
+<span class="n">ext4</span><span class="w">                     </span><span class="n">netlink</span><span class="w">                  </span><span class="n">thermal</span>
+<span class="n">fib</span><span class="w">                      </span><span class="n">oom</span><span class="w">                      </span><span class="n">thermal_power_allocator</span>
+<span class="n">fib6</span><span class="w">                     </span><span class="n">page_isolation</span><span class="w">           </span><span class="n">timer</span>
+<span class="n">filelock</span><span class="w">                 </span><span class="n">pagemap</span><span class="w">                  </span><span class="n">tipc</span>
+<span class="n">filemap</span><span class="w">                  </span><span class="n">percpu</span><span class="w">                   </span><span class="n">udp</span>
+<span class="n">ftrace</span><span class="w">                   </span><span class="n">power</span><span class="w">                    </span><span class="n">v4l2</span>
+<span class="n">gadget</span><span class="w">                   </span><span class="n">preemptirq</span><span class="w">               </span><span class="n">vb2</span>
+<span class="n">gpio</span><span class="w">                     </span><span class="n">printk</span><span class="w">                   </span><span class="n">vmscan</span>
+<span class="n">header_event</span><span class="w">             </span><span class="n">pwm</span><span class="w">                      </span><span class="n">vsock</span>
+<span class="n">header_page</span><span class="w">              </span><span class="n">qdisc</span><span class="w">                    </span><span class="n">workqueue</span>
+<span class="n">i2c</span><span class="w">                      </span><span class="n">raw_syscalls</span><span class="w">             </span><span class="n">writeback</span>
+<span class="n">initcall</span><span class="w">                 </span><span class="n">rcu</span><span class="w">                      </span><span class="n">xdp</span>
+<span class="n">iomap</span><span class="w">                    </span><span class="n">regmap</span>
+<span class="n">iommu</span><span class="w">                    </span><span class="n">regulator</span>
+</code></pre></div>
+<h2 id="trace_options">trace_options</h2>
+<p>trace_options文件用户控制trace输出的打印内容，或者控制trace。要查看可用的内容，可以使用cat trace_opstions。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_f5becd76b5308fbb6bd1bc2b1159ff1f.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/性能工具/ftrace-概述/images/wp_editor_md_f5becd76b5308fbb6bd1bc2b1159ff1f.jpg"/></a></p>
+<p>如果要禁用其中一个选项，可以在选项的加上前缀no，如要禁用print-parent，echo noprint-parent &gt; trace_options。如果要重新使能去掉no前缀再写入即可。</p>
+<ul>
+<li>print-parent:在珊瑚跟踪过程中，显示调用函数以及被跟踪的函数。</li>
+<li>sys-offset:不仅显示函数名称，还要显示函数中的偏移量。</li>
+<li>sym-addr:显示函数地址以及函数名称。</li>
+<li>irq-info:显示中断、抢占技术、调度的数据。</li>
+<li>function-trace:默认启用，表示延迟跟踪器将启用函数跟踪，当禁用此选项是，延迟跟踪器不会跟踪函数。</li>
+<li>function-fork:跟踪任务的子任务。</li>
+<li>display-gragh：设置后，延迟跟踪器（irqsoff，wakeup等）将使用函数图跟踪而不是函数跟踪。</li>
+<li>stacktrace：设置后，在记录任何跟踪事件都会记录堆栈跟踪。</li>
+</ul>
+<p>由于function_graph tracer输出略不同，因此它有自己的选项来控制显示内容，在options/目录下。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_c7b60b5392fe457bfaa4d51ec66b3e47.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/性能工具/ftrace-概述/images/wp_editor_md_c7b60b5392fe457bfaa4d51ec66b3e47.jpg"/></a></p>
+<ul>
+<li>funcgraph-cpu:设置后，将显示跟踪发生的CPU编号。</li>
+<li>funcgragh-irqs:禁用后，不会跟踪中断内部发生的函数。</li>
+</ul></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/linux/动态function-tracer原理.html">← 动态function tracer原理</a>
+    <a class="next" href="/laumy.github.io/posts/linux/ftrace的使用.html">ftrace的使用 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

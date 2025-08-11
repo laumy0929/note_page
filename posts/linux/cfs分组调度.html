@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CFS分组调度 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">基本原理</a><ul></ul></li><li><a href="#_2">创建组调度</a><ul></ul></li><li><a href="#_3">权重</a><ul></ul></li><li><a href="#_4">带宽管理</a><ul><li><a href="#_5">任务组剩余时间</a></li><li><a href="#_6">限制任务组运行</a></li><li><a href="#period_timeslack_timer">period_time和slack_timer定时器</a></li><li><a href="#_7">小结</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>CFS分组调度</h1>
+  <div class="meta">2023-04-01 · linux</div>
+  <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f1872becbdd34723c385b1b47f19f12e.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/进程调度/5-cfs分组调度/images/wp_editor_md_f1872becbdd34723c385b1b47f19f12e.jpg"/></a></p>
+<p>Linux系统都是支持多用户登录，如果一个Linux系统两个用户存在不同的数量的进程，假设A用户有10个进程，B用户有20个进程，如果系统对这30个进程进行平分CPU，实际上是不公平的，因此引入了组调度的概念，即A用户对CPU的占用应该跟B用对CPU的占用各自为50%，A/B用户下的进程再根据得到占用进行划分。系统中有cfs组调度和rt组调度，本小节主要以cfs调度为主。 如上图，组A的进程分别分配到了CPU0和CPU1上运行，在CPU0和CPU1上的进程各自组合成一个调度实体G1，两个组在各自的CPU上互不影响。以CPU0为例，G1和P1在一颗红黑树中进行调度，G1获得的“调度资源”，将需要“平分”给其组员（组进程）。</p>
+<h2 id="_1">基本原理</h2>
+<p>使用struct task_group来描述任务组，下面是struct task_group的数据结构，后续的组用tg简称。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">kernel</span><span class="o">/</span><span class="n">sched</span><span class="o">/</span><span class="n">sched</span><span class="p">.</span><span class="n">h</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">task_group</span><span class="w"> </span><span class="p">{</span>
+
+<span class="k">struct</span><span class="w"> </span><span class="nc">cgroup_subsys_state</span><span class="w"> </span><span class="n">css</span><span class="p">;</span>
+
+<span class="k">struct</span><span class="w"> </span><span class="nc">sched_entity</span><span class="w"> </span><span class="o">**</span><span class="n">se</span><span class="p">;</span><span class="w"> </span><span class="c1">//动态数组，对应每个cpu上调度实体</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w">   </span><span class="o">**</span><span class="n">cfs_rq</span><span class="p">;</span><span class="c1">//动态数组，对应每个cpu上调度实体下的进程集合</span>
+
+<span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w">  </span><span class="n">shares</span><span class="p">;</span><span class="w"> </span><span class="c1">//当前进程组权重</span>
+<span class="n">atomic_long_t</span><span class="w">  </span><span class="n">load_avg</span><span class="p">;</span>
+
+<span class="k">struct</span><span class="w"> </span><span class="nc">sched_rt_entity</span><span class="w">  </span><span class="o">**</span><span class="n">rt_se</span><span class="p">;</span><span class="w"> </span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">rt_rq</span><span class="w">  </span><span class="o">**</span><span class="n">rt_rq</span><span class="p">;</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">rt_bandwidth</span><span class="w"> </span><span class="n">rt_bandwidth</span><span class="p">;</span>
+
+<span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w"> </span><span class="n">list</span><span class="p">;</span><span class="w">  </span><span class="n">全局所有任务组加入到全局链表task_groups上</span><span class="err">。</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">task_group</span><span class="w"> </span><span class="o">*</span><span class="n">parent</span><span class="p">;</span><span class="w">  </span><span class="n">指向当前调度组的父任务组</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w">  </span><span class="n">siblings</span><span class="p">;</span><span class="w">   </span><span class="n">将当前tg挂载到父tg的children链表上</span><span class="err">。</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w">  </span><span class="n">children</span><span class="p">;</span><span class="w">  </span><span class="n">挂着当前tg组所有孩子的tg</span><span class="err">。</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">cfs_bandwidth</span><span class="w">  </span><span class="n">cfs_bandwidth</span><span class="p">;</span><span class="w"> </span><span class="n">用于带宽控制</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>所有的任务组会以树结构来组织，在Linux系统中定义了一个全局的根节点struct task_group root_task_group;同时定义一个全局链表LIST_HEAD(task_groups)将所有任务组串在一个链表上。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b496009e3a560090c5d6e04e4aaeb35d.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/进程调度/5-cfs分组调度/images/wp_editor_md_b496009e3a560090c5d6e04e4aaeb35d.jpg"/></a></p>
+<p>如上图，G1~G4形成一颗树，根为root_task_group，并且G1~G4串联在链表上task_groups上。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1b6edc49fa6d706aade6d2e82c4f1344.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/进程调度/5-cfs分组调度/images/wp_editor_md_1b6edc49fa6d706aade6d2e82c4f1344.jpg"/></a></p>
+<p>上图是task_group与调度相关数据结构之间的关系。task_group有自己的调度实体struct sched_entity，与task_struct中的调度实体区别是，这里是一个指针数组，指针数组的大小为当前cpu核的个数，因为一组中有多个进程，但是这些进程可以分配到不同的cpu核上，因此每个数组se表示一个cpu核上的调度实体，也就是说当分配一个组时，就会为每个CPU都会维护一个se。同理task_group中cfs_rq红黑树用于记录组任务中在每个cpu下的进程。 <a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f211e60f6594dda7734cbc030a62a4e7.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/进程调度/5-cfs分组调度/images/wp_editor_md_f211e60f6594dda7734cbc030a62a4e7.jpg"/></a>   上图是一个任务组的示例，任务组tg下进程分配到CPU0和CPU1上运行。全局root_task_group，其se和parent都会NULL，cfs分别指向CPU0和CPU1的cfs队列。因为任务组tg下的进程分布在两个cpu上，因此CPU0和CPU1各自对应一个任务组调度实体group se，tg中的se[0]和se[1]分别指向cpu0和cpu1上组调度实体，组调度实体group和进程调度实体task se处于第一级的平行关系，也就是调度公平。Group se中my_q和tg中cfs指向了任务组进程的队列，该队列处于调度的第二级。所以当组调度实体再与平行关系的进程获得调度机会后，将平均（再按照CFS算法）分给其组内进程进行调度。</p>
+<h2 id="_2">创建组调度</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_83f17783a3f6eb2fd197656bd3c0c744.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/进程调度/5-cfs分组调度/images/wp_editor_md_83f17783a3f6eb2fd197656bd3c0c744.jpg"/></a></p>
+<h2 id="_3">权重</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_85da865b68ca007a09b5c82d9bcb1277.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/进程调度/5-cfs分组调度/images/wp_editor_md_85da865b68ca007a09b5c82d9bcb1277.jpg"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="n">gse</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">.</span><span class="n">weigh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tg</span><span class="o">-&gt;</span><span class="n">weight</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">grq</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">Sum</span><span class="w"> </span><span class="n">grq</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">.</span><span class="n">weight</span>
+</code></pre></div>
+<ul>
+<li>tg-&gt;weight：任务组默认权重值，等于tg-&gt;shares，默认是1024。</li>
+<li>grq-&gt;load.weight：单cpu下任务组中所有进程的权重之和。</li>
+<li>Sum grq-&gt;load.weight：任务组中所有进程任务之后，包含分配在各cpu上的。 示例：cpu0</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="n">gse</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="mi">1024</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">2048</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="mi">1024</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">2048</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">3072</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3145728</span><span class="o">/</span><span class="mi">6144</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">512</span>
+</code></pre></div>
+<p>上面是理想化的公式模型，但是实际情况Sum grq-&gt;load.weight因为需要涉及访问各个CPU上的grq，会导致锁竞争的代价，因此根据上面公式做了近似计算最终得到如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">gse</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tg</span><span class="o">-</span><span class="n">weight</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">grq</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">.</span><span class="n">weight</span><span class="w">  </span><span class="o">/</span>
+<span class="w"> </span><span class="p">(</span><span class="n">tg</span><span class="o">-&gt;</span><span class="n">load_avg</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">grq</span><span class="o">-&gt;</span><span class="n">avg</span><span class="p">.</span><span class="n">load_avg</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">max</span><span class="w"> </span><span class="p">(</span><span class="n">grq</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">.</span><span class="n">weight</span><span class="p">,</span><span class="n">grq</span><span class="o">-&gt;</span><span class="n">avg</span><span class="p">.</span><span class="n">load_avg</span><span class="p">))</span>
+</code></pre></div>
+<p>具体演化结果可以参考kernel/sched/fair.c中calc_group_shares函数的注释，这里就不详细阐述了，calc_group_shares通过上面的公式近似计算各个gse分得的权重。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="nf">calc_group_shares</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">long</span><span class="w"> </span><span class="n">tg_weight</span><span class="p">,</span><span class="w"> </span><span class="n">tg_shares</span><span class="p">,</span><span class="w"> </span><span class="n">load</span><span class="p">,</span><span class="w"> </span><span class="n">shares</span><span class="p">;</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">task_group</span><span class="w"> </span><span class="o">*</span><span class="n">tg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">tg</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">tg_shares</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">READ_ONCE</span><span class="p">(</span><span class="n">tg</span><span class="o">-&gt;</span><span class="n">shares</span><span class="p">);</span>
+<span class="w">    </span><span class="n">load</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="n">scale_load_down</span><span class="p">(</span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">.</span><span class="n">weight</span><span class="p">),</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">avg</span><span class="p">.</span><span class="n">load_avg</span><span class="p">);</span>
+<span class="n">tg_weight</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">atomic_long_read</span><span class="p">(</span><span class="o">&amp;</span><span class="n">tg</span><span class="o">-&gt;</span><span class="n">load_avg</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* Ensure tg_weight &gt;= load */</span>
+<span class="w">    </span><span class="n">tg_weight</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">tg_load_avg_contrib</span><span class="p">;</span>
+<span class="n">tg_weight</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">load</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">shares</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">tg_shares</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">load</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">tg_weight</span><span class="p">)</span>
+<span class="w">        </span><span class="n">shares</span><span class="w"> </span><span class="o">/=</span><span class="w"> </span><span class="n">tg_weight</span><span class="p">;</span>
+<span class="k">return</span><span class="w"> </span><span class="n">clamp_t</span><span class="p">(</span><span class="kt">long</span><span class="p">,</span><span class="w"> </span><span class="n">shares</span><span class="p">,</span><span class="w"> </span><span class="n">MIN_SHARES</span><span class="p">,</span><span class="w"> </span><span class="n">tg_shares</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>从公式可以看出，gse的权重与任务组进程个数以及cpu.shares有关系。cpu.shares则是用户节点/sys/fs/cgroup/cpu.shares可控制。</p>
+<p><a href="http://8.134.108.235/wp-content/uploads/2023/11/wp_editor_md_b324dfa242721d363041ac6592844cd7.jpg"><img alt="" src="images/wp_editor_md_b324dfa242721d363041ac6592844cd7.jpg"/></a></p>
+<h2 id="_4">带宽管理</h2>
+<p>考虑这样的一个场景，假设一个用户只支付了0.5个CPU的费用，那么正常情况下就只能给其0.5个CPU的时间。因此为了限制用户进程对CPU资源占用情况，引入带宽控制，带宽控制是基于分组调度来实现，对一个任务组的运行带宽做限制，也就是在一个周期内，允许一个任务组最多执行多长时间，当任务组运行完了自己的时间，将会被限制不允许运行，即使没有任何任务运行，也需要等到下一个周期。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_bd494f7998e02be44ea568046034efc4.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/进程调度/5-cfs分组调度/images/wp_editor_md_bd494f7998e02be44ea568046034efc4.jpg"/></a></p>
+<p>带宽限制以任务组为单位进行限制，为方便描述原理，上图是只有一个任务组，任务组中的进程被分配到CPU0和CPU1上运行。在task_group数据结构中，cfs_bandwidth成员用于全局描述当前任务组带宽限制，表示在一个period周期内，任务组可使用的时间为quota，这里的时间是任务组中进程的和，当quota使用完后，在整个周期内将会被限制运行，称为throttle操作。   在任务组tg（便于简化假设用户组中只有一个任务组，暂且也称用户组）中有cpu数量的就绪队列，对应上图的cfs_rq0和cfs_rq1，这两个就绪队列所属于任务组。就绪队列中runtime_remaining为当前队列中所有进程可运行的时间，进程运行时就会消耗runtime_remaining，当runtime_remaining被消耗小于0时，可以向全局时间池tg-&gt;cfs_b-&gt;runtime（表示任务组剩余可使用的时间）中申请，每次申请的值为sysctl_sched_cfs_bandwidth_slice（可节点配置，默认是5ms），当tg-&gt;cfs_b-&gt;runtime将被耗尽时，不能满足cfs_rqx-&gt;runtime_remaining时，cfs_rqx就绪队列将会被移除（对应的gse在上一级中被移除）。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f7d6f1f643860b179cda2f07ac6d2d40.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/进程调度/5-cfs分组调度/images/wp_editor_md_f7d6f1f643860b179cda2f07ac6d2d40.jpg"/></a></p>
+<p>（1）cfs_bandwidth - period: 定时器周期时间 - quota:在周期内任务组可使用的时间 - runtime:剩余时间，quota+runtime = period - period_timer:周期性定时器，定时到达后重置剩余限额runtime为quota。 - slack_timer: - throttled_cfs_rq:所有被throttle的cfs_rq挂入到次链表，用于后期unthrottle cfs_rq操作。 （2）cfs_rq中关于带宽管理描述 - runtime_enabled：该就绪队列是否开启带宽限制。 - runtime_remaining: cfs_rq会从全局时间池申请时间片，当剩余时间片小于0，需要重新申请。 - throttled:判定cfs_rq是否被throttled。 - throttled_list: 被throttled_list的cfs_rq会被挂入到cfs_bandwidth-&gt;throttled_cfs_rq链表。</p>
+<h3 id="_5">任务组剩余时间</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3aea9612ab0d9b0231d2fe8a3252b0b7.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/进程调度/5-cfs分组调度/images/wp_editor_md_3aea9612ab0d9b0231d2fe8a3252b0b7.jpg"/></a></p>
+<p>在task_group中，在每个CPU上都有一个cfs_rq红黑树，cfs_rq结构体中有一个runtime_remining用于描述当前组能够运行的时间合计，任务组中的每个任务运行都会消耗掉runtime_remining，当runtime_remaining被消耗完时会从全局时间池申请，如果全局池中的时间也用完了，那么就需要让出调度，cfs_rq就会被throttle。 runtime_remaining的更新在update_curr函数中进行。如上图所示cfs_rq-&gt;runtime_remaining-=delta_exec，每个进程将会对runtime_remainning进行消耗，当runtime_remaining不足时，调用assign_cfs_rq_runtime进行申请。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">__assign_cfs_rq_runtime</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_bandwidth</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_b</span><span class="p">,</span>
+<span class="w">                   </span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="n">target_runtime</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">u64</span><span class="w"> </span><span class="n">min_amount</span><span class="p">,</span><span class="w"> </span><span class="n">amount</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">lockdep_assert_held</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* note: this is a positive sum as runtime_remaining &lt;= 0 */</span>
+<span class="w">    </span><span class="n">min_amount</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">target_runtime</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">runtime_remaining</span><span class="p">;</span><span class="w"> </span>
+<span class="c1">//计算每次向全局时间池要申请的时间片大小，target_runtim由sched_cfs_bandwidth_slice()计算得来，默认是5ms，可以通过sched_cfs_bandwidth_slice_us节点进行修改。</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">quota</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">RUNTIME_INF</span><span class="p">)</span><span class="w">  </span><span class="c1">//不限制带宽，remainig可以一直申请到时间片。</span>
+<span class="w">        </span><span class="n">amount</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">min_amount</span><span class="p">;</span>
+<span class="w">    </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">start_cfs_bandwidth</span><span class="p">(</span><span class="n">cfs_b</span><span class="p">);</span><span class="w">  </span><span class="c1">//如果没有启动cfs_b-&gt;period_timer就启动</span>
+<span class="w">        </span><span class="c1">//如果全局时间池时间还有剩余，则分配给当前就绪队列。</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">runtime</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span>
+<span class="w">            </span><span class="n">amount</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">min</span><span class="p">(</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">runtime</span><span class="p">,</span><span class="w"> </span><span class="n">min_amount</span><span class="p">);</span><span class="w"> </span>
+<span class="w">            </span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">runtime</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="n">amount</span><span class="p">;</span><span class="w"> </span><span class="c1">//时间被瓜分出去</span>
+<span class="w">            </span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">idle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="c1">//更新当前队列的剩余时间</span>
+<span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">runtime_remaining</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">amount</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">//如果没有从全局池申请到时间片，则返回0，那么当前进程将会被throttle，让出调度。</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">runtime_remaining</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>任务组一个全局时间池，剩余全局池的时间存储在cfs_b-&gt;runtime中，其所属的就绪队列cfs_rq会从全局池中申请可使用的时间，每次申请时间大小为sched_cfs_bandwidth_slice_us（可通过节点来进行修改默认是5ms）。   cfs_rq-&gt;runtime_remaining和cfs_b-&gt;runtime的区别是？runtime为任务组的全局剩余时间，一个任务组可能包含多个cfs_rq（包含各CPU，以及子任务组等），所以runtime大于runtime_remaining。cfs_rq-&gt;runtime_remaining小于等于0时就绪队列cfs_rq的调度实体将会被移除，下次调度将不再被选择到。</p>
+<h3 id="_6">限制任务组运行</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">__account_cfs_rq_runtime</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="n">delta_exec</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="cm">/* dock delta_exec before expiring quota (as it could span periods) */</span>
+<span class="w">    </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">runtime_remaining</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="n">delta_exec</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">likely</span><span class="p">(</span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">runtime_remaining</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">))</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">throttled</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * if we're unable to extend our runtime we resched so that the active</span>
+<span class="cm">     * hierarchy can be throttled</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">assign_cfs_rq_runtime</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">likely</span><span class="p">(</span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">curr</span><span class="p">))</span>
+<span class="w">        </span><span class="n">resched_curr</span><span class="p">(</span><span class="n">rq_of</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">));</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>当assign_cfs_rq_runtime从全局时间池中申请不到时间，就会调用resched_curr触发调度。在以下场景下，会检测是否进行限流，如果限制则调用throttle_cfs_rq将当前调度实体（组调度实体）移除就绪队列。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b8f03e239e249959afd5caf4d2e7a408.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/进程调度/5-cfs分组调度/images/wp_editor_md_b8f03e239e249959afd5caf4d2e7a408.jpg"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="nf">throttle_cfs_rq</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">rq</span><span class="w"> </span><span class="o">*</span><span class="n">rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rq_of</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">);</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_bandwidth</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tg_cfs_bandwidth</span><span class="p">(</span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">tg</span><span class="p">);</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_entity</span><span class="w"> </span><span class="o">*</span><span class="n">se</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">long</span><span class="w"> </span><span class="n">task_delta</span><span class="p">,</span><span class="w"> </span><span class="n">idle_task_delta</span><span class="p">,</span><span class="w"> </span><span class="n">dequeue</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">raw_spin_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//计算当前cfs_rq剩余可用的时间。</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">__assign_cfs_rq_runtime</span><span class="p">(</span><span class="n">cfs_b</span><span class="p">,</span><span class="w"> </span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">dequeue</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//如果剩余可用时间为0，则将当前cfs_rq添加到throttled_cfs_rq。</span>
+<span class="w">        </span><span class="n">list_add_tail_rcu</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">throttled_list</span><span class="p">,</span>
+<span class="w">                  </span><span class="o">&amp;</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">throttled_cfs_rq</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">raw_spin_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<span class="w">   </span><span class="c1">//还有剩余可使用时间，直接返回</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">dequeue</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span><span class="w">  </span><span class="cm">/* Throttle no longer required. */</span>
+<span class="w">    </span><span class="c1">//获取当前cfs_rq对应的调度实体</span>
+<span class="w">    </span><span class="n">se</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">tg</span><span class="o">-&gt;</span><span class="n">se</span><span class="p">[</span><span class="n">cpu_of</span><span class="p">(</span><span class="n">rq_of</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">))];</span>
+
+<span class="w">    </span><span class="cm">/* freeze hierarchy runnable averages while throttled */</span>
+<span class="n">rcu_read_lock</span><span class="p">();</span>
+<span class="c1">//遍历cfs_rq子任务组，并累加cfs_rq-&gt;throttle_count++</span>
+<span class="w">    </span><span class="n">walk_tg_tree_from</span><span class="p">(</span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">tg</span><span class="p">,</span><span class="w"> </span><span class="n">tg_throttle_down</span><span class="p">,</span><span class="w"> </span><span class="n">tg_nop</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">rq</span><span class="p">);</span>
+<span class="w">    </span><span class="n">rcu_read_unlock</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">task_delta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">h_nr_running</span><span class="p">;</span>
+<span class="w">    </span><span class="n">idle_task_delta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">idle_h_nr_running</span><span class="p">;</span>
+<span class="w">    </span><span class="n">for_each_sched_entity</span><span class="p">(</span><span class="n">se</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">qcfs_rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq_of</span><span class="p">(</span><span class="n">se</span><span class="p">);</span>
+<span class="w">        </span><span class="cm">/* throttled entity or throttle-on-deactivate */</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">se</span><span class="o">-&gt;</span><span class="n">on_rq</span><span class="p">)</span>
+<span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">done</span><span class="p">;</span>
+<span class="w">        </span><span class="c1">//将当前调度实体出队，移除就绪队列</span>
+<span class="w">        </span><span class="n">dequeue_entity</span><span class="p">(</span><span class="n">qcfs_rq</span><span class="p">,</span><span class="w"> </span><span class="n">se</span><span class="p">,</span><span class="w"> </span><span class="n">DEQUEUE_SLEEP</span><span class="p">);</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_rq_is_idle</span><span class="p">(</span><span class="n">group_cfs_rq</span><span class="p">(</span><span class="n">se</span><span class="p">)))</span>
+<span class="w">            </span><span class="n">idle_task_delta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">h_nr_running</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">qcfs_rq</span><span class="o">-&gt;</span><span class="n">h_nr_running</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="n">task_delta</span><span class="p">;</span>
+<span class="w">        </span><span class="n">qcfs_rq</span><span class="o">-&gt;</span><span class="n">idle_h_nr_running</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="n">idle_task_delta</span><span class="p">;</span>
+<span class="w">        </span><span class="c1">//如果当前调度实体的就绪队列只有一个，那么父调度实体也要被出队。</span>
+<span class="w">        </span><span class="c1">//如果调度实体就绪队列不只是一个，那么直接退出，也就只循环一次。</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">qcfs_rq</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">.</span><span class="n">weight</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="cm">/* Avoid re-evaluating load for this entity: */</span>
+<span class="w">            </span><span class="n">se</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parent_entity</span><span class="p">(</span><span class="n">se</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span>
+<span class="c1">//设置被限流的标志</span>
+<span class="w">    </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">throttled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>判断一个cfs_rq是否被限流的标志，就是看cfs_rq-reamaining是否还能申请到时间。</p>
+<h3 id="period_timeslack_timer">period_time和slack_timer定时器</h3>
+<p>struct cfs_bandwith结构体中，有两个定时器：period_timer和slack_timer。period_timer计时到达时表示一个period到期（对应cfs_bandwith中的period周期），就会重新更新quota以及解除之前限制的任务。slack_timer则要解决的是全局时间池时间的浪费问题，假设一个cfs_rq从全局池申请了5ms时间片，而cfs_rq中只有一个进程，该进程运行1ms就睡眠一直睡眠了，而整个cfs_rq对应的gse会被dequeue，那么剩余的4ms需要归部分还给全局时间池，当全局池时间累计大于5ms，那么就启动slack_timer将此前ttrottle cfs_rq取消限流。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">init_cfs_bandwidth</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_bandwidth</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_b</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">raw_spin_lock_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<span class="w">    </span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">runtime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">quota</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">RUNTIME_INF</span><span class="p">;</span><span class="w"> </span><span class="c1">//默认=-1，无限制</span>
+<span class="w">    </span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">period</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ns_to_ktime</span><span class="p">(</span><span class="n">default_cfs_period</span><span class="p">());</span><span class="w"> </span><span class="c1">//初始化period，默认100ms</span>
+<span class="w">    </span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">burst</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">INIT_LIST_HEAD</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">throttled_cfs_rq</span><span class="p">);</span><span class="w"> </span><span class="c1">//初始化链表，被限制的cfs将挂到该链表上</span>
+<span class="w">    </span><span class="n">hrtimer_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">period_timer</span><span class="p">,</span><span class="w"> </span><span class="n">CLOCK_MONOTONIC</span><span class="p">,</span><span class="w"> </span><span class="n">HRTIMER_MODE_ABS_PINNED</span><span class="p">);</span>
+<span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">period_timer</span><span class="p">.</span><span class="n">function</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sched_cfs_period_timer</span><span class="p">;</span>
+<span class="c1">//初始化period_timer定时器</span>
+
+<span class="w">    </span><span class="n">hrtimer_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">slack_timer</span><span class="p">,</span><span class="w"> </span><span class="n">CLOCK_MONOTONIC</span><span class="p">,</span><span class="w"> </span><span class="n">HRTIMER_MODE_REL</span><span class="p">);</span>
+<span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">slack_timer</span><span class="p">.</span><span class="n">function</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sched_cfs_slack_timer</span><span class="p">;</span>
+<span class="c1">//初始化slack_timer定时器</span>
+
+<span class="w">    </span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">slack_started</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3ae5d03ffcffee865d959eb75ba13ab6.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/进程调度/5-cfs分组调度/images/wp_editor_md_3ae5d03ffcffee865d959eb75ba13ab6.jpg"/></a></p>
+<p>init_cfs_bandwidth函数将初始化两个定时器，period_timer在进程入队/更新runtime时间的时候进行启动，启动period_timer后就每个period时间后重新将quota更新给任务组的runtime并将已经节流的cfs_rq重新加入队列。slack_timer是在调度实体出队的时候触发，当调度实体被移除就绪队列时，就检测cfs_rq上剩余可运行时间，如果剩余时间不足1ms就不用归还给全局时间池，否则归还cfs_rq-&gt;runtime_remaining - min_cfs_rq_runtime（默认1ms）的时间给全局时间池，归还给全局时间池后需要判断是否可以启动定时器将此前被节流的cfs_rq调度实体重新加入到就绪队列中，判断的条件是全局池中剩余的时间要大于cfs_b-&gt;runtime &gt; sched_cfs_bandwidth_slice()（默认要大于5ms），因为cfs_rq每次申请的时间片是sched_cfs_bandwidth_slice()。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">__return_cfs_rq_runtime</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_bandwidth</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tg_cfs_bandwidth</span><span class="p">(</span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">tg</span><span class="p">);</span>
+<span class="w">    </span><span class="n">s64</span><span class="w"> </span><span class="n">slack_runtime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">runtime_remaining</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">min_cfs_rq_runtime</span><span class="p">;</span>
+<span class="c1">//计算归还给系统的时间，预留一点时间给就绪队列</span>
+<span class="c1">//如果没有剩余时间，直接返回。</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">slack_runtime</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">raw_spin_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">quota</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">RUNTIME_INF</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">runtime</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">slack_runtime</span><span class="p">;</span>
+
+<span class="w">        </span><span class="c1">//全局池的时间要大于cfs_rq每次申请的时间片并且有就绪队列被节流</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">runtime</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">sched_cfs_bandwidth_slice</span><span class="p">()</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">            </span><span class="o">!</span><span class="n">list_empty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">throttled_cfs_rq</span><span class="p">))</span>
+<span class="w">            </span><span class="n">start_cfs_slack_bandwidth</span><span class="p">(</span><span class="n">cfs_b</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">raw_spin_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cfs_b</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">//重新更新当前就绪队列的时间片</span>
+<span class="w">    </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">runtime_remaining</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="n">slack_runtime</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="_7">小结</h3>
+<p>（1）cfs_b-&gt;runtime: 任务组的进程在一个period周期能可运行的时间为runtime，该值在每个周期到来时会被更新为quota值。 （2）cfs_rq-&gt;runtime_remaining:任务组所属的就绪队列cfs_rq，就绪队列中的进程运行后将会消耗runtime_remaining，调度周期会调用update_curr函数更新当前进程执行时间了多少时间即对应runtime_remaining就会被减少，当runtime_remaining不足时就会向全局cfs_b-&gt;runtime申请，如果申请不到当前的cfs_rq就绪队列上所以进程就会被节流无法再运行。 （3）节流：就绪队列无法申请到运行时间就会被节流并设置可被抢占（resched_curr），在进程切换的时候会检查被节流的调度实体，并将当前调度实体从就绪队列中移除。 （4）解除节流：下一个周期到来或者另外一个就绪队列让出了时间（slack_timer），节流的队列将会被重新加入到就绪队列得以运行。</p>
+<p>将两个进程放到任务组，调整quota_us观察cpu占用率情况。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">mkdir</span><span class="w"> </span><span class="o">-</span><span class="n">p</span><span class="w"> </span><span class="n">cgroup</span><span class="o">/</span><span class="n">cpu</span><span class="o">/</span>
+<span class="n">mount</span><span class="w"> </span><span class="o">-</span><span class="n">t</span><span class="w"> </span><span class="n">cgroup</span><span class="w"> </span><span class="o">-</span><span class="n">ocpu</span><span class="w"> </span><span class="n">cpu</span><span class="w"> </span><span class="o">/</span><span class="n">cgroup</span><span class="o">/</span><span class="n">cpu</span><span class="o">/</span>
+<span class="n">cd</span><span class="w"> </span><span class="o">/</span><span class="n">cgroup</span><span class="o">/</span><span class="n">cpu</span><span class="o">/</span>
+<span class="n">mkdir</span><span class="w"> </span><span class="n">A</span>
+<span class="n">cd</span><span class="w"> </span><span class="n">A</span>
+<span class="n">echo</span><span class="w"> </span><span class="mi">1293</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">cgroup</span><span class="p">.</span><span class="n">procs</span>
+<span class="n">echo</span><span class="w"> </span><span class="mi">1294</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">cgroup</span><span class="p">.</span><span class="n">procs</span>
+<span class="n">cat</span><span class="w"> </span><span class="n">cpu</span><span class="p">.</span><span class="n">cfs_period_us</span>
+<span class="n">echo</span><span class="w"> </span><span class="mi">10000</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">cpu</span><span class="p">.</span><span class="n">cfs_quota_us</span>
+</code></pre></div>
+<p>将两个进程绑定到一个核上运行，调整nice观察cpu占用率。</p>
+<div class="codehilite"><pre><span></span><code><span class="cp"># 将1309和1221都绑定到0核上</span>
+<span class="n">taskset</span><span class="w"> </span><span class="o">-</span><span class="n">cp</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="mi">1309</span>
+<span class="n">taskset</span><span class="w"> </span><span class="o">-</span><span class="n">cp</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="mi">1221</span>
+<span class="n">renice</span><span class="w"> </span><span class="mi">-1</span><span class="w"> </span><span class="mi">1221</span><span class="w"> </span><span class="err">#</span><span class="n">动态调整1221进程的优先级</span>
+</code></pre></div>
+<p>将两个进程放到任务组，并运行多个进程，调整cpu.shares，观察整体任务组分配到的cpu占用率，把相同业务的进程放到一个组，然后调整优先级。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">mkdir</span><span class="w"> </span><span class="o">-</span><span class="n">p</span><span class="w"> </span><span class="n">cgroup</span><span class="o">/</span><span class="n">cpu</span><span class="o">/</span>
+<span class="n">mount</span><span class="w"> </span><span class="o">-</span><span class="n">t</span><span class="w"> </span><span class="n">cgroup</span><span class="w"> </span><span class="o">-</span><span class="n">ocpu</span><span class="w"> </span><span class="n">cpu</span><span class="w"> </span><span class="o">/</span><span class="n">cgroup</span><span class="o">/</span><span class="n">cpu</span><span class="o">/</span>
+<span class="n">cd</span><span class="w"> </span><span class="o">/</span><span class="n">cgroup</span><span class="o">/</span><span class="n">cpu</span><span class="o">/</span>
+<span class="n">mkdir</span><span class="w"> </span><span class="n">A</span>
+<span class="n">cd</span><span class="w"> </span><span class="n">A</span>
+<span class="n">echo</span><span class="w"> </span><span class="mi">1293</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">cgroup</span><span class="p">.</span><span class="n">procs</span>
+<span class="n">echo</span><span class="w"> </span><span class="mi">1294</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">cgroup</span><span class="p">.</span><span class="n">procs</span>
+<span class="n">echo</span><span class="w"> </span><span class="mi">1277</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">cpu</span><span class="p">.</span><span class="n">shares</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/linux/cfs调度实现.html">← CFS调度实现</a>
+    <a class="next" href="/laumy.github.io/posts/linux/cfs调度原理.html">CFS调度原理 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

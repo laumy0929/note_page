@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>分类：调试 / kasan原理 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card profile">
+          <img class="avatar" src="/laumy.github.io/assets/avatar.jpg" alt="avatar" />
+          <div class="author">laumy</div>
+          <div class="bio">为学日益，为道日损</div>
+          <div class="stats">
+            <div><div class="num">160</div><div class="label">文章数</div></div>
+            <div><div class="num">10</div><div class="label">分类</div></div>
+          </div>
+        </div>
+                    
+            <div class="card">
+              <div class="card-title">分类专栏</div>
+              <ul class="category-list">
+                
+                <li class="category-item has-subcategories">
+                  <a href="/laumy.github.io/categories/linux.html" class="category-main">
+                    <span class="category-name">linux</span>
+                    <span class="subcategory-count">(48篇)</span>
+                  </a>
+                  
+                  <ul class="subcategory-list">
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/性能工具.html">
+                        <span class="subcategory-name">性能工具</span>
+                        <span class="subcategory-count">(6篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/设备驱动.html">
+                        <span class="subcategory-name">设备驱动</span>
+                        <span class="subcategory-count">(5篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/内存管理.html">
+                        <span class="subcategory-name">内存管理</span>
+                        <span class="subcategory-count">(10篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/文件系统.html">
+                        <span class="subcategory-name">文件系统</span>
+                        <span class="subcategory-count">(12篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/进程调度.html">
+                        <span class="subcategory-name">进程调度</span>
+                        <span class="subcategory-count">(9篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/中断管理.html">
+                        <span class="subcategory-name">中断管理</span>
+                        <span class="subcategory-count">(6篇)</span>
+                      </a>
+                    </li>
+                    
+                  </ul>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/risc-v.html" class="category-main">
+                    <span class="category-name">risc-v</span>
+                    <span class="subcategory-count">(25篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/rtos.html" class="category-main">
+                    <span class="category-name">rtos</span>
+                    <span class="subcategory-count">(4篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item has-subcategories">
+                  <a href="/laumy.github.io/categories/ai.html" class="category-main">
+                    <span class="category-name">ai</span>
+                    <span class="subcategory-count">(41篇)</span>
+                  </a>
+                  
+                  <ul class="subcategory-list">
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/ai应用.html">
+                        <span class="subcategory-name">ai应用</span>
+                        <span class="subcategory-count">(12篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/算法.html">
+                        <span class="subcategory-name">算法</span>
+                        <span class="subcategory-count">(5篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/lerobot.html">
+                        <span class="subcategory-name">lerobot</span>
+                        <span class="subcategory-count">(10篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/深度学习.html">
+                        <span class="subcategory-name">深度学习</span>
+                        <span class="subcategory-count">(11篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/opencv.html">
+                        <span class="subcategory-name">opencv</span>
+                        <span class="subcategory-count">(3篇)</span>
+                      </a>
+                    </li>
+                    
+                  </ul>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/外设.html" class="category-main">
+                    <span class="category-name">外设</span>
+                    <span class="subcategory-count">(2篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/语言.html" class="category-main">
+                    <span class="category-name">语言</span>
+                    <span class="subcategory-count">(4篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/调试.html" class="category-main">
+                    <span class="category-name">调试</span>
+                    <span class="subcategory-count">(7篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/网络.html" class="category-main">
+                    <span class="category-name">网络</span>
+                    <span class="subcategory-count">(5篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/阅读.html" class="category-main">
+                    <span class="category-name">阅读</span>
+                    <span class="subcategory-count">(6篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/其他.html" class="category-main">
+                    <span class="category-name">其他</span>
+                    <span class="subcategory-count">(18篇)</span>
+                  </a>
+                  
+                </li>
+                
+              </ul>
+            </div>
+            
+        
+      </aside>
+
+      <section class="content">
+        
+<div class="card">
+  <div class="card-title">分类：调试 / kasan原理</div>
+  <div class="post-list">
+    
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="/laumy.github.io/assets/thumbs/wp_editor_md_54ee3f7bb483f2711bf976d7be7473a8.jpg" alt="kasan原理" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="/laumy.github.io/posts/调试/kasan原理.html">kasan原理</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2024-05-24
+            </span>
+          </div>
+          <p class="summary">kasan是什么？（基本原理） kasan是用于内存检测的工具，能够检测内存以下异常。 buffer-overflow in heap,stack and globals use-after-free uninitialized-memory-read user-memory-a</p>
+        </div>
+      </div>
+    </article>
+    
+    
+  </div>
+ </div>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

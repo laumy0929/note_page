@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>lerobot设备标定 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#why-calibrate">why calibrate</a><ul><li><a href="#_1">明确电机范围</a></li><li><a href="#_2">归一化电机位置</a></li><li><a href="#_3">确保机器运行精度</a></li></ul></li><li><a href="#_4">校准流程</a><ul><li><a href="#_5">参数解析与配置初始化</a></li><li><a href="#_6">创建设备实例</a></li><li><a href="#_7">连接设备</a></li><li><a href="#_8">标定动作</a></li><li><a href="#_9">设备断开连接</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>lerobot设备标定</h1>
+  <div class="meta">2025-07-25 · ai</div>
+  <div class="post-content"><h2 id="why-calibrate">why calibrate</h2>
+<p>先来看看标定后的数据</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="s2">"shoulder_pan"</span><span class="p">:</span> <span class="p">{</span>                       <span class="c1">#肩部旋转关节</span>
+        <span class="s2">"id"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">"drive_mode"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">"homing_offset"</span><span class="p">:</span> <span class="o">-</span><span class="mi">1620</span><span class="p">,</span>
+        <span class="s2">"range_min"</span><span class="p">:</span> <span class="mi">1142</span><span class="p">,</span>
+        <span class="s2">"range_max"</span><span class="p">:</span> <span class="mi">2931</span>
+    <span class="p">},</span>
+    <span class="s2">"shoulder_lift"</span><span class="p">:</span> <span class="p">{</span>                          <span class="c1">#肩部升降关节</span>
+        <span class="s2">"id"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="s2">"drive_mode"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">"homing_offset"</span><span class="p">:</span> <span class="mi">2025</span><span class="p">,</span>
+        <span class="s2">"range_min"</span><span class="p">:</span> <span class="mi">844</span><span class="p">,</span>
+        <span class="s2">"range_max"</span><span class="p">:</span> <span class="mi">3053</span>
+    <span class="p">},</span>
+    <span class="s2">"elbow_flex"</span><span class="p">:</span> <span class="p">{</span>                           <span class="c1">#肘部弯曲关节</span>
+        <span class="s2">"id"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="s2">"drive_mode"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">"homing_offset"</span><span class="p">:</span> <span class="o">-</span><span class="mi">1208</span><span class="p">,</span>
+        <span class="s2">"range_min"</span><span class="p">:</span> <span class="mi">963</span><span class="p">,</span>
+        <span class="s2">"range_max"</span><span class="p">:</span> <span class="mi">3078</span>
+    <span class="p">},</span>
+    <span class="s2">"wrist_flex"</span><span class="p">:</span> <span class="p">{</span>                            <span class="c1">#腕部弯曲关节</span>
+        <span class="s2">"id"</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="s2">"drive_mode"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">"homing_offset"</span><span class="p">:</span> <span class="mi">2021</span><span class="p">,</span>
+        <span class="s2">"range_min"</span><span class="p">:</span> <span class="mi">884</span><span class="p">,</span>
+        <span class="s2">"range_max"</span><span class="p">:</span> <span class="mi">3222</span>
+    <span class="p">},</span>
+    <span class="s2">"wrist_roll"</span><span class="p">:</span> <span class="p">{</span>                             <span class="c1">#腕部旋转关节</span>
+        <span class="s2">"id"</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="s2">"drive_mode"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">"homing_offset"</span><span class="p">:</span> <span class="o">-</span><span class="mi">777</span><span class="p">,</span>
+        <span class="s2">"range_min"</span><span class="p">:</span> <span class="mi">142</span><span class="p">,</span>
+        <span class="s2">"range_max"</span><span class="p">:</span> <span class="mi">3961</span>
+    <span class="p">},</span>
+    <span class="s2">"gripper"</span><span class="p">:</span> <span class="p">{</span>                                <span class="c1">#夹爪关节</span>
+        <span class="s2">"id"</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+        <span class="s2">"drive_mode"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">"homing_offset"</span><span class="p">:</span> <span class="mi">909</span><span class="p">,</span>
+        <span class="s2">"range_min"</span><span class="p">:</span> <span class="mi">1978</span><span class="p">,</span>
+        <span class="s2">"range_max"</span><span class="p">:</span> <span class="mi">3522</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>上面数据是每个舵机的相关参数，一共有6个舵机，每个舵机都有一个id来标识，可以对应实物来看实际是从下到上。</p>
+<ul>
+<li>id: 电机的唯一标识符，用于在总线通信时精准定位和控制特定电机。</li>
+<li>drive_mode: 电机的驱动模式，取值为 0 表示特定的驱动模式，不同驱动模式会影响电机的运动特性与控制方式。</li>
+<li>homing_offset：归位偏移量，指电机从物理零点位置到校准零点位置的偏移量。此参数能保证电机在每次启动时都能回到准确的零点位置，从而提升运动精度。</li>
+<li>range_min 和 range_max：电机运动范围的最小值和最大值，以数值形式呈现。这两个参数限定了电机的运动边界，避免因超出范围而导致硬件损坏或者运动异常。range_min 和 range_max：电机运动范围的最小值和最大值，以数值形式呈现。这两个参数限定了电机的运动边界，避免因超出范围而导致硬件损坏或者运动异常。</li>
+</ul>
+<p>上面的参数信息在代码中lerobot/src/lerobot/robots/koch_follower/koch_follower.py 中回进行配置。</p>
+<p>从上面的配置信息可知，之所以要标定，就是要获取电机的一些物理特性，主要是几个方面：明确电机物理运动范围、归一化电机位置、确保机器人运行精度等。</p>
+<h3 id="_1">明确电机范围</h3>
+<p>机器的电机要有特定的物理运动范围，因为发送要是超过这个范围，回造成硬件损坏。使用calibrate操作可以记录每个电机的最小和最大位置限制，保证后续发送的指令都在安全范围内。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">lerobot</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">lerobot</span><span class="o">/</span><span class="n">robots</span><span class="o">/</span><span class="n">so101_follower</span><span class="o">/</span><span class="n">so101_follower</span><span class="o">.</span><span class="n">py</span>
+
+<span class="k">def</span> <span class="nf">calibrate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># ...已有代码...</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="s2">"Move all joints sequentially through their entire ranges "</span>
+        <span class="s2">"of motion.</span><span class="se">\n</span><span class="s2">Recording positions. Press ENTER to stop..."</span>
+    <span class="p">)</span>
+    <span class="n">range_mins</span><span class="p">,</span> <span class="n">range_maxes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">record_ranges_of_motion</span><span class="p">()</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">calibration</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">motor</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">motors</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">calibration</span><span class="p">[</span><span class="n">motor</span><span class="p">]</span> <span class="o">=</span> <span class="n">MotorCalibration</span><span class="p">(</span>
+                <span class="nb">id</span><span class="o">=</span><span class="n">m</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">drive_mode</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">homing_offset</span><span class="o">=</span><span class="n">homing_offsets</span><span class="p">[</span><span class="n">motor</span><span class="p">],</span>
+                <span class="n">range_min</span><span class="o">=</span><span class="n">range_mins</span><span class="p">[</span><span class="n">motor</span><span class="p">],</span>
+                <span class="n">range_max</span><span class="o">=</span><span class="n">range_maxes</span><span class="p">[</span><span class="n">motor</span><span class="p">],</span>
+            <span class="p">)</span>
+    <span class="c1"># ...已有代码...</span>
+</code></pre></div>
+<h3 id="_2">归一化电机位置</h3>
+<p>不同电机的原始位置值可能都离散的任意值，这些依赖于具体的电机型号，不具备通用性。calibrate 操作能将这些原始位置值归一化为有意义的连续值，像百分比、角度等，方便后续处理和控制。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">lerobot</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">lerobot</span><span class="o">/</span><span class="n">motors</span><span class="o">/</span><span class="n">motors_bus</span><span class="o">.</span><span class="n">py</span>
+
+    <span class="k">def</span> <span class="nf">_normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">id_</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">min_</span><span class="p">,</span> <span class="n">max_</span><span class="p">,</span> <span class="n">drive_mode</span><span class="p">):</span>
+        <span class="n">motor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_id_to_name</span><span class="p">(</span><span class="n">id_</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">motors</span><span class="p">[</span><span class="n">motor</span><span class="p">]</span><span class="o">.</span><span class="n">norm_mode</span> <span class="ow">is</span> <span class="n">MotorNormMode</span><span class="o">.</span><span class="n">RANGE_M100_100</span><span class="p">:</span>
+            <span class="n">norm</span> <span class="o">=</span> <span class="p">(((</span><span class="n">val</span> <span class="o">-</span> <span class="n">min_</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">max_</span> <span class="o">-</span> <span class="n">min_</span><span class="p">))</span> <span class="o">*</span> <span class="mi">200</span><span class="p">)</span> <span class="o">-</span> <span class="mi">100</span>
+            <span class="n">normalized_values</span><span class="p">[</span><span class="n">id_</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">norm</span> <span class="k">if</span> <span class="n">drive_mode</span> <span class="k">else</span> <span class="n">norm</span>
+        <span class="c1"># ...已有代码...</span>
+</code></pre></div>
+<h3 id="_3">确保机器运行精度</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">lerobot</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">lerobot</span><span class="o">/</span><span class="n">robots</span><span class="o">/</span><span class="n">so100_leader</span><span class="o">/</span><span class="n">so100_leader</span><span class="o">.</span><span class="n">py</span> <span class="n">中的</span> <span class="n">calibrate</span>
+
+<span class="k">def</span> <span class="nf">calibrate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># ...已有代码...</span>
+    <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Move </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> to the middle of its range of motion and press ENTER...."</span><span class="p">)</span>
+    <span class="n">homing_offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">set_half_turn_homings</span><span class="p">()</span>
+    <span class="c1"># ...已有代码...</span>
+</code></pre></div>
+<p>通过校准，可以确定电机的归位偏移量（homing offset），这有助于提高机器人运动的精度和重复性。在实际应用中，准确的位置控制对机器人完成任务至关重要。</p>
+<p>最后经过校准后的数据，后续无需在重复校准，校准保存的路径一般在~/.cache/huggingface/lerobot/calibration，实际运行过程中，回进行加载。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">保存</span>
+<span class="k">def</span> <span class="nf">_save_calibration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fpath</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">draccus</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">calibration</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+<span class="n">加载</span>
+<span class="k">def</span> <span class="nf">_load_calibration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fpath</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calibration</span> <span class="o">=</span> <span class="n">draccus</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MotorCalibration</span><span class="p">],</span> <span class="n">f</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="_4">校准流程</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">lerobot</span><span class="o">.</span><span class="n">calibrate</span> \
+    <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">type</span><span class="o">=</span><span class="n">so101_follower</span> \
+    <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">port</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">ttyACM0</span> \
+    <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">id</span><span class="o">=</span><span class="n">R12252801</span>
+</code></pre></div>
+<p>上面是执行命令示例，接下来个跟踪一下流程。Python 解释器接收到 python -m lerobot.calibrate 命令后，会将 lerobot.calibrate 当作一个可执行模块来处理。按照 Python 模块查找机制，会在 sys.path 所包含的路径里寻找 lerobot/calibrate.py 文件，对应的文件路径为lerobot/src/lerobot/calibrate.py。</p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@draccus</span><span class="o">.</span><span class="n">wrap</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">calibrate</span><span class="p">(</span><span class="n">cfg</span><span class="p">:</span> <span class="n">CalibrateConfig</span><span class="p">):</span>
+    <span class="n">init_logging</span><span class="p">()</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">pformat</span><span class="p">(</span><span class="n">asdict</span><span class="p">(</span><span class="n">cfg</span><span class="p">)))</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">RobotConfig</span><span class="p">):</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">make_robot_from_config</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">TeleoperatorConfig</span><span class="p">):</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">make_teleoperator_from_config</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="n">device</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">calibrate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">device</span><span class="o">.</span><span class="n">calibrate</span><span class="p">()</span>
+    <span class="n">device</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">calibrate</span><span class="p">()</span>
+</code></pre></div>
+<p>调用calibrate含税，从calibrate可以看到主要的步骤为：</p>
+<ul>
+<li>参数解析与配置初始化</li>
+<li>创建设备实例</li>
+<li>连接设备</li>
+<li>设备校准</li>
+<li>设备断开连接</li>
+</ul>
+<h3 id="_5">参数解析与配置初始化</h3>
+<p>calibrate函数被@draccus.wrap()装饰，draccus是一个用于解析命令行参数并创建配置对象的库。</p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">CalibrateConfig</span><span class="p">:</span>
+    <span class="n">teleop</span><span class="p">:</span> <span class="n">TeleoperatorConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">robot</span><span class="p">:</span> <span class="n">RobotConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">teleop</span><span class="p">)</span> <span class="o">==</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Choose either a teleop or a robot."</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">teleop</span>
+</code></pre></div>
+<p>draccus会把命令行参数--robot.type=so101_follower --robot.port=/dev/ttyACM0 --robot.id=R12252801解析成CalibrateConfig类的实例。robot属性会被初始化为RobotConfig类型的对象，如果是--teleop.type=so101_leader 将会初始化为TeleoperatorConfig类型的对象。RobotConfig对象在config.py中定义的。</p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">RobotConfig</span><span class="p">(</span><span class="n">draccus</span><span class="o">.</span><span class="n">ChoiceRegistry</span><span class="p">,</span> <span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="c1"># Allows to distinguish between different robots of the same type</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Directory to store calibration file</span>
+    <span class="n">calibration_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"cameras"</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cameras</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">config</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cameras</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"width"</span><span class="p">,</span> <span class="s2">"height"</span><span class="p">,</span> <span class="s2">"fps"</span><span class="p">]:</span>
+                    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">attr</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"Specifying '</span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="s2">' is required for the camera to be used in a robot"</span>
+                        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_choice_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">)</span>
+</code></pre></div>
+<p>其会根据命令行参数或配置文件中的类型字段，动态选择并创建对应的配置子类实例。</p>
+<p>如当前的参数有type，port，id分别设置为so101_follower、/dev/ttyACM0 和 R12252801。</p>
+<h3 id="_6">创建设备实例</h3>
+<p>根据cfg.device类型，调用对应工厂含税创建设备实例。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">RobotConfig</span><span class="p">):</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">make_robot_from_config</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+<span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">TeleoperatorConfig</span><span class="p">):</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">make_teleoperator_from_config</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+</code></pre></div>
+<p>由于 cfg.device 是 RobotConfig 类型，所以会调用 make_robot_from_config(cfg.device)。该函数可能定义在 /home/laumy/lerobot/src/lerobot/robots/<strong>init</strong>.py 或者相关的工厂模块中，依据 cfg.device.type 的值（即 so101_follower），会创建 SO101Follower 类的实例。</p>
+<h3 id="_7">连接设备</h3>
+<p>调用 device.connect(calibrate=False) 方法连接设备，lerobot/src/lerobot/robots/so101_follower/so101_follower.py 文件中，其 connect 方法可能如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">connect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">calibrate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_connected</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">DeviceAlreadyConnectedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> already connected"</span><span class="p">)</span>
+
+    <span class="c1"># 连接串口总线</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">bus</span> <span class="o">=</span> <span class="n">DynamixelBus</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">port</span><span class="p">,</span> <span class="n">baudrate</span><span class="o">=</span><span class="mi">1000000</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_calibrated</span> <span class="ow">and</span> <span class="n">calibrate</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calibrate</span><span class="p">()</span>
+
+    <span class="c1"># 连接摄像头</span>
+    <span class="k">for</span> <span class="n">cam</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cameras</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="n">cam</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+
+    <span class="bp">self</span><span class="o">.</span><span class="n">configure</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> connected."</span><span class="p">)</span>
+</code></pre></div>
+<p>因为传入的 calibrate=False，所以不会触发自动校准。在连接过程中，会先连接串口总线，再连接摄像头，最后进行设备配置。</p>
+<h3 id="_8">标定动作</h3>
+<p>调用 device.calibrate() 方法对设备进行校准,SO101Follower 类的 calibrate 方法可能如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">calibrate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Running calibration of </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># 禁用扭矩</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">disable_torque</span><span class="p">()</span>
+
+    <span class="c1"># 设置电机工作模式为位置模式</span>
+    <span class="k">for</span> <span class="n">motor</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">motors</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"Operating_Mode"</span><span class="p">,</span> <span class="n">motor</span><span class="p">,</span> <span class="n">OperatingMode</span><span class="o">.</span><span class="n">POSITION</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="c1"># 手动操作提示</span>
+    <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Move </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> to the middle of its range of motion and press ENTER...."</span><span class="p">)</span>
+
+    <span class="c1"># 设置半圈归零偏移量</span>
+    <span class="n">homing_offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">set_half_turn_homings</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="s2">"Move all joints sequentially through their entire ranges "</span>
+        <span class="s2">"of motion.</span><span class="se">\n</span><span class="s2">Recording positions. Press ENTER to stop..."</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 记录关节运动范围</span>
+    <span class="n">range_mins</span><span class="p">,</span> <span class="n">range_maxes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">record_ranges_of_motion</span><span class="p">()</span>
+
+    <span class="bp">self</span><span class="o">.</span><span class="n">calibration</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">motor</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">motors</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calibration</span><span class="p">[</span><span class="n">motor</span><span class="p">]</span> <span class="o">=</span> <span class="n">MotorCalibration</span><span class="p">(</span>
+            <span class="nb">id</span><span class="o">=</span><span class="n">m</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">drive_mode</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">homing_offset</span><span class="o">=</span><span class="n">homing_offsets</span><span class="p">[</span><span class="n">motor</span><span class="p">],</span>
+            <span class="n">range_min</span><span class="o">=</span><span class="n">range_mins</span><span class="p">[</span><span class="n">motor</span><span class="p">],</span>
+            <span class="n">range_max</span><span class="o">=</span><span class="n">range_maxes</span><span class="p">[</span><span class="n">motor</span><span class="p">],</span>
+        <span class="p">)</span>
+
+    <span class="c1"># 将校准数据写入电机</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">write_calibration</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">calibration</span><span class="p">)</span>
+
+    <span class="c1"># 保存校准数据</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_save_calibration</span><span class="p">()</span>
+</code></pre></div>
+<p>校准过程包含禁用扭矩、设置电机工作模式、手动操作提示、记录关节运动范围、保存校准数据等步骤。</p>
+<h3 id="_9">设备断开连接</h3>
+<p>调用 device.disconnect() 方法断开设备连接,SO101Follower 类的 disconnect 方法如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">disconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_connected</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">DeviceNotConnectedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> is not connected."</span><span class="p">)</span>
+
+    <span class="c1"># 断开串口总线连接</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">disconnect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">disable_torque_on_disconnect</span><span class="p">)</span>
+
+    <span class="c1"># 断开摄像头连接</span>
+    <span class="k">for</span> <span class="n">cam</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cameras</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="n">cam</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> disconnected."</span><span class="p">)</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/ai/lerobot示教.html">← lerobot示教</a>
+    <a class="next" href="/laumy.github.io/posts/ai/模型训练gpu跑飞.html">模型训练GPU跑飞 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

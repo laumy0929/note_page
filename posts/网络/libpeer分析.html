@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>libpeer分析 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">关键数据结构</a><ul><li><a href="#peerconfiguration">PeerConfiguration</a></li><li><a href="#agent">Agent</a></li><li><a href="#serviceconfiguration">ServiceConfiguration</a></li><li><a href="#peerconnection">PeerConnection</a></li></ul></li><li><a href="#webrtc">WebRTC简介</a><ul><li><a href="#_2">概览</a></li><li><a href="#_3">通信流程</a></li><li><a href="#_4">信令</a></li><li><a href="#sdp">SDP</a></li><li><a href="#ice-candidates">ICE candidates</a></li></ul></li><li><a href="#main">main函数分析</a><ul></ul></li><li><a href="#_5">信令交互</a><ul><li><a href="#_6">与信令服务器建立连接</a></li><li><a href="#_7">通知信令服务器已准备</a></li><li><a href="#_8">接收信令服务器事件处理</a></li><li><a href="#offer-sdp">Offer SDP</a></li><li><a href="#anser-sdp">anser SDP</a></li><li><a href="#p2p">测试P2P通路</a></li></ul></li><li><a href="#p2p_1">P2P通信</a><ul><li><a href="#_9">初始化</a></li><li><a href="#_10">创建</a></li><li><a href="#_11">传输</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>libpeer分析</h1>
+  <div class="meta">2024-11-24 · 网络</div>
+  <div class="post-content"><h2 id="_1">关键数据结构</h2>
+<h3 id="peerconfiguration">PeerConfiguration</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">PeerConfiguration</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">IceServer</span><span class="w"> </span><span class="n">ice_servers</span><span class="p">[</span><span class="mi">5</span><span class="p">];</span>
+
+<span class="w">  </span><span class="n">MediaCodec</span><span class="w"> </span><span class="n">audio_codec</span><span class="p">;</span>
+<span class="w">  </span><span class="n">MediaCodec</span><span class="w"> </span><span class="n">video_codec</span><span class="p">;</span>
+<span class="w">  </span><span class="n">DataChannelType</span><span class="w"> </span><span class="n">datachannel</span><span class="p">;</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">onaudiotrack</span><span class="p">)(</span><span class="kt">uint8_t</span><span class="o">*</span><span class="w"> </span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">size</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">userdata</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">onvideotrack</span><span class="p">)(</span><span class="kt">uint8_t</span><span class="o">*</span><span class="w"> </span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">size</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">userdata</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">on_request_keyframe</span><span class="p">)(</span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">userdata</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">user_data</span><span class="p">;</span>
+
+<span class="p">}</span><span class="w"> </span><span class="n">PeerConfiguration</span><span class="p">;</span>
+
+<span class="n">实例</span><span class="err">：</span>
+<span class="w"> </span><span class="n">PeerConfiguration</span><span class="w"> </span><span class="n">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="p">.</span><span class="n">ice_servers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="p">{.</span><span class="n">urls</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"stun:stun.l.google.com:19302"</span><span class="p">},</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="p">.</span><span class="n">datachannel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DATA_CHANNEL_STRING</span><span class="p">,</span>
+<span class="w">      </span><span class="p">.</span><span class="n">video_codec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CODEC_H264</span><span class="p">,</span>
+<span class="w">      </span><span class="p">.</span><span class="n">audio_codec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CODEC_PCMA</span><span class="p">};</span>
+</code></pre></div>
+<h3 id="agent">Agent</h3>
+<p>Agent 结构体，主要用于实现 WebRTC 或类似协议中的 ICE (Interactive Connectivity Establishment) 机制。ICE 是一种 NAT 穿越协议，用于在点对点通信中建立连接并选择最佳的网络路径。Agent 结构体存储了与 ICE 协议操作相关的各种数据，用于管理连接的候选地址、协商过程以及状态。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">Agent</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">remote_ufrag</span><span class="p">[</span><span class="n">ICE_UFRAG_LENGTH</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">];</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">remote_upwd</span><span class="p">[</span><span class="n">ICE_UPWD_LENGTH</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">];</span>
+
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">local_ufrag</span><span class="p">[</span><span class="n">ICE_UFRAG_LENGTH</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">];</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">local_upwd</span><span class="p">[</span><span class="n">ICE_UPWD_LENGTH</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">];</span>
+
+<span class="w">  </span><span class="n">IceCandidate</span><span class="w"> </span><span class="n">local_candidates</span><span class="p">[</span><span class="n">AGENT_MAX_CANDIDATES</span><span class="p">];</span>
+<span class="w">  </span><span class="n">IceCandidate</span><span class="w"> </span><span class="n">remote_candidates</span><span class="p">[</span><span class="n">AGENT_MAX_CANDIDATES</span><span class="p">];</span>
+
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">local_candidates_count</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">remote_candidates_count</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">UdpSocket</span><span class="w"> </span><span class="n">udp_sockets</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+
+<span class="w">  </span><span class="n">Address</span><span class="w"> </span><span class="n">host_addr</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">b_host_addr</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">uint64_t</span><span class="w"> </span><span class="n">binding_request_time</span><span class="p">;</span>
+<span class="w">  </span><span class="n">AgentState</span><span class="w"> </span><span class="n">state</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">AgentMode</span><span class="w"> </span><span class="n">mode</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">IceCandidatePair</span><span class="w"> </span><span class="n">candidate_pairs</span><span class="p">[</span><span class="n">AGENT_MAX_CANDIDATE_PAIRS</span><span class="p">];</span>
+<span class="w">  </span><span class="n">IceCandidatePair</span><span class="o">*</span><span class="w"> </span><span class="n">selected_pair</span><span class="p">;</span>
+<span class="w">  </span><span class="n">IceCandidatePair</span><span class="o">*</span><span class="w"> </span><span class="n">nominated_pair</span><span class="p">;</span>
+
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">candidate_pairs_num</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">use_candidate</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">transaction_id</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span>
+<span class="p">};</span>
+</code></pre></div>
+<h3 id="serviceconfiguration">ServiceConfiguration</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">ServiceConfiguration</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">mqtt_url</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">mqtt_port</span><span class="p">;</span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">client_id</span><span class="p">;</span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">http_url</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">http_port</span><span class="p">;</span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">username</span><span class="p">;</span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">password</span><span class="p">;</span>
+<span class="w">  </span><span class="n">PeerConnection</span><span class="o">*</span><span class="w"> </span><span class="n">pc</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">ServiceConfiguration</span><span class="p">;</span>
+
+<span class="n">实例</span>
+<span class="cp">#define SERVICE_CONFIG_DEFAULT()  \</span>
+<span class="cp">  {                               \</span>
+<span class="cp">    .mqtt_url = "broker.emqx.io", \  </span><span class="c1">//访问的MQTT服务器</span>
+<span class="w">    </span><span class="p">.</span><span class="n">mqtt_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8883</span><span class="p">,</span><span class="w">            </span><span class="err">\</span><span class="w">  </span><span class="c1">//访问的MQTT端口</span>
+<span class="w">    </span><span class="p">.</span><span class="n">client_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"peer"</span><span class="p">,</span><span class="w">          </span><span class="err">\</span><span class="w">   </span><span class="c1">//用于订阅的主题 webrtc/peer/jsonrpc</span>
+<span class="w">                                         </span><span class="c1">//发布的主题 webrtc/peer/jsonrpc-reply</span>
+<span class="w">    </span><span class="p">.</span><span class="n">http_url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">""</span><span class="p">,</span><span class="w">               </span><span class="err">\</span><span class="w">   </span><span class="c1">//信令使用的是MQTT，没有使用http，</span>
+<span class="w">    </span><span class="p">.</span><span class="n">http_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">443</span><span class="p">,</span><span class="w">             </span><span class="err">\</span><span class="w">   </span><span class="c1">//因此HTTP的没有用。</span>
+<span class="w">    </span><span class="p">.</span><span class="n">username</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">""</span><span class="p">,</span><span class="w">               </span>\
+<span class="w">    </span><span class="p">.</span><span class="n">password</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">""</span><span class="p">,</span><span class="w">               </span>\
+<span class="w">    </span><span class="p">.</span><span class="n">pc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="w">                    </span>\
+<span class="w">  </span><span class="p">}</span>
+</code></pre></div>
+<h3 id="peerconnection">PeerConnection</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">PeerConnection</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">PeerConfiguration</span><span class="w"> </span><span class="n">config</span><span class="p">;</span>
+<span class="w">  </span><span class="n">PeerConnectionState</span><span class="w"> </span><span class="n">state</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Agent</span><span class="w"> </span><span class="n">agent</span><span class="p">;</span>
+<span class="w">  </span><span class="n">DtlsSrtp</span><span class="w"> </span><span class="n">dtls_srtp</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Sctp</span><span class="w"> </span><span class="n">sctp</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">Sdp</span><span class="w"> </span><span class="n">local_sdp</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Sdp</span><span class="w"> </span><span class="n">remote_sdp</span><span class="p">;</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">onicecandidate</span><span class="p">)(</span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">sdp</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">user_data</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">oniceconnectionstatechange</span><span class="p">)(</span><span class="n">PeerConnectionState</span><span class="w"> </span><span class="n">state</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">user_data</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">on_connected</span><span class="p">)(</span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">userdata</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">on_receiver_packet_loss</span><span class="p">)(</span><span class="kt">float</span><span class="w"> </span><span class="n">fraction_loss</span><span class="p">,</span><span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">total_loss</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">user_data</span><span class="p">);</span>
+
+<span class="w">  </span><span class="kt">uint8_t</span><span class="w"> </span><span class="n">temp_buf</span><span class="p">[</span><span class="n">CONFIG_MTU</span><span class="p">];</span>
+<span class="w">  </span><span class="kt">uint8_t</span><span class="w"> </span><span class="n">agent_buf</span><span class="p">[</span><span class="n">CONFIG_MTU</span><span class="p">];</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">agent_ret</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">b_local_description_created</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">Buffer</span><span class="o">*</span><span class="w"> </span><span class="n">audio_rb</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Buffer</span><span class="o">*</span><span class="w"> </span><span class="n">video_rb</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Buffer</span><span class="o">*</span><span class="w"> </span><span class="n">data_rb</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">RtpEncoder</span><span class="w"> </span><span class="n">artp_encoder</span><span class="p">;</span>
+<span class="w">  </span><span class="n">RtpEncoder</span><span class="w"> </span><span class="n">vrtp_encoder</span><span class="p">;</span>
+<span class="w">  </span><span class="n">RtpDecoder</span><span class="w"> </span><span class="n">vrtp_decoder</span><span class="p">;</span>
+<span class="w">  </span><span class="n">RtpDecoder</span><span class="w"> </span><span class="n">artp_decoder</span><span class="p">;</span>
+
+<span class="w">  </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">remote_assrc</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">remote_vssrc</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre></div>
+<h2 id="webrtc">WebRTC简介</h2>
+<h3 id="_2">概览</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_56afa863b5c90a096509fe1610c735b7.jpg"><img alt="" src="/laumy.github.io/assets/doc/08-网络/libpeer分析/images/wp_editor_md_56afa863b5c90a096509fe1610c735b7.jpg"/></a></p>
+<p>上图中一共有4中角色，分别是signaling server、STUN/RURN server、Client A，Client B；</p>
+<ul>
+<li>signaling server：信令指的是管理两个通信设备A和B建立和管理点对点连接过程中的控制消息交换机制。让通信双方能够交换各种信息，从而建立、维护和终止一个点对点的实时通信连接。</li>
+<li>STUN/RURN server：用于设备A和设备B传过NAT。</li>
+<li>Client A：通信设备A</li>
+<li>Client B：通信设备B</li>
+</ul>
+<h3 id="_3">通信流程</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_9c4699106324b4557bad72cc464f6dff.jpg"><img alt="" src="/laumy.github.io/assets/doc/08-网络/libpeer分析/images/wp_editor_md_9c4699106324b4557bad72cc464f6dff.jpg"/></a></p>
+<p>WebRTC中客户端与信令服务器、STUN/TURN服务器的交互流程如下：</p>
+<ul>
+<li>
+<p>ClientA首先创建PeerConnection对象，然后打开本地音视频设备，将音视频数据封装成MediaStream添加到PeerConnection中。</p>
+</li>
+<li>
+<p>ClientA调用PeerConnection的CreateOffer方法创建一个用于offer的SDP对象，SDP对象中保存当前音视频的相关参数。ClientA通过PeerConnection的SetLocalDescription方法将该SDP对象保存起来，并通过Signal服务器发送给ClientB。</p>
+</li>
+<li>
+<p>ClientB接收到ClientA发送过的offer SDP对象，通过PeerConnection的SetRemoteDescription方法将其保存起来，并调用PeerConnection的CreateAnswer方法创建一个应答的SDP对象，通过PeerConnection的SetLocalDescription的方法保存该应答SDP对象并将它通过Signal服务器发送给ClientA。</p>
+</li>
+<li>
+<p>ClientA接收到ClientB发送过来的应答SDP对象，将其通过PeerConnection的SetRemoteDescription方法保存起来。</p>
+</li>
+<li>
+<p>在SDP信息的offer/answer流程中，ClientA和ClientB已经根据SDP信息创建好相应的音频Channel和视频Channel并开启Candidate数据的收集，Candidate数据可以简单地理解成Client端的IP地址信息（本地IP地址、公网IP地址、Relay服务端分配的地址）。</p>
+</li>
+<li>
+<p>当ClientA收集到Candidate信息后，PeerConnection会通过OnIceCandidate接口给ClientA发送通知，ClientA将收到的Candidate信息通过Signal服务器发送给ClientB，ClientB通过PeerConnection的AddIceCandidate方法保存起来。同样的操作ClientB对ClientA再来一次。</p>
+</li>
+<li>
+<p>这样ClientA和ClientB就已经建立了音视频传输的P2P通道，ClientB接收到ClientA传送过来的音视频流，会通过PeerConnection的OnAddStream回调接口返回一个标识ClientA端音视频流的MediaStream对象，在ClientB端渲染出来即可。同样操作也适应ClientB到ClientA的音视频流的传输。</p>
+</li>
+</ul>
+<p>上述序列中，WebRTC并不提供Stun服务器和Signal服务器，服务器端需要自己实现。Stun服务器可以用google提供的实现stun协议的测试服务器（stun:stun.l.google.com:19302），Signal服务器则完全需要自己实现了，可以使用MQTT的broker.emqx.io来作为信令服务器。它需要在ClientA和ClientB之间传送彼此的SDP信息和candidate信息，ClientA和ClientB通过这些信息建立P2P连接来传送音视频数据。</p>
+<h3 id="_4">信令</h3>
+<p>待补充</p>
+<h3 id="sdp">SDP</h3>
+<p>SDP是一个比较老的协议，发布于2006年，以type=value的格式描述回话内容。WebRTC引入SDP来描述媒体信息，用于媒体协商时决定双方是否可以进行通信。当对端设备anser的时候会携带一个SDP格式的内容，如下。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">v</span><span class="o">=</span><span class="mi">0</span>
+<span class="n">o</span><span class="o">=-</span><span class="w"> </span><span class="mi">8646007345366799659</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="n">IN</span><span class="w"> </span><span class="n">IP4</span><span class="w"> </span><span class="mf">127.0.0.1</span>
+<span class="n">s</span><span class="o">=-</span>
+<span class="n">t</span><span class="o">=</span><span class="mi">0</span><span class="w"> </span><span class="mi">0</span>
+<span class="n">a</span><span class="o">=</span><span class="n">group</span><span class="o">:</span><span class="n">BUNDLE</span><span class="w"> </span><span class="n">video</span><span class="w"> </span><span class="n">audio</span><span class="w"> </span><span class="n">datachannel</span>
+<span class="n">a</span><span class="o">=</span><span class="n">msid</span><span class="o">-</span><span class="n">semantic</span><span class="o">:</span><span class="w"> </span><span class="n">WMS</span><span class="w"> </span><span class="mi">5</span><span class="n">a162afd</span><span class="o">-</span><span class="n">e195</span><span class="mi">-4207</span><span class="o">-</span><span class="n">a699</span><span class="o">-</span><span class="n">e977bb510327</span>
+<span class="n">m</span><span class="o">=</span><span class="n">video</span><span class="w"> </span><span class="mi">10773</span><span class="w"> </span><span class="n">UDP</span><span class="o">/</span><span class="n">TLS</span><span class="o">/</span><span class="n">RTP</span><span class="o">/</span><span class="n">SAVPF</span><span class="w"> </span><span class="mi">96</span><span class="w"> </span><span class="mi">102</span>
+<span class="n">c</span><span class="o">=</span><span class="n">IN</span><span class="w"> </span><span class="n">IP4</span><span class="w"> </span><span class="mf">14.29.67.186</span>
+<span class="n">a</span><span class="o">=</span><span class="n">rtcp</span><span class="o">:</span><span class="mi">9</span><span class="w"> </span><span class="n">IN</span><span class="w"> </span><span class="n">IP4</span><span class="w"> </span><span class="mf">0.0.0.0</span>
+<span class="n">a</span><span class="o">=</span><span class="n">candidate</span><span class="o">:</span><span class="mi">1969734079</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="n">udp</span><span class="w"> </span><span class="mi">2122260223</span><span class="w"> </span><span class="mf">192.168.31.123</span><span class="w"> </span><span class="mi">65492</span><span class="w"> </span><span class="n">typ</span><span class="w"> </span><span class="n">host</span><span class="w"> </span><span class="n">generation</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="n">network</span><span class="o">-</span><span class="n">id</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="n">network</span><span class="o">-</span><span class="n">cost</span><span class="w"> </span><span class="mi">10</span>
+<span class="n">a</span><span class="o">=</span><span class="n">candidate</span><span class="o">:</span><span class="mi">2345473323</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="n">tcp</span><span class="w"> </span><span class="mi">1518280447</span><span class="w"> </span><span class="mf">192.168.31.123</span><span class="w"> </span><span class="mi">9</span><span class="w"> </span><span class="n">typ</span><span class="w"> </span><span class="n">host</span><span class="w"> </span><span class="n">tcptype</span><span class="w"> </span><span class="n">active</span><span class="w"> </span><span class="n">generation</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="n">network</span><span class="o">-</span><span class="n">id</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="n">network</span><span class="o">-</span><span class="n">cost</span><span class="w"> </span><span class="mi">10</span>
+<span class="n">a</span><span class="o">=</span><span class="n">candidate</span><span class="o">:</span><span class="mi">3819939686</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="n">udp</span><span class="w"> </span><span class="mi">1686052607</span><span class="w"> </span><span class="mf">14.29.67.186</span><span class="w"> </span><span class="mi">10773</span><span class="w"> </span><span class="n">typ</span><span class="w"> </span><span class="n">srflx</span><span class="w"> </span><span class="n">raddr</span><span class="w"> </span><span class="mf">192.168.31.123</span><span class="w"> </span><span class="n">rport</span><span class="w"> </span><span class="mi">65492</span><span class="w"> </span><span class="n">generation</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="n">network</span><span class="o">-</span><span class="n">id</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="n">network</span><span class="o">-</span><span class="n">cost</span><span class="w"> </span><span class="mi">10</span>
+<span class="n">a</span><span class="o">=</span><span class="n">ice</span><span class="o">-</span><span class="n">ufrag</span><span class="o">:</span><span class="n">JgBs</span>
+<span class="n">a</span><span class="o">=</span><span class="n">ice</span><span class="o">-</span><span class="n">pwd</span><span class="o">:</span><span class="mi">1U</span><span class="n">SyOciE2u1Uzq97tWIhcx7v</span>
+<span class="n">a</span><span class="o">=</span><span class="n">ice</span><span class="o">-</span><span class="n">options</span><span class="o">:</span><span class="n">trickle</span>
+<span class="n">a</span><span class="o">=</span><span class="n">fingerprint</span><span class="o">:</span><span class="n">sha</span><span class="mi">-256</span><span class="w"> </span><span class="n">C1</span><span class="o">:</span><span class="mf">6F</span><span class="o">:</span><span class="mi">4</span><span class="n">D</span><span class="o">:</span><span class="mi">10</span><span class="o">:</span><span class="mi">6</span><span class="n">E</span><span class="o">:</span><span class="mi">99</span><span class="o">:</span><span class="n">AC</span><span class="o">:</span><span class="mi">9</span><span class="n">C</span><span class="o">:</span><span class="mf">5F</span><span class="o">:</span><span class="n">CD</span><span class="o">:</span><span class="mi">24</span><span class="o">:</span><span class="n">C8</span><span class="o">:</span><span class="n">A5</span><span class="o">:</span><span class="mi">83</span><span class="o">:</span><span class="mi">75</span><span class="o">:</span><span class="n">AE</span><span class="o">:</span><span class="mi">45</span><span class="o">:</span><span class="mi">1</span><span class="n">A</span><span class="o">:</span><span class="n">D4</span><span class="o">:</span><span class="mi">7</span><span class="n">D</span><span class="o">:</span><span class="n">E0</span><span class="o">:</span><span class="mi">73</span><span class="o">:</span><span class="n">B6</span><span class="o">:</span><span class="mi">0</span><span class="n">A</span><span class="o">:</span><span class="mi">67</span><span class="o">:</span><span class="mi">4</span><span class="n">E</span><span class="o">:</span><span class="n">ED</span><span class="o">:</span><span class="n">C3</span><span class="o">:</span><span class="mi">88</span><span class="o">:</span><span class="n">C2</span><span class="o">:</span><span class="mi">6</span><span class="n">C</span><span class="o">:</span><span class="mi">42</span>
+<span class="n">a</span><span class="o">=</span><span class="n">setup</span><span class="o">:</span><span class="n">active</span>
+<span class="n">a</span><span class="o">=</span><span class="n">mid</span><span class="o">:</span><span class="n">video</span>
+<span class="n">a</span><span class="o">=</span><span class="n">recvonly</span>
+<span class="n">a</span><span class="o">=</span><span class="n">rtcp</span><span class="o">-</span><span class="n">mux</span>
+<span class="n">a</span><span class="o">=</span><span class="n">rtpmap</span><span class="o">:</span><span class="mi">96</span><span class="w"> </span><span class="n">H264</span><span class="o">/</span><span class="mi">90000</span>
+<span class="n">a</span><span class="o">=</span><span class="n">fmtp</span><span class="o">:</span><span class="mi">96</span><span class="w"> </span><span class="n">level</span><span class="o">-</span><span class="n">asymmetry</span><span class="o">-</span><span class="n">allowed</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span><span class="n">packetization</span><span class="o">-</span><span class="n">mode</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span><span class="n">profile</span><span class="o">-</span><span class="n">level</span><span class="o">-</span><span class="n">id</span><span class="o">=</span><span class="mf">42e01f</span>
+<span class="n">a</span><span class="o">=</span><span class="n">rtpmap</span><span class="o">:</span><span class="mi">102</span><span class="w"> </span><span class="n">H264</span><span class="o">/</span><span class="mi">90000</span>
+<span class="n">a</span><span class="o">=</span><span class="n">rtcp</span><span class="o">-</span><span class="n">fb</span><span class="o">:</span><span class="mi">102</span><span class="w"> </span><span class="n">nack</span>
+<span class="n">a</span><span class="o">=</span><span class="n">rtcp</span><span class="o">-</span><span class="n">fb</span><span class="o">:</span><span class="mi">102</span><span class="w"> </span><span class="n">nack</span><span class="w"> </span><span class="n">pli</span>
+<span class="n">a</span><span class="o">=</span><span class="n">fmtp</span><span class="o">:</span><span class="mi">102</span><span class="w"> </span><span class="n">level</span><span class="o">-</span><span class="n">asymmetry</span><span class="o">-</span><span class="n">allowed</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span><span class="n">packetization</span><span class="o">-</span><span class="n">mode</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span><span class="n">profile</span><span class="o">-</span><span class="n">level</span><span class="o">-</span><span class="n">id</span><span class="o">=</span><span class="mf">42e01f</span>
+<span class="n">m</span><span class="o">=</span><span class="n">audio</span><span class="w"> </span><span class="mi">9</span><span class="w"> </span><span class="n">UDP</span><span class="o">/</span><span class="n">TLS</span><span class="o">/</span><span class="n">RTP</span><span class="o">/</span><span class="n">SAVP</span><span class="w"> </span><span class="mi">8</span>
+<span class="n">c</span><span class="o">=</span><span class="n">IN</span><span class="w"> </span><span class="n">IP4</span><span class="w"> </span><span class="mf">0.0.0.0</span>
+<span class="n">a</span><span class="o">=</span><span class="n">rtcp</span><span class="o">:</span><span class="mi">9</span><span class="w"> </span><span class="n">IN</span><span class="w"> </span><span class="n">IP4</span><span class="w"> </span><span class="mf">0.0.0.0</span>
+<span class="n">a</span><span class="o">=</span><span class="n">ice</span><span class="o">-</span><span class="n">ufrag</span><span class="o">:</span><span class="n">JgBs</span><span class="w"> </span><span class="c1">//对端用户名</span>
+<span class="n">a</span><span class="o">=</span><span class="n">ice</span><span class="o">-</span><span class="n">pwd</span><span class="o">:</span><span class="mi">1U</span><span class="n">SyOciE2u1Uzq97tWIhcx7v</span><span class="w"> </span><span class="c1">//对端的密码</span>
+<span class="n">a</span><span class="o">=</span><span class="n">ice</span><span class="o">-</span><span class="n">options</span><span class="o">:</span><span class="n">trickle</span>
+<span class="n">a</span><span class="o">=</span><span class="n">fingerprint</span><span class="o">:</span><span class="n">sha</span><span class="mi">-256</span><span class="w"> </span><span class="n">C1</span><span class="o">:</span><span class="mf">6F</span><span class="o">:</span><span class="mi">4</span><span class="n">D</span><span class="o">:</span><span class="mi">10</span><span class="o">:</span><span class="mi">6</span><span class="n">E</span><span class="o">:</span><span class="mi">99</span><span class="o">:</span><span class="n">AC</span><span class="o">:</span><span class="mi">9</span><span class="n">C</span><span class="o">:</span><span class="mf">5F</span><span class="o">:</span><span class="n">CD</span><span class="o">:</span><span class="mi">24</span><span class="o">:</span><span class="n">C8</span><span class="o">:</span><span class="n">A5</span><span class="o">:</span><span class="mi">83</span><span class="o">:</span><span class="mi">75</span><span class="o">:</span><span class="n">AE</span><span class="o">:</span><span class="mi">45</span><span class="o">:</span><span class="mi">1</span><span class="n">A</span><span class="o">:</span><span class="n">D4</span><span class="o">:</span><span class="mi">7</span><span class="n">D</span><span class="o">:</span><span class="n">E0</span><span class="o">:</span><span class="mi">73</span><span class="o">:</span><span class="n">B6</span><span class="o">:</span><span class="mi">0</span><span class="n">A</span><span class="o">:</span><span class="mi">67</span><span class="o">:</span><span class="mi">4</span><span class="n">E</span><span class="o">:</span><span class="n">ED</span><span class="o">:</span><span class="n">C3</span><span class="o">:</span><span class="mi">88</span><span class="o">:</span><span class="n">C2</span><span class="o">:</span><span class="mi">6</span><span class="n">C</span><span class="o">:</span><span class="mi">42</span><span class="w"> </span><span class="c1">//指纹信息</span>
+<span class="n">a</span><span class="o">=</span><span class="n">setup</span><span class="o">:</span><span class="n">active</span>
+<span class="n">a</span><span class="o">=</span><span class="n">mid</span><span class="o">:</span><span class="n">audio</span>
+<span class="n">a</span><span class="o">=</span><span class="n">sendrecv</span>
+<span class="n">a</span><span class="o">=</span><span class="n">msid</span><span class="o">:</span><span class="mi">5</span><span class="n">a162afd</span><span class="o">-</span><span class="n">e195</span><span class="mi">-4207</span><span class="o">-</span><span class="n">a699</span><span class="o">-</span><span class="n">e977bb510327</span><span class="w"> </span><span class="mi">693</span><span class="n">effe8</span><span class="o">-</span><span class="n">ba8d</span><span class="mi">-469</span><span class="n">d</span><span class="o">-</span><span class="n">ba6a</span><span class="o">-</span><span class="n">f58e2b5f73df</span>
+<span class="n">a</span><span class="o">=</span><span class="n">rtcp</span><span class="o">-</span><span class="n">mux</span>
+<span class="n">a</span><span class="o">=</span><span class="n">rtpmap</span><span class="o">:</span><span class="mi">8</span><span class="w"> </span><span class="n">PCMA</span><span class="o">/</span><span class="mi">8000</span>
+<span class="n">a</span><span class="o">=</span><span class="n">ssrc</span><span class="o">:</span><span class="mi">1668486723</span><span class="w"> </span><span class="n">cname</span><span class="o">:</span><span class="n">o</span><span class="o">+</span><span class="n">PtcUckwEIRvBPp</span>
+<span class="n">m</span><span class="o">=</span><span class="n">application</span><span class="w"> </span><span class="mi">9</span><span class="w"> </span><span class="n">UDP</span><span class="o">/</span><span class="n">DTLS</span><span class="o">/</span><span class="n">SCTP</span><span class="w"> </span><span class="n">webrtc</span><span class="o">-</span><span class="n">datachannel</span>
+<span class="n">c</span><span class="o">=</span><span class="n">IN</span><span class="w"> </span><span class="n">IP4</span><span class="w"> </span><span class="mf">0.0.0.0</span>
+<span class="n">a</span><span class="o">=</span><span class="n">ice</span><span class="o">-</span><span class="n">ufrag</span><span class="o">:</span><span class="n">JgBs</span>
+<span class="n">a</span><span class="o">=</span><span class="n">ice</span><span class="o">-</span><span class="n">pwd</span><span class="o">:</span><span class="mi">1U</span><span class="n">SyOciE2u1Uzq97tWIhcx7v</span>
+<span class="n">a</span><span class="o">=</span><span class="n">ice</span><span class="o">-</span><span class="n">options</span><span class="o">:</span><span class="n">trickle</span>
+<span class="n">a</span><span class="o">=</span><span class="n">fingerprint</span><span class="o">:</span><span class="n">sha</span><span class="mi">-256</span><span class="w"> </span><span class="n">C1</span><span class="o">:</span><span class="mf">6F</span><span class="o">:</span><span class="mi">4</span><span class="n">D</span><span class="o">:</span><span class="mi">10</span><span class="o">:</span><span class="mi">6</span><span class="n">E</span><span class="o">:</span><span class="mi">99</span><span class="o">:</span><span class="n">AC</span><span class="o">:</span><span class="mi">9</span><span class="n">C</span><span class="o">:</span><span class="mf">5F</span><span class="o">:</span><span class="n">CD</span><span class="o">:</span><span class="mi">24</span><span class="o">:</span><span class="n">C8</span><span class="o">:</span><span class="n">A5</span><span class="o">:</span><span class="mi">83</span><span class="o">:</span><span class="mi">75</span><span class="o">:</span><span class="n">AE</span><span class="o">:</span><span class="mi">45</span><span class="o">:</span><span class="mi">1</span><span class="n">A</span><span class="o">:</span><span class="n">D4</span><span class="o">:</span><span class="mi">7</span><span class="n">D</span><span class="o">:</span><span class="n">E0</span><span class="o">:</span><span class="mi">73</span><span class="o">:</span><span class="n">B6</span><span class="o">:</span><span class="mi">0</span><span class="n">A</span><span class="o">:</span><span class="mi">67</span><span class="o">:</span><span class="mi">4</span><span class="n">E</span><span class="o">:</span><span class="n">ED</span><span class="o">:</span><span class="n">C3</span><span class="o">:</span><span class="mi">88</span><span class="o">:</span><span class="n">C2</span><span class="o">:</span><span class="mi">6</span><span class="n">C</span><span class="o">:</span><span class="mi">42</span>
+<span class="n">a</span><span class="o">=</span><span class="n">setup</span><span class="o">:</span><span class="n">active</span>
+<span class="n">a</span><span class="o">=</span><span class="n">mid</span><span class="o">:</span><span class="n">datachannel</span>
+<span class="n">a</span><span class="o">=</span><span class="n">sctp</span><span class="o">-</span><span class="n">port</span><span class="o">:</span><span class="mi">5000</span>
+<span class="n">a</span><span class="o">=</span><span class="n">max</span><span class="o">-</span><span class="n">message</span><span class="o">-</span><span class="n">size</span><span class="o">:</span><span class="mi">262144</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_4e536c4a676939b88584506dc737e399.jpg"><img alt="" src="/laumy.github.io/assets/doc/08-网络/libpeer分析/images/wp_editor_md_4e536c4a676939b88584506dc737e399.jpg"/></a></p>
+<h3 id="ice-candidates">ICE candidates</h3>
+<p>ICE (Interactive Connectivity Establishment 互动连接建立） candidates（候选人）简称ICE candidates，WebRTC中的ICE Candidate是用来描述可以连接的远端的基本信息，什么是candidate，两台设备的连接，需要知道设备的网络信息，如IP地址，端口号以及使用的协议，因此candidate至少包含{address，port，protocol}三元组信息集。通过SDP会话来交互candidate信息。</p>
+<p>WebRTC将Candidate分成四种类型，且类型间存在优先级次序，从高到低分别为host、srflx、prflx和relay，本章节使用的是srflx类型，从STUN服务器获取的地址。</p>
+<ul>
+<li>host：从本机网卡上获取到的地址，一般来说，一个网卡对应一个地址。</li>
+<li>srflx（server reflexive）：从STUN服务器获取到的地址。</li>
+<li>relay：从TRUN服务器获取到的地址。</li>
+<li>prflx（peer reflexive）：在交互过程中从对端数据报文中获取到的地址。</li>
+</ul>
+<p>其中，srflx和prflx地址可能是一样的，但获取的途径不一样，下面是描述ICE candidates的数据结构。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="n">IceCandidateType</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">  </span><span class="n">ICE_CANDIDATE_TYPE_HOST</span><span class="p">,</span>
+<span class="w">  </span><span class="n">ICE_CANDIDATE_TYPE_SRFLX</span><span class="p">,</span>
+<span class="w">  </span><span class="n">ICE_CANDIDATE_TYPE_PRFLX</span><span class="p">,</span>
+<span class="w">  </span><span class="n">ICE_CANDIDATE_TYPE_RELAY</span><span class="p">,</span>
+
+<span class="p">}</span><span class="w"> </span><span class="n">IceCandidateType</span><span class="p">;</span>
+
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">IceCandidate</span><span class="w"> </span><span class="n">IceCandidate</span><span class="p">;</span>
+
+<span class="k">struct</span><span class="w"> </span><span class="nc">IceCandidate</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">foundation</span><span class="p">;</span>
+
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">component</span><span class="p">;</span><span class="w"> </span><span class="c1">//1：RTP,2：RTCP</span>
+
+<span class="w">  </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">priority</span><span class="p">;</span><span class="c1">//优先级</span>
+
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">transport</span><span class="p">[</span><span class="mi">32</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">];</span><span class="w">  </span><span class="c1">//传输协议，基于UDP</span>
+
+<span class="w">  </span><span class="n">IceCandidateType</span><span class="w"> </span><span class="n">type</span><span class="p">;</span><span class="w"> </span><span class="c1">//类型，如上。</span>
+
+<span class="w">  </span><span class="n">IceCandidateState</span><span class="w"> </span><span class="n">state</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">Address</span><span class="w"> </span><span class="n">addr</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">Address</span><span class="w"> </span><span class="n">raddr</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre></div>
+<h2 id="main">main函数分析</h2>
+<div class="codehilite"><pre><span></span><code><span class="w">  </span><span class="cm">/*1. 调用srtp_init，初始化srtp内核模块加密套件、debug等*/</span>
+<span class="w">  </span><span class="n">peer_init</span><span class="p">();</span>
+
+<span class="w">  </span><span class="cm">/*2. 创建一个peer连接，其中创建了agent，打开了一个udp socket，初始化</span>
+<span class="cm">   了rtp 音频、视频编解码，主要是确定用什么编码格式。*/</span>
+<span class="w">  </span><span class="n">g_pc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">peer_connection_create</span><span class="p">(</span><span class="o">&amp;</span><span class="n">config</span><span class="p">);</span>
+
+<span class="w">  </span><span class="cm">/*3. 注册一个peer连接的状态切换回调函数，回调函数 onconnectionstatechange，</span>
+<span class="cm">  用于处理对等连接的 ICE 连接状态变更。当连接的状态发生变化（例如从new到connected，</span>
+<span class="cm">  或者 failed），这个回调函数将被调用。*/</span>
+<span class="w">  </span><span class="n">peer_connection_oniceconnectionstatechange</span><span class="p">(</span><span class="n">g_pc</span><span class="p">,</span><span class="w"> </span><span class="n">onconnectionstatechange</span><span class="p">);</span>
+
+<span class="w">  </span><span class="cm">/*4. 设置数据通道（DataChannel）相关的回调函数。当数据通道打开时，会触发</span>
+<span class="cm">   onopen；接收到消息时，会触发 onmessage；当数据通道关闭时会触发onclose*/</span>
+<span class="w">  </span><span class="n">peer_connection_ondatachannel</span><span class="p">(</span><span class="n">g_pc</span><span class="p">,</span><span class="w"> </span><span class="n">onmessage</span><span class="p">,</span><span class="w"> </span><span class="n">onopen</span><span class="p">,</span><span class="w"> </span><span class="n">onclose</span><span class="p">);</span>
+
+<span class="w">  </span><span class="cm">/*5. 设置信令服务器的配置，通常用于 WebRTC 会话中的信令部分。通过传入</span>
+<span class="cm">   service_config 配置，WebRTC 客户端可以向信令服务器注册或传递配置信息</span>
+<span class="cm">  （如 client_id 和对等连接句柄 pc）</span>
+<span class="cm">   这里的信令服务器用的是公用的mqtt服务器？ broker.emqx.io</span>
+<span class="cm">   使用mqtt来作为信令通信，没有使用http，在里面会注册一个peer_connect的候选回调</span>
+<span class="cm">   */</span>
+<span class="w">  </span><span class="cm">/*什么是信令</span>
+<span class="cm">   在webrtc中，信令指的是建立和管理点对点连接过程中的控制消息交换机制。让通信双方</span>
+<span class="cm">   能够交换各种信息，从而建立、维护和终止一个点对点的实时通信连接。</span>
+<span class="cm">   WebRTC 的核心目标是实现浏览器之间的直接通信，支持音频、视频和数据传输，</span>
+<span class="cm">   但在建立这种连接之前，双方需要交换一些控制信息，包括：</span>
+<span class="cm">     - 会话描述（如 SDP，Session Description Protocol）：描述连接的媒体设置（如视频编码格式、音频参数等）。</span>
+<span class="cm">     - 网络候选（ICE候选，ICE candidates）：用于寻找最佳的点对点网络路径，以确保即使在复杂的网络环境下也能建立连接。Interactive Connectivity Establishment（互动连接建立）</span>
+<span class="cm">     - 连接状态：例如连接是否已建立、是否关闭等。</span>
+<span class="cm">   */</span>
+<span class="w">   </span><span class="cm">/*信令的实现</span>
+<span class="cm">   虽然 WebRTC 协议本身并没有指定信令的实现方式，但是它提供了用于交换数据的 API。</span>
+<span class="cm">   开发者可以选择适合自己的信令协议和传输方式，通常的实现方式包括：</span>
+<span class="cm">    - WebSocket：一个常见的双向通信协议，可以实时地交换信令数据。</span>
+<span class="cm">    - HTTP 请求：通过轮询、长轮询等方式进行信令交换。</span>
+<span class="cm">    - SIP (Session Initiation Protocol)：一些应用可能采用 SIP 作为信令协议。</span>
+<span class="cm">    - XMPP (Extensible Messaging and Presence Protocol)：也是一种可以用来实现信令的协议，尤其适用于即时消息和通信应用。</span>
+<span class="cm">    - MQTT：通过订阅和发布的方式来进行传输，本文就是使用这种方式。</span>
+<span class="cm">   */</span>
+
+<span class="w">   </span><span class="cm">/*信令的工作流程</span>
+<span class="cm">    假设有两个用户 A 和 B 通过 WebRTC 建立视频通话，信令的过程大致如下：</span>
+<span class="cm">    (1) 用户A生成offer：用 A创建一个 RTCPeerConnection 对象，并</span>
+<span class="cm">        生成一个offer。这个 offer 包含了 A 的媒体设置和网络候选信息（ICE 候选）。</span>
+<span class="cm">        A 将这个 offer 通过信令系统（例如 MQTT）发送给用户 B。</span>
+<span class="cm">    (2)用户B接收到 offer，并生成 answer：用户 B 收到 offer 后，使用它来创</span>
+<span class="cm">        建一个 RTCPeerConnection，并生成一个 answer（应答）。这个 answer 包含 B</span>
+<span class="cm">        的媒体配置和 ICE 候选信息。B 将 answer 通过信令系统发送给用户 A。</span>
+<span class="cm">    (3)交换 ICE 候选：在连接过程中，双方都会收集到 ICE 候选并通过信令进行交换，</span>
+<span class="cm">        直到双方都确定了最佳的网络路径。</span>
+<span class="cm">    (4)建立连接：当双方完成了 ICE 候选交换并且建立了连接时，通信就可以开始了。</span>
+<span class="cm">    (5)连接终止：当会话结束时，双方通过信令通知对方关闭连接。*/</span>
+
+<span class="w">  </span><span class="n">service_config</span><span class="p">.</span><span class="n">client_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+<span class="w">  </span><span class="n">service_config</span><span class="p">.</span><span class="n">pc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g_pc</span><span class="p">;</span>
+<span class="w">  </span><span class="n">peer_signaling_set_config</span><span class="p">(</span><span class="o">&amp;</span><span class="n">service_config</span><span class="p">);</span>
+
+<span class="w">  </span><span class="cm">/*6.初始化MQTT，连接broker.emqx.io， */</span>
+<span class="w">  </span><span class="n">peer_signaling_join_channel</span><span class="p">();</span>
+
+<span class="w">  </span><span class="cm">/*7. 创建peer连接的task*/</span>
+<span class="w">  </span><span class="n">pthread_create</span><span class="p">(</span><span class="o">&amp;</span><span class="n">peer_connection_thread</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">peer_connection_task</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+
+<span class="w">  </span><span class="cm">/*8. 创建signal的task*/</span>
+<span class="w">  </span><span class="n">pthread_create</span><span class="p">(</span><span class="o">&amp;</span><span class="n">peer_singaling_thread</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">peer_singaling_task</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+
+<span class="w">  </span><span class="cm">/*9. 读取本地音视频初始化*/</span>
+<span class="w">  </span><span class="n">reader_init</span><span class="p">();</span>
+
+<span class="w">  </span><span class="cm">/*10. 循环判断PEER的状态是否是连接态，如果是已经连接，则发送音视频数据*/</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">g_interrupted</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">g_state</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">PEER_CONNECTION_COMPLETED</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">curr_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_timestamp</span><span class="p">();</span>
+
+<span class="w">      </span><span class="c1">// FPS 25</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">curr_time</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">video_time</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">40</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">video_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">curr_time</span><span class="p">;</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">reader_get_video_frame</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">size</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="n">peer_connection_send_video</span><span class="p">(</span><span class="n">g_pc</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">size</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">      </span><span class="p">}</span>
+
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">curr_time</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">audio_time</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">20</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">reader_get_audio_frame</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">size</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="n">peer_connection_send_audio</span><span class="p">(</span><span class="n">g_pc</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">size</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">audio_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">curr_time</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+
+<span class="w">      </span><span class="n">usleep</span><span class="p">(</span><span class="mi">1000</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</code></pre></div>
+<h2 id="_5">信令交互</h2>
+<div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">peer_signaling_join_channel</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="cm">/*1. 与信令服务器建立连接，实际上就是连接MQTT的broker*/</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">peer_signaling_mqtt_connect</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_host</span><span class="p">,</span><span class="w"> </span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_port</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">LOGW</span><span class="p">(</span><span class="s">"Connect MQTT server failed"</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="cm">/*1. 发布信令的消息*/</span>
+<span class="w">  </span><span class="n">peer_signaling_mqtt_subscribe</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="_6">与信令服务器建立连接</h3>
+<p>因为与MQTT broker.emqx.io的交互是TLS加解密的，因此先使用ssl_transport_connect建立加解密通道，接着对MQTT进行初始化，将ssl的收发函数注册到MQTT中，这样MQTT后续的就可以用SSL的加解密通道进行通信，最后是发起MQTT连接。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">peer_signaling_mqtt_connect</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">hostname</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">port</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">MQTTStatus_t</span><span class="w"> </span><span class="n">status</span><span class="p">;</span>
+<span class="w">  </span><span class="n">MQTTConnectInfo_t</span><span class="w"> </span><span class="n">conn_info</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="n">session_present</span><span class="p">;</span>
+
+<span class="w">  </span><span class="cm">/*1. 与mqtt的broker，其host="broker.emqx.io"，port=8883建立TLS连接，MQTT的收发消息</span>
+<span class="cm">   是否通过加密的方式，因此需要先使用TLS进行连接*/</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ssl_transport_connect</span><span class="p">(</span><span class="o">&amp;</span><span class="n">g_ps</span><span class="p">.</span><span class="n">net_ctx</span><span class="p">,</span><span class="w"> </span><span class="n">hostname</span><span class="p">,</span><span class="w"> </span><span class="n">port</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">LOGE</span><span class="p">(</span><span class="s">"ssl transport connect failed"</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="cm">/*2. ssl建立连接之后，将发送和接收的函数通过MQTT_Init进行注册，后续其收发就会调</span>
+<span class="cm">    调用ssl_transport_recv和ssl_transport_send进行解加密收发。</span>
+<span class="cm">    MQTT_Init初始化时还注册回调函数， 对CONNACK/PUBLISH/SUBACK事件进处理</span>
+<span class="cm">    需要注意的时，当设备收到broker发过来的PUBLISH事件时，会回调这个函数进行</span>
+<span class="cm">    处理，这样的场景是当对端设备访问连接是，就会调用peer_signaling_mqtt_event_cb。*/</span>
+<span class="w">  </span><span class="n">g_ps</span><span class="p">.</span><span class="n">transport</span><span class="p">.</span><span class="n">recv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssl_transport_recv</span><span class="p">;</span>
+<span class="w">  </span><span class="n">g_ps</span><span class="p">.</span><span class="n">transport</span><span class="p">.</span><span class="n">send</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssl_transport_send</span><span class="p">;</span>
+<span class="w">  </span><span class="n">g_ps</span><span class="p">.</span><span class="n">transport</span><span class="p">.</span><span class="n">pNetworkContext</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">g_ps</span><span class="p">.</span><span class="n">net_ctx</span><span class="p">;</span>
+<span class="w">  </span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_fixed_buf</span><span class="p">.</span><span class="n">pBuffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_buf</span><span class="p">;</span>
+<span class="w">  </span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_fixed_buf</span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_buf</span><span class="p">);</span>
+<span class="w">  </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MQTT_Init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_ctx</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">g_ps</span><span class="p">.</span><span class="n">transport</span><span class="p">,</span>
+<span class="w">                     </span><span class="n">ports_get_epoch_time</span><span class="p">,</span><span class="w"> </span><span class="n">peer_signaling_mqtt_event_cb</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_fixed_buf</span><span class="p">);</span>
+
+<span class="w">  </span><span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">conn_info</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">conn_info</span><span class="p">));</span>
+
+<span class="w">  </span><span class="n">conn_info</span><span class="p">.</span><span class="n">cleanSession</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strlen</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">username</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">conn_info</span><span class="p">.</span><span class="n">pUserName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g_ps</span><span class="p">.</span><span class="n">username</span><span class="p">;</span>
+<span class="w">    </span><span class="n">conn_info</span><span class="p">.</span><span class="n">userNameLength</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strlen</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">username</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strlen</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">password</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">conn_info</span><span class="p">.</span><span class="n">pPassword</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g_ps</span><span class="p">.</span><span class="n">password</span><span class="p">;</span>
+<span class="w">    </span><span class="n">conn_info</span><span class="p">.</span><span class="n">passwordLength</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strlen</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">password</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strlen</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">client_id</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">conn_info</span><span class="p">.</span><span class="n">pClientIdentifier</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g_ps</span><span class="p">.</span><span class="n">client_id</span><span class="p">;</span>
+<span class="w">    </span><span class="n">conn_info</span><span class="p">.</span><span class="n">clientIdentifierLength</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strlen</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">client_id</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="n">conn_info</span><span class="p">.</span><span class="n">keepAliveSeconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KEEP_ALIVE_TIMEOUT_SECONDS</span><span class="p">;</span>
+
+<span class="w">  </span><span class="cm">/*3.建立MQTT的，MQTT协议与broker连接。前面步骤1是建立SSL连接，相当于是建立了加解密通道，</span>
+<span class="cm">      而这里是建立MQTT的协议通道。*/</span>
+<span class="w">  </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MQTT_Connect</span><span class="p">(</span><span class="o">&amp;</span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_ctx</span><span class="p">,</span>
+<span class="w">                        </span><span class="o">&amp;</span><span class="n">conn_info</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">CONNACK_RECV_TIMEOUT_MS</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">session_present</span><span class="p">);</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">MQTTSuccess</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">LOGE</span><span class="p">(</span><span class="s">"MQTT_Connect failed: Status=%s."</span><span class="p">,</span><span class="w"> </span><span class="n">MQTT_Status_strerror</span><span class="p">(</span><span class="n">status</span><span class="p">));</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="n">LOGI</span><span class="p">(</span><span class="s">"MQTT_Connect succeeded."</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="_7">通知信令服务器已准备</h3>
+<p>通知服务器已经准备，主要是通过MQTT的订阅主题为\"webrtc/peer/jsonrpc\"，等待接入设备接入。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">peer_signaling_mqtt_subscribe</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">subscribed</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">MQTTStatus_t</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MQTTSuccess</span><span class="p">;</span>
+<span class="w">  </span><span class="n">MQTTSubscribeInfo_t</span><span class="w"> </span><span class="n">sub_info</span><span class="p">;</span>
+<span class="w">  </span><span class="cm">/*1. 获取MQTT的packet id*/</span>
+<span class="w">  </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">packet_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MQTT_GetPacketId</span><span class="p">(</span><span class="o">&amp;</span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_ctx</span><span class="p">);</span><span class="err">、</span>
+
+<span class="w">  </span><span class="cm">/*2. MQTT QOS为0即只发一次，订阅的主题是"webrtc/peer/jsonrpc" */</span>
+<span class="w">  </span><span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sub_info</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">sub_info</span><span class="p">));</span>
+<span class="w">  </span><span class="n">sub_info</span><span class="p">.</span><span class="n">qos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MQTTQoS0</span><span class="p">;</span>
+<span class="w">  </span><span class="n">sub_info</span><span class="p">.</span><span class="n">pTopicFilter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g_ps</span><span class="p">.</span><span class="n">subtopic</span><span class="p">;</span>
+<span class="w">  </span><span class="n">sub_info</span><span class="p">.</span><span class="n">topicFilterLength</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strlen</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">subtopic</span><span class="p">);</span>
+
+<span class="w">   </span><span class="cm">/*3. 发送订阅消息*/</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">subscribed</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MQTT_Subscribe</span><span class="p">(</span><span class="o">&amp;</span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_ctx</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">sub_info</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">packet_id</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MQTT_Unsubscribe</span><span class="p">(</span><span class="o">&amp;</span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_ctx</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">sub_info</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">packet_id</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">MQTTSuccess</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">LOGE</span><span class="p">(</span><span class="s">"MQTT_Subscribe failed: Status=%s."</span><span class="p">,</span><span class="w"> </span><span class="n">MQTT_Status_strerror</span><span class="p">(</span><span class="n">status</span><span class="p">));</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="cm">/*4. 等待MQTT 订阅消息发送成功*/</span>
+<span class="w">  </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MQTT_ProcessLoop</span><span class="p">(</span><span class="o">&amp;</span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_ctx</span><span class="p">);</span>
+<span class="w">  </span><span class="cm">/* 调用该函数实时处理循环接收数据，并自定发送心跳包保持链接，当有数据到来时，会触发myEventCallback回调函数*/</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">MQTTSuccess</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">LOGE</span><span class="p">(</span><span class="s">"MQTT_ProcessLoop failed: Status=%s."</span><span class="p">,</span><span class="w"> </span><span class="n">MQTT_Status_strerror</span><span class="p">(</span><span class="n">status</span><span class="p">));</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="n">LOGD</span><span class="p">(</span><span class="s">"MQTT Subscribe/Unsubscribe succeeded."</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="_8">接收信令服务器事件处理</h3>
+<p>在peer_signaling_mqtt_connect函数中,调用MQTT_Init初始化时，注册了一个peer_signaling_mqtt_event_cb回调函数，其对接收的MQTT消息进行处理，包括收到了Broker发过来的PUBLISH消息，因此当设备接入时，调用的是peer_signaling_mqtt_event_cb函数。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">peer_signaling_mqtt_event_cb</span><span class="p">(</span><span class="n">MQTTContext_t</span><span class="o">*</span><span class="w"> </span><span class="n">mqtt_ctx</span><span class="p">,</span>
+<span class="w">                                         </span><span class="n">MQTTPacketInfo_t</span><span class="o">*</span><span class="w"> </span><span class="n">packet_info</span><span class="p">,</span>
+<span class="w">                                         </span><span class="n">MQTTDeserializedInfo_t</span><span class="o">*</span><span class="w"> </span><span class="n">deserialized_info</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="n">packet_info</span><span class="o">-&gt;</span><span class="n">type</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="no">MQTT_PACKET_TYPE_CONNACK</span><span class="p">:</span>
+<span class="w">      </span><span class="n">LOGI</span><span class="p">(</span><span class="s">"MQTT_PACKET_TYPE_CONNACK"</span><span class="p">);</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="no">MQTT_PACKET_TYPE_PUBLISH</span><span class="p">:</span>
+<span class="w">      </span><span class="n">LOGI</span><span class="p">(</span><span class="s">"MQTT_PACKET_TYPE_PUBLISH"</span><span class="p">);</span>
+
+<span class="w">      </span><span class="cm">/*收到了broker发送过来的PUBLISH消息*/</span>
+<span class="w">      </span><span class="n">peer_signaling_on_pub_event</span><span class="p">(</span><span class="n">deserialized_info</span><span class="o">-&gt;</span><span class="n">pPublishInfo</span><span class="o">-&gt;</span><span class="n">pPayload</span><span class="p">,</span>
+<span class="w">                                  </span><span class="n">deserialized_info</span><span class="o">-&gt;</span><span class="n">pPublishInfo</span><span class="o">-&gt;</span><span class="n">payloadLength</span><span class="p">);</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="no">MQTT_PACKET_TYPE_SUBACK</span><span class="p">:</span>
+<span class="w">      </span><span class="n">LOGD</span><span class="p">(</span><span class="s">"MQTT_PACKET_TYPE_SUBACK"</span><span class="p">);</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="k">default</span><span class="o">:</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">peer_signaling_on_pub_event</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">msg</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">size</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">cJSON</span><span class="w"> </span><span class="o">*</span><span class="n">req</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">res</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">item</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">result</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">error</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">payload</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">  </span><span class="n">PeerConnectionState</span><span class="w"> </span><span class="n">state</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">req</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">  </span><span class="cm">/*1. 先获取peer connect的状态*/</span>
+<span class="w">  </span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">peer_connection_get_state</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">pc</span><span class="p">);</span>
+<span class="w">  </span><span class="n">printf</span><span class="p">(</span><span class="s">"%s,%d, msg:%s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">,</span><span class="n">msg</span><span class="p">);</span>
+<span class="w">  </span><span class="k">do</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/*2. 解析json文件*/</span>
+<span class="w">    </span><span class="n">req</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_Parse</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">req</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_CreateRaw</span><span class="p">(</span><span class="n">RPC_ERROR_PARSE_ERROR</span><span class="p">);</span>
+<span class="w">      </span><span class="n">LOGW</span><span class="p">(</span><span class="s">"Parse json failed"</span><span class="p">);</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="cm">/*3. 解析jsion中字段的id值*/</span>
+<span class="w">    </span><span class="n">item</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_GetObjectItem</span><span class="p">(</span><span class="n">req</span><span class="p">,</span><span class="w"> </span><span class="s">"id"</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">item</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">cJSON_IsNumber</span><span class="p">(</span><span class="n">item</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_CreateRaw</span><span class="p">(</span><span class="n">RPC_ERROR_INVALID_REQUEST</span><span class="p">);</span>
+<span class="w">      </span><span class="n">LOGW</span><span class="p">(</span><span class="s">"Cannot find id"</span><span class="p">);</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">item</span><span class="o">-&gt;</span><span class="n">valueint</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/*4. 解析jison中的method字段是是什么？*/</span>
+<span class="w">    </span><span class="n">item</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_GetObjectItem</span><span class="p">(</span><span class="n">req</span><span class="p">,</span><span class="w"> </span><span class="s">"method"</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">item</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">cJSON_IsString</span><span class="p">(</span><span class="n">item</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_CreateRaw</span><span class="p">(</span><span class="n">RPC_ERROR_INVALID_REQUEST</span><span class="p">);</span>
+<span class="w">      </span><span class="n">LOGW</span><span class="p">(</span><span class="s">"Cannot find method"</span><span class="p">);</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">     </span><span class="cm">/* 5. 解析json文件，发现metho为offer，broker发过来要求offer，表示有设备加入了。*/</span>
+<span class="w">     </span><span class="cm">/* {"jsonrpc":"2.0","method":"offer","id":89} */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strcmp</span><span class="p">(</span><span class="n">item</span><span class="o">-&gt;</span><span class="n">valuestring</span><span class="p">,</span><span class="w"> </span><span class="n">RPC_METHOD_OFFER</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="n">state</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">PEER_CONNECTION_NEW</span><span class="p">:</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">PEER_CONNECTION_DISCONNECTED</span><span class="p">:</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">PEER_CONNECTION_FAILED</span><span class="p">:</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">PEER_CONNECTION_CLOSED</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="n">g_ps</span><span class="p">.</span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">id</span><span class="p">;</span>
+<span class="w">          </span><span class="cm">/*6. 将peer connect状态切换为PEER_CONNECTION_NEW</span>
+<span class="cm">           在peer_connection_loop中就会调用到peer_connection_state_new，</span>
+<span class="cm">           offer一个SDP*/</span>
+<span class="w">          </span><span class="n">peer_connection_create_offer</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">pc</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="k">default</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_CreateRaw</span><span class="p">(</span><span class="n">RPC_ERROR_INTERNAL_ERROR</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="cm">/*7. broker发送过来的是anwer，表示对端设备的应答*/</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strcmp</span><span class="p">(</span><span class="n">item</span><span class="o">-&gt;</span><span class="n">valuestring</span><span class="p">,</span><span class="w"> </span><span class="n">RPC_METHOD_ANSWER</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">item</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_GetObjectItem</span><span class="p">(</span><span class="n">req</span><span class="p">,</span><span class="w"> </span><span class="s">"params"</span><span class="p">);</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">item</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">cJSON_IsString</span><span class="p">(</span><span class="n">item</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_CreateRaw</span><span class="p">(</span><span class="n">RPC_ERROR_INVALID_PARAMS</span><span class="p">);</span>
+<span class="w">        </span><span class="n">LOGW</span><span class="p">(</span><span class="s">"Cannot find params"</span><span class="p">);</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">      </span><span class="cm">/*8. 收到对端应答后，解析对端anser的SDP内容，设置远端的描述信息*/</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">state</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">PEER_CONNECTION_NEW</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">peer_connection_set_remote_description</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">pc</span><span class="p">,</span><span class="w"> </span><span class="n">item</span><span class="o">-&gt;</span><span class="n">valuestring</span><span class="p">);</span>
+<span class="w">        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_CreateString</span><span class="p">(</span><span class="s">""</span><span class="p">);</span>
+<span class="w">      </span><span class="p">}</span>
+
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strcmp</span><span class="p">(</span><span class="n">item</span><span class="o">-&gt;</span><span class="n">valuestring</span><span class="p">,</span><span class="w"> </span><span class="n">RPC_METHOD_STATE</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_CreateString</span><span class="p">(</span><span class="n">peer_connection_state_to_string</span><span class="p">(</span><span class="n">state</span><span class="p">));</span>
+
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strcmp</span><span class="p">(</span><span class="n">item</span><span class="o">-&gt;</span><span class="n">valuestring</span><span class="p">,</span><span class="w"> </span><span class="n">RPC_METHOD_CLOSE</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">peer_connection_close</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">pc</span><span class="p">);</span>
+<span class="w">      </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_CreateString</span><span class="p">(</span><span class="s">""</span><span class="p">);</span>
+
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_CreateRaw</span><span class="p">(</span><span class="n">RPC_ERROR_METHOD_NOT_FOUND</span><span class="p">);</span>
+<span class="w">      </span><span class="n">LOGW</span><span class="p">(</span><span class="s">"Unsupport method"</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span><span class="cm">/*9. 发布消息，发布什么内容？？*/</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">result</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_CreateObject</span><span class="p">();</span>
+<span class="w">    </span><span class="n">cJSON_AddStringToObject</span><span class="p">(</span><span class="n">res</span><span class="p">,</span><span class="w"> </span><span class="s">"jsonrpc"</span><span class="p">,</span><span class="w"> </span><span class="n">RPC_VERSION</span><span class="p">);</span>
+<span class="w">    </span><span class="n">cJSON_AddNumberToObject</span><span class="p">(</span><span class="n">res</span><span class="p">,</span><span class="w"> </span><span class="s">"id"</span><span class="p">,</span><span class="w"> </span><span class="n">id</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">cJSON_AddItemToObject</span><span class="p">(</span><span class="n">res</span><span class="p">,</span><span class="w"> </span><span class="s">"result"</span><span class="p">,</span><span class="w"> </span><span class="n">result</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">cJSON_AddItemToObject</span><span class="p">(</span><span class="n">res</span><span class="p">,</span><span class="w"> </span><span class="s">"error"</span><span class="p">,</span><span class="w"> </span><span class="n">error</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">payload</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cJSON_PrintUnformatted</span><span class="p">(</span><span class="n">res</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">payload</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">peer_signaling_mqtt_publish</span><span class="p">(</span><span class="o">&amp;</span><span class="n">g_ps</span><span class="p">.</span><span class="n">mqtt_ctx</span><span class="p">,</span><span class="w"> </span><span class="n">payload</span><span class="p">);</span>
+<span class="w">      </span><span class="n">free</span><span class="p">(</span><span class="n">payload</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">cJSON_Delete</span><span class="p">(</span><span class="n">res</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">req</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">cJSON_Delete</span><span class="p">(</span><span class="n">req</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="offer-sdp">Offer SDP</h3>
+<p>当对端Client B设备通过信令服务器发起连接时，信令服务器的MQTT broker发送publish给当前Client A设备，接收到MQTT 的publish后，解析到method为offer，即将peer的状态切换为PEER_CONNECTION_NEW，继而peer_connection_loop中状态切换为peer_connection_state_new。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">peer_connection_state_new</span><span class="p">(</span><span class="n">PeerConnection</span><span class="o">*</span><span class="w"> </span><span class="n">pc</span><span class="p">,</span><span class="w"> </span><span class="n">DtlsSrtpRole</span><span class="w"> </span><span class="n">role</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">isOfferer</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">temp_buf</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">memset</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">temp_buf</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">temp_buf</span><span class="p">));</span>
+
+<span class="w">  </span><span class="n">dtls_srtp_reset_session</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">dtls_srtp</span><span class="p">);</span>
+<span class="w">  </span><span class="cm">/*dtls srtp 初始化，在后续的章节再进行描述。*/</span>
+<span class="w">  </span><span class="n">dtls_srtp_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">dtls_srtp</span><span class="p">,</span><span class="w"> </span><span class="n">role</span><span class="p">,</span><span class="w"> </span><span class="n">pc</span><span class="p">);</span>
+<span class="w">  </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">dtls_srtp</span><span class="p">.</span><span class="n">udp_recv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">peer_connection_dtls_srtp_recv</span><span class="p">;</span>
+<span class="w">  </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">dtls_srtp</span><span class="p">.</span><span class="n">udp_send</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">peer_connection_dtls_srtp_send</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">sctp</span><span class="p">.</span><span class="n">connected</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">isOfferer</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">agent_clear_candidates</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">agent</span><span class="p">);</span>
+<span class="w">    </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">agent</span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AGENT_MODE_CONTROLLING</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">agent</span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AGENT_MODE_CONTROLLED</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">   </span><span class="cm">/*1. 通过stun传输获取candidate信息*/</span>
+<span class="w">  </span><span class="n">agent_gather_candidate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">agent</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span><span class="w">  </span><span class="c1">// host address</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">ice_servers</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">ice_servers</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">ice_servers</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">urls</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">LOGI</span><span class="p">(</span><span class="s">"ice server: %s"</span><span class="p">,</span><span class="w"> </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">ice_servers</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">urls</span><span class="p">);</span>
+<span class="w">      </span><span class="n">agent_gather_candidate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">agent</span><span class="p">,</span><span class="w"> </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">ice_servers</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">urls</span><span class="p">,</span><span class="w"> </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">ice_servers</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">username</span><span class="p">,</span><span class="w"> </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">ice_servers</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">credential</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="cm">/*将candidate信息转化为SDP格式？*/</span>
+<span class="w">  </span><span class="n">agent_get_local_description</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">agent</span><span class="p">,</span><span class="w"> </span><span class="n">description</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">temp_buf</span><span class="p">));</span>
+
+<span class="w">  </span><span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">));</span>
+<span class="w">  </span><span class="c1">// TODO: check if we have video or audio codecs</span>
+<span class="w">  </span><span class="cm">/*创建一个SDP会话*/</span>
+<span class="w">  </span><span class="n">sdp_create</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">,</span>
+<span class="w">             </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">video_codec</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">CODEC_NONE</span><span class="p">,</span>
+<span class="w">             </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">audio_codec</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">CODEC_NONE</span><span class="p">,</span>
+<span class="w">             </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">datachannel</span><span class="p">);</span>
+<span class="w">  </span><span class="cm">/*填充其他的sdp信息*/</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">video_codec</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">CODEC_H264</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">sdp_append_h264</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">);</span>
+<span class="w">    </span><span class="n">sdp_append</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">,</span><span class="w"> </span><span class="s">"a=fingerprint:sha-256 %s"</span><span class="p">,</span><span class="w"> </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">dtls_srtp</span><span class="p">.</span><span class="n">local_fingerprint</span><span class="p">);</span>
+<span class="w">    </span><span class="n">sdp_append</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">,</span><span class="w"> </span><span class="n">peer_connection_dtls_role_setup_value</span><span class="p">(</span><span class="n">role</span><span class="p">));</span>
+<span class="w">    </span><span class="n">strcat</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">.</span><span class="n">content</span><span class="p">,</span><span class="w"> </span><span class="n">description</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">audio_codec</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="no">CODEC_PCMA</span><span class="p">:</span>
+
+<span class="w">      </span><span class="n">sdp_append_pcma</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">);</span>
+<span class="w">      </span><span class="n">sdp_append</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">,</span><span class="w"> </span><span class="s">"a=fingerprint:sha-256 %s"</span><span class="p">,</span><span class="w"> </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">dtls_srtp</span><span class="p">.</span><span class="n">local_fingerprint</span><span class="p">);</span>
+<span class="w">      </span><span class="n">sdp_append</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">,</span><span class="w"> </span><span class="n">peer_connection_dtls_role_setup_value</span><span class="p">(</span><span class="n">role</span><span class="p">));</span>
+<span class="w">      </span><span class="n">strcat</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">.</span><span class="n">content</span><span class="p">,</span><span class="w"> </span><span class="n">description</span><span class="p">);</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="no">CODEC_PCMU</span><span class="p">:</span>
+
+<span class="w">      </span><span class="n">sdp_append_pcmu</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">);</span>
+<span class="w">      </span><span class="n">sdp_append</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">,</span><span class="w"> </span><span class="s">"a=fingerprint:sha-256 %s"</span><span class="p">,</span><span class="w"> </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">dtls_srtp</span><span class="p">.</span><span class="n">local_fingerprint</span><span class="p">);</span>
+<span class="w">      </span><span class="n">sdp_append</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">,</span><span class="w"> </span><span class="n">peer_connection_dtls_role_setup_value</span><span class="p">(</span><span class="n">role</span><span class="p">));</span>
+<span class="w">      </span><span class="n">strcat</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">.</span><span class="n">content</span><span class="p">,</span><span class="w"> </span><span class="n">description</span><span class="p">);</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="no">CODEC_OPUS</span><span class="p">:</span>
+<span class="w">      </span><span class="n">sdp_append_opus</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">);</span>
+<span class="w">      </span><span class="n">sdp_append</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">,</span><span class="w"> </span><span class="s">"a=fingerprint:sha-256 %s"</span><span class="p">,</span><span class="w"> </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">dtls_srtp</span><span class="p">.</span><span class="n">local_fingerprint</span><span class="p">);</span>
+<span class="w">      </span><span class="n">sdp_append</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">,</span><span class="w"> </span><span class="n">peer_connection_dtls_role_setup_value</span><span class="p">(</span><span class="n">role</span><span class="p">));</span>
+<span class="w">      </span><span class="n">strcat</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">.</span><span class="n">content</span><span class="p">,</span><span class="w"> </span><span class="n">description</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">default</span><span class="o">:</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">datachannel</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">sdp_append_datachannel</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">);</span>
+<span class="w">    </span><span class="n">sdp_append</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">,</span><span class="w"> </span><span class="s">"a=fingerprint:sha-256 %s"</span><span class="p">,</span><span class="w"> </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">dtls_srtp</span><span class="p">.</span><span class="n">local_fingerprint</span><span class="p">);</span>
+<span class="w">    </span><span class="n">sdp_append</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">,</span><span class="w"> </span><span class="n">peer_connection_dtls_role_setup_value</span><span class="p">(</span><span class="n">role</span><span class="p">));</span>
+<span class="w">    </span><span class="n">strcat</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">.</span><span class="n">content</span><span class="p">,</span><span class="w"> </span><span class="n">description</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">b_local_description_created</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+
+<span class="w">  </span><span class="cm">/*将SDP信息发送出去。*/</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">onicecandidate</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">onicecandidate</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">local_sdp</span><span class="p">.</span><span class="n">content</span><span class="p">,</span><span class="w"> </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">user_data</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="anser-sdp">anser SDP</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">peer_signaling_on_pub_event</span>
+<span class="w">    </span><span class="nf">strcmp</span><span class="p">(</span><span class="n">item</span><span class="o">-&gt;</span><span class="n">valuestring</span><span class="p">,</span><span class="w"> </span><span class="n">RPC_METHOD_ANSWER</span>
+<span class="w">        </span><span class="n">peer_connection_set_remote_description</span><span class="p">(</span><span class="n">g_ps</span><span class="p">.</span><span class="n">pc</span><span class="p">,</span><span class="w"> </span><span class="n">item</span><span class="o">-&gt;</span><span class="n">valuestring</span><span class="p">);</span>
+</code></pre></div>
+<p>设备收到publish消息后，解析jsion判断出method是anser，调用peer_connection_set_remote_description进行处理。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">peer_connection_set_remote_description</span><span class="p">(</span><span class="n">PeerConnection</span><span class="o">*</span><span class="w"> </span><span class="n">pc</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">sdp_text</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span><span class="n">sdp_text</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">buf</span><span class="p">[</span><span class="mi">256</span><span class="p">];</span>
+<span class="w">  </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">val_start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">uint32_t</span><span class="o">*</span><span class="w"> </span><span class="n">ssrc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">  </span><span class="n">DtlsSrtpRole</span><span class="w"> </span><span class="n">role</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DTLS_SRTP_ROLE_SERVER</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">is_update</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Agent</span><span class="o">*</span><span class="w"> </span><span class="n">agent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">agent</span><span class="p">;</span>
+
+<span class="w">  </span><span class="cm">/*1. 解析SDP会话内容*/</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">((</span><span class="n">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strstr</span><span class="p">(</span><span class="n">start</span><span class="p">,</span><span class="w"> </span><span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">)))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strstr</span><span class="p">(</span><span class="n">start</span><span class="p">,</span><span class="w"> </span><span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+<span class="w">    </span><span class="n">strncpy</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">start</span><span class="p">,</span><span class="w"> </span><span class="n">line</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start</span><span class="p">);</span>
+<span class="w">    </span><span class="n">buf</span><span class="p">[</span><span class="n">line</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sc">'\0'</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strstr</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="s">"a=setup:passive"</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">role</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DTLS_SRTP_ROLE_CLIENT</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strstr</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="s">"a=fingerprint"</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">strncpy</span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">dtls_srtp</span><span class="p">.</span><span class="n">remote_fingerprint</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">22</span><span class="p">,</span><span class="w"> </span><span class="n">DTLS_SRTP_FINGERPRINT_LENGTH</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strstr</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="s">"a=ice-ufrag"</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">        </span><span class="n">strlen</span><span class="p">(</span><span class="n">agent</span><span class="o">-&gt;</span><span class="n">remote_ufrag</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">        </span><span class="p">(</span><span class="n">strncmp</span><span class="p">(</span><span class="n">buf</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">strlen</span><span class="p">(</span><span class="s">"a=ice-ufrag:"</span><span class="p">),</span><span class="w"> </span><span class="n">agent</span><span class="o">-&gt;</span><span class="n">remote_ufrag</span><span class="p">,</span><span class="w"> </span><span class="n">strlen</span><span class="p">(</span><span class="n">agent</span><span class="o">-&gt;</span><span class="n">remote_ufrag</span><span class="p">))</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">is_update</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strstr</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="s">"m=video"</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">ssrc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">remote_vssrc</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strstr</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="s">"m=audio"</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">ssrc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">remote_assrc</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">val_start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strstr</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="s">"a=ssrc:"</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ssrc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="o">*</span><span class="n">ssrc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">strtoul</span><span class="p">(</span><span class="n">val_start</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">);</span>
+<span class="w">      </span><span class="n">LOGD</span><span class="p">(</span><span class="s">"SSRC: %"</span><span class="w"> </span><span class="n">PRIu32</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">ssrc</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">line</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">is_update</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">b_local_description_created</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">peer_connection_state_new</span><span class="p">(</span><span class="n">pc</span><span class="p">,</span><span class="w"> </span><span class="n">role</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="cm">/*2. 设置远程的描述信息，主要是填充PeerConnection中agent的信息，</span>
+<span class="cm">  这个agent信息存储了本地和远端的icecandicate*/</span>
+<span class="w">  </span><span class="n">agent_set_remote_description</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">agent</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span><span class="n">sdp_text</span><span class="p">);</span>
+
+<span class="w">  </span><span class="cm">/*3. 将peer connect状态切换为checking*/</span>
+<span class="w">  </span><span class="n">STATE_CHANGED</span><span class="p">(</span><span class="n">pc</span><span class="p">,</span><span class="w"> </span><span class="n">PEER_CONNECTION_CHECKING</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="p2p">测试P2P通路</h3>
+<p>收到对端的anser SDP后，解析得到了ICE candidate，那么将peer connect切换为checking状态，先测试一下P2P的通路。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">agent_connectivity_check</span><span class="p">(</span><span class="n">Agent</span><span class="o">*</span><span class="w"> </span><span class="n">agent</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">addr_string</span><span class="p">[</span><span class="n">ADDRSTRLEN</span><span class="p">];</span>
+<span class="w">  </span><span class="kt">uint8_t</span><span class="w"> </span><span class="n">buf</span><span class="p">[</span><span class="mi">1400</span><span class="p">];</span>
+<span class="w">  </span><span class="n">StunMessage</span><span class="w"> </span><span class="n">msg</span><span class="p">;</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">agent</span><span class="o">-&gt;</span><span class="n">nominated_pair</span><span class="o">-&gt;</span><span class="n">state</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">ICE_CANDIDATE_STATE_INPROGRESS</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">LOGI</span><span class="p">(</span><span class="s">"nominated pair is not in progress"</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">msg</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">msg</span><span class="p">));</span>
+<span class="w">  </span><span class="cm">/*1. 使用对端的ip地址发送数据*/</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">agent</span><span class="o">-&gt;</span><span class="n">nominated_pair</span><span class="o">-&gt;</span><span class="n">conncheck</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">AGENT_CONNCHECK_PERIOD</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">addr_to_string</span><span class="p">(</span><span class="o">&amp;</span><span class="n">agent</span><span class="o">-&gt;</span><span class="n">nominated_pair</span><span class="o">-&gt;</span><span class="n">remote</span><span class="o">-&gt;</span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">addr_string</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">addr_string</span><span class="p">));</span>
+<span class="w">    </span><span class="n">LOGD</span><span class="p">(</span><span class="s">"send binding request to remote ip: %s, port: %d"</span><span class="p">,</span><span class="w"> </span><span class="n">addr_string</span><span class="p">,</span><span class="w"> </span><span class="n">agent</span><span class="o">-&gt;</span><span class="n">nominated_pair</span><span class="o">-&gt;</span><span class="n">remote</span><span class="o">-&gt;</span><span class="n">addr</span><span class="p">.</span><span class="n">port</span><span class="p">);</span>
+<span class="w">    </span><span class="n">agent_create_binding_request</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">msg</span><span class="p">);</span>
+<span class="w">    </span><span class="n">agent_socket_send</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">agent</span><span class="o">-&gt;</span><span class="n">nominated_pair</span><span class="o">-&gt;</span><span class="n">remote</span><span class="o">-&gt;</span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">msg</span><span class="p">.</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">msg</span><span class="p">.</span><span class="n">size</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="cm">/*2. 接收对端的反馈数据，如果返回正确，表示链路连通正常*/</span>
+<span class="w">  </span><span class="n">agent_recv</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">buf</span><span class="p">));</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">agent</span><span class="o">-&gt;</span><span class="n">nominated_pair</span><span class="o">-&gt;</span><span class="n">state</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">ICE_CANDIDATE_STATE_SUCCEEDED</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">agent</span><span class="o">-&gt;</span><span class="n">selected_pair</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">agent</span><span class="o">-&gt;</span><span class="n">nominated_pair</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>测试P2P链路正常后，就将Peer Connection状态切换为PEER_CONNECTION_CONNECTED，接下来就是正式的P2P链路创建连接了。</p>
+<h2 id="p2p_1">P2P通信</h2>
+<p>通过上面信令的建立，P2P链路已经建立了连接，接下来就是创建P2P的通信链路了，P2P的传输使用的是SRTP链路。</p>
+<h3 id="_9">初始化</h3>
+<p>在offer SDP的时候，函数peer_connection_state_new中会调用dtls_srtp_init进行初始化。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">dtls_srtp_init</span><span class="p">(</span><span class="n">DtlsSrtp</span><span class="o">*</span><span class="w"> </span><span class="n">dtls_srtp</span><span class="p">,</span><span class="w"> </span><span class="n">DtlsSrtpRole</span><span class="w"> </span><span class="n">role</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">user_data</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">mbedtls_ssl_srtp_profile</span><span class="w"> </span><span class="n">default_profiles</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">MBEDTLS_TLS_SRTP_AES128_CM_HMAC_SHA1_80</span><span class="p">,</span>
+<span class="w">      </span><span class="n">MBEDTLS_TLS_SRTP_AES128_CM_HMAC_SHA1_32</span><span class="p">,</span>
+<span class="w">      </span><span class="n">MBEDTLS_TLS_SRTP_NULL_HMAC_SHA1_80</span><span class="p">,</span>
+<span class="w">      </span><span class="n">MBEDTLS_TLS_SRTP_NULL_HMAC_SHA1_32</span><span class="p">,</span>
+<span class="w">      </span><span class="n">MBEDTLS_TLS_SRTP_UNSET</span><span class="p">};</span>
+
+<span class="w">  </span><span class="cm">/*1. 设置srtp的角色，目前是做server，并更新为INIT状态，并设置UDP收发的回调函数。*/</span>
+<span class="w">  </span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">role</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">role</span><span class="p">;</span>
+<span class="w">  </span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DTLS_SRTP_STATE_INIT</span><span class="p">;</span>
+<span class="w">  </span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">user_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">user_data</span><span class="p">;</span>
+<span class="w">  </span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">udp_send</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dtls_srtp_udp_send</span><span class="p">;</span>
+<span class="w">  </span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">udp_recv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dtls_srtp_udp_recv</span><span class="p">;</span>
+<span class="w">  </span><span class="cm">/*2.初始化 MBEDTLS 相关结构体*/</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_config_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">);</span><span class="w"> </span>
+<span class="w">   </span><span class="c1">//初始化 ssl_config 结构体，这是 SSL 配置的核心，包含加密协议、证书、密钥等信息</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">   </span><span class="c1">//初始化 ssl 结构体，表示一个 SSL 会话上下文。</span>
+<span class="w">  </span><span class="n">mbedtls_x509_crt_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">cert</span><span class="p">);</span>
+<span class="w">   </span><span class="c1">//初始化 X.509 证书结构，用于存储公钥证书。</span>
+<span class="w">  </span><span class="n">mbedtls_pk_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">pkey</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//初始化公钥对象结构，用于存储私钥。</span>
+<span class="w">  </span><span class="n">mbedtls_entropy_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">entropy</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//初始化熵源，熵源是生成随机数所需的基础。</span>
+<span class="w">  </span><span class="n">mbedtls_ctr_drbg_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">ctr_drbg</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//初始化 CTR_DRBG（Counter-based Deterministic Random Byte Generator），</span>
+<span class="w">    </span><span class="c1">//它是用于生成随机数的伪随机数生成器。</span>
+
+<span class="w"> </span><span class="cm">/*3. 设置打印等级*/</span>
+<span class="cp">#if CONFIG_MBEDTLS_DEBUG</span>
+<span class="w">  </span><span class="n">mbedtls_debug_set_threshold</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_conf_dbg</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span><span class="w"> </span><span class="n">dtls_srtp_debug</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+<span class="cp">#endif</span>
+<span class="w">  </span><span class="cm">/*4.生成一个自签名证书。这个证书将在 DTLS 握手期间用于身份验证*/</span>
+<span class="w">  </span><span class="n">dtls_srtp_selfsign_cert</span><span class="p">(</span><span class="n">dtls_srtp</span><span class="p">);</span>
+
+<span class="w">  </span><span class="cm">/*5. 配置证书验证和认证模式*/</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_conf_verify</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span><span class="w"> </span><span class="n">dtls_srtp_cert_verify</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">//配置证书验证回调函数 dtls_srtp_cert_verify，用来验证远端证书的有效性。</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_conf_authmode</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span><span class="w"> </span><span class="n">MBEDTLS_SSL_VERIFY_REQUIRED</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">//设置身份验证模式为MBEDTLS_SSL_VERIFY_REQUIRED，即客户端必须提供有效证书进行验证（服务器验证客户端的证书）。</span>
+
+<span class="w">  </span><span class="cm">/*6. 配置证书链和私钥*/</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_conf_ca_chain</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">cert</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">//配置服务器的根证书链，这里使用dtls_srtp-&gt;cert 作为证书链的起始证书。</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_conf_own_cert</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">cert</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">pkey</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">//配置本地证书和私钥。服务器和客户端都需要自己的证书和私钥来进行加密通信。</span>
+
+<span class="w">  </span><span class="cm">/*7. 配置随机数生成器和超时*/</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_conf_rng</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span><span class="w"> </span><span class="n">mbedtls_ctr_drbg_random</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">ctr_drbg</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">//配置随机数生成器，使用 mbedtls_ctr_drbg_random 和 dtls_srtp-&gt;ctr_drbg 作为随机数源。</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_conf_read_timeout</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span><span class="w"> </span><span class="mi">1000</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">//设置读取超时时间为 1000 毫秒，意味着在等待数据时，如果超过 1000 毫秒没有接收到数据，则超时。</span>
+<span class="w">  </span><span class="cm">/*8. 如果是服务器 (DTLS_SRTP_ROLE_SERVER)，则配置为 DTLS 服务器模式，并设置用</span>
+<span class="cm">  于防止 DoS 攻击的 DTLS cookies（cookie 是用于防止重放攻击的）。</span>
+<span class="cm">  如果角色是客户端，则直接配置为 DTLS 客户端模式。这里是做服务端*/</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">role</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">DTLS_SRTP_ROLE_SERVER</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">mbedtls_ssl_config_defaults</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span>
+<span class="w">                                </span><span class="n">MBEDTLS_SSL_IS_SERVER</span><span class="p">,</span>
+<span class="w">                                </span><span class="n">MBEDTLS_SSL_TRANSPORT_DATAGRAM</span><span class="p">,</span>
+<span class="w">                                </span><span class="n">MBEDTLS_SSL_PRESET_DEFAULT</span><span class="p">);</span>
+<span class="w">    </span><span class="n">mbedtls_ssl_cookie_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">cookie_ctx</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">mbedtls_ssl_cookie_setup</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">cookie_ctx</span><span class="p">,</span><span class="w"> </span><span class="n">mbedtls_ctr_drbg_random</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">ctr_drbg</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">mbedtls_ssl_conf_dtls_cookies</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span><span class="w"> </span><span class="n">mbedtls_ssl_cookie_write</span><span class="p">,</span><span class="w"> </span><span class="n">mbedtls_ssl_cookie_check</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">cookie_ctx</span><span class="p">);</span>
+
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">mbedtls_ssl_config_defaults</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span>
+<span class="w">                                </span><span class="n">MBEDTLS_SSL_IS_CLIENT</span><span class="p">,</span>
+<span class="w">                                </span><span class="n">MBEDTLS_SSL_TRANSPORT_DATAGRAM</span><span class="p">,</span>
+<span class="w">                                </span><span class="n">MBEDTLS_SSL_PRESET_DEFAULT</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w"> </span><span class="cm">/*10. 生成并打印本地指纹， 用于生成本地证书的指纹（一个哈希值），用于标识证书。*/</span>
+<span class="w">  </span><span class="n">dtls_srtp_x509_digest</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">cert</span><span class="p">,</span><span class="w"> </span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">local_fingerprint</span><span class="p">);</span>
+<span class="w">  </span><span class="n">LOGD</span><span class="p">(</span><span class="s">"local fingerprint: %s"</span><span class="p">,</span><span class="w"> </span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">local_fingerprint</span><span class="p">);</span>
+
+<span class="w">  </span><span class="cm">/*11. 配置 DTLS-SRTP 的保护配置文件，default_profiles 是预定义的安全配置，</span>
+<span class="cm">  包含 SRTP 协议所支持的加密算法、密钥长度等信息。*/</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_conf_dtls_srtp_protection_profiles</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span><span class="w"> </span><span class="n">default_profiles</span><span class="p">);</span>
+
+<span class="w"> </span><span class="cm">/*12. 配置 SRTP MKI（主密钥标识符）的支持情况。在这里，设置为不支持 MKI。*/</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_conf_srtp_mki_value_supported</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span><span class="w"> </span><span class="n">MBEDTLS_SSL_DTLS_SRTP_MKI_UNSUPPORTED</span><span class="p">);</span>
+
+<span class="w">  </span><span class="cm">/*13. 禁用客户端证书请求中的 CA 列表。*/</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_conf_cert_req_ca_list</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span><span class="w"> </span><span class="n">MBEDTLS_SSL_CERT_REQ_CA_LIST_DISABLED</span><span class="p">);</span>
+
+<span class="w"> </span><span class="cm">/*14. 完成所有配置后，调用 mbedtls_ssl_setup 初始化 ssl 上下文并将配置应用于</span>
+<span class="cm"> 当前的 DTLS 会话。*/</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_setup</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">ssl</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">);</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="_10">创建</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">case</span><span class="w"> </span><span class="no">PEER_CONNECTION_CONNECTED</span><span class="p">:</span>
+<span class="w">    </span><span class="cm">/*1. 建立DTLS SRTP链接*/</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dtls_srtp_handshake</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">dtls_srtp</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">LOGD</span><span class="p">(</span><span class="s">"DTLS-SRTP handshake done"</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/*2. 建立sctp 链接*/</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">datachannel</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">LOGI</span><span class="p">(</span><span class="s">"SCTP create socket"</span><span class="p">);</span>
+<span class="w">        </span><span class="n">sctp_create_socket</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">sctp</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">dtls_srtp</span><span class="p">);</span>
+<span class="w">        </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">sctp</span><span class="p">.</span><span class="n">userdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pc</span><span class="o">-&gt;</span><span class="n">config</span><span class="p">.</span><span class="n">user_data</span><span class="p">;</span>
+<span class="w">     </span><span class="p">}</span>
+
+<span class="w">     </span><span class="n">STATE_CHANGED</span><span class="p">(</span><span class="n">pc</span><span class="p">,</span><span class="w"> </span><span class="n">PEER_CONNECTION_COMPLETED</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+</code></pre></div>
+<p>主要是创建DTLS_SRTP和SCTP两条链路。</p>
+<h4 id="dtsl_srtp">DTSL_SRTP</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">dtls_srtp_handshake_server</span><span class="err">（）</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="cm">/* 循环发起*/</span>
+<span class="w">    </span><span class="k">while</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">mbedtls_ssl_session_reset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">        </span><span class="n">mbedtls_ssl_set_client_transport_id</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">ssl</span><span class="p">,</span><span class="w"> </span><span class="n">client_ip</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">client_ip</span><span class="p">));</span>
+<span class="w">        </span><span class="cm">/* 发起握手*/</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dtls_srtp_do_handshake</span><span class="p">(</span><span class="n">dtls_srtp</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">MBEDTLS_ERR_SSL_HELLO_VERIFY_REQUIRED</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">LOGD</span><span class="p">(</span><span class="s">"DTLS hello verification requested"</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">LOGE</span><span class="p">(</span><span class="s">"failed! mbedtls_ssl_handshake returned -0x%.4x"</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="p">)</span><span class="o">-</span><span class="n">ret</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">           </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>判断返回的错误是MBEDTLS_ERR_SSL_HELLO_VERIFY_REQUIRED，会进行再次循环发起。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">dtls_srtp_do_handshake</span><span class="p">(</span><span class="n">DtlsSrtp</span><span class="o">*</span><span class="w"> </span><span class="n">dtls_srtp</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="w">   </span><span class="cm">/* timer 是 mbedtls_timing_delay_context 类型的一个静态变量，用于管理</span>
+<span class="cm">   定时器（通常是控制超时的机制）。这个定时器在 DTLS 协议中用于处理超时等操作。*/</span>
+<span class="w">  </span><span class="k">static</span><span class="w"> </span><span class="n">mbedtls_timing_delay_context</span><span class="w"> </span><span class="n">timer</span><span class="p">;</span>
+
+<span class="w">   </span><span class="cm">/*定时器是 DTLS 握手中用来处理超时的一个重要机制，因为 DTLS 是基于UDP协议的，</span>
+<span class="cm">   而 UDP 本身不保证数据的可靠传输，因此需要在握手过程中手动管理超时。*/</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_set_timer_cb</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">ssl</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">timer</span><span class="p">,</span><span class="w"> </span><span class="n">mbedtls_timing_set_delay</span><span class="p">,</span><span class="w"> </span><span class="n">mbedtls_timing_get_delay</span><span class="p">);</span>
+
+<span class="cp">#if CONFIG_MBEDTLS_2_X</span>
+<span class="w">  </span><span class="cm">/*回调函数会在 DTLS 握手完成后用于派发加密密钥。*/</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_conf_export_keys_ext_cb</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">,</span><span class="w"> </span><span class="n">dtls_srtp_key_derivation_cb</span><span class="p">,</span><span class="w"> </span><span class="n">dtls_srtp</span><span class="p">);</span>
+<span class="cp">#else</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_set_export_keys_cb</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">ssl</span><span class="p">,</span><span class="w"> </span><span class="n">dtls_srtp_key_derivation_cb</span><span class="p">,</span><span class="w"> </span><span class="n">dtls_srtp</span><span class="p">);</span>
+<span class="cp">#endif</span>
+<span class="w">  </span><span class="cm">/*用于设置 DTLS 上下文的 BIO（Basic Input/Output）回调函数，这些回调函数</span>
+<span class="cm">  定义了数据的发送和接收方式。回调函数在dtls_srtp_init进行初始化的。*/</span>
+<span class="w">  </span><span class="n">mbedtls_ssl_set_bio</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">ssl</span><span class="p">,</span><span class="w"> </span><span class="n">dtls_srtp</span><span class="p">,</span><span class="w"> </span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">udp_send</span><span class="p">,</span><span class="w"> </span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">udp_recv</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+<span class="w">  </span><span class="cm">/*执行 DTLS 握手，直到握手成功或发生错误。*/</span><span class="w"> </span>
+<span class="w">  </span><span class="k">do</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mbedtls_ssl_handshake</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dtls_srtp</span><span class="o">-&gt;</span><span class="n">ssl</span><span class="p">);</span>
+
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">MBEDTLS_ERR_SSL_WANT_READ</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">ret</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">MBEDTLS_ERR_SSL_WANT_WRITE</span><span class="p">);</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>SSL的握手</p>
+<div class="codehilite"><pre><span></span><code><span class="cm">/* Main handshake loop */</span>
+<span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ssl</span><span class="o">-&gt;</span><span class="n">state</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">MBEDTLS_SSL_HANDSHAKE_OVER</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mbedtls_ssl_handshake_step</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+<span class="n">主要就是调用mbedtls_ssl_handshake_step</span><span class="err">，</span><span class="n">下面只列出了服务端的代码示例</span><span class="err">。</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="n">mbedtls_ssl_handshake_step</span><span class="p">(</span><span class="n">mbedtls_ssl_context</span><span class="w"> </span><span class="o">*</span><span class="n">ssl</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssl_prepare_handshake_step</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mbedtls_ssl_handle_pending_alert</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">cleanup</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="cp">#if defined(MBEDTLS_SSL_SRV_C)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ssl</span><span class="o">-&gt;</span><span class="n">conf</span><span class="o">-&gt;</span><span class="n">endpoint</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">MBEDTLS_SSL_IS_SERVER</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="cm">/*调用mbedtls_ssl_handshake_server_step进行握手管理*/</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">mbedtls_ssl_conf_is_tls12_only</span><span class="p">(</span><span class="n">ssl</span><span class="o">-&gt;</span><span class="n">conf</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mbedtls_ssl_handshake_server_step</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="cp">#endif</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="cm">/* handshake_step return error. And it is same</span>
+<span class="cm">         * with alert_reason.</span>
+<span class="cm">         */</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ssl</span><span class="o">-&gt;</span><span class="n">send_alert</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mbedtls_ssl_handle_pending_alert</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">cleanup</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="nl">cleanup</span><span class="p">:</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>主要是接着调用mbedtls_ssl_handshake_server_step进行处理。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">mbedtls_ssl_handshake_server_step</span><span class="p">(</span><span class="n">mbedtls_ssl_context</span><span class="w"> </span><span class="o">*</span><span class="n">ssl</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">MBEDTLS_SSL_DEBUG_MSG</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="s">"server state: %d"</span><span class="p">,</span><span class="w"> </span><span class="n">ssl</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">));</span>
+
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="n">ssl</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_HELLO_REQUEST</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ssl</span><span class="o">-&gt;</span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MBEDTLS_SSL_CLIENT_HELLO</span><span class="p">;</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/*</span>
+<span class="cm">         *  &lt;==   ClientHello</span>
+<span class="cm">         */</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_CLIENT_HELLO</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssl_parse_client_hello</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="cp">#if defined(MBEDTLS_SSL_PROTO_DTLS)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_SERVER_HELLO_VERIFY_REQUEST_SENT</span><span class="p">:</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">MBEDTLS_ERR_SSL_HELLO_VERIFY_REQUIRED</span><span class="p">;</span>
+<span class="cp">#endif</span>
+
+<span class="w">        </span><span class="cm">/*</span>
+<span class="cm">         *  ==&gt;   ServerHello</span>
+<span class="cm">         *        Certificate</span>
+<span class="cm">         *      ( ServerKeyExchange  )</span>
+<span class="cm">         *      ( CertificateRequest )</span>
+<span class="cm">         *        ServerHelloDone</span>
+<span class="cm">         */</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_SERVER_HELLO</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssl_write_server_hello</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_SERVER_CERTIFICATE</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mbedtls_ssl_write_certificate</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_SERVER_KEY_EXCHANGE</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssl_write_server_key_exchange</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_CERTIFICATE_REQUEST</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssl_write_certificate_request</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_SERVER_HELLO_DONE</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssl_write_server_hello_done</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">        </span><span class="cm">/*</span>
+<span class="cm">         *  &lt;== ( Certificate/Alert  )</span>
+<span class="cm">         *        ClientKeyExchange</span>
+<span class="cm">         *      ( CertificateVerify  )</span>
+<span class="cm">         *        ChangeCipherSpec</span>
+<span class="cm">         *        Finished</span>
+<span class="cm">         */</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_CLIENT_CERTIFICATE</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mbedtls_ssl_parse_certificate</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_CLIENT_KEY_EXCHANGE</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssl_parse_client_key_exchange</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_CERTIFICATE_VERIFY</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssl_parse_certificate_verify</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_CLIENT_CHANGE_CIPHER_SPEC</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mbedtls_ssl_parse_change_cipher_spec</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_CLIENT_FINISHED</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mbedtls_ssl_parse_finished</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/*</span>
+<span class="cm">         *  ==&gt; ( NewSessionTicket )</span>
+<span class="cm">         *        ChangeCipherSpec</span>
+<span class="cm">         *        Finished</span>
+<span class="cm">         */</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_SERVER_CHANGE_CIPHER_SPEC</span><span class="p">:</span>
+<span class="cp">#if defined(MBEDTLS_SSL_SESSION_TICKETS)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ssl</span><span class="o">-&gt;</span><span class="n">handshake</span><span class="o">-&gt;</span><span class="n">new_session_ticket</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssl_write_new_session_ticket</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="p">}</span><span class="w"> </span><span class="k">else</span>
+<span class="cp">#endif</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mbedtls_ssl_write_change_cipher_spec</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_SERVER_FINISHED</span><span class="p">:</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mbedtls_ssl_write_finished</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_FLUSH_BUFFERS</span><span class="p">:</span>
+<span class="w">            </span><span class="n">MBEDTLS_SSL_DEBUG_MSG</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="s">"handshake: done"</span><span class="p">));</span>
+<span class="w">            </span><span class="n">ssl</span><span class="o">-&gt;</span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MBEDTLS_SSL_HANDSHAKE_WRAPUP</span><span class="p">;</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="no">MBEDTLS_SSL_HANDSHAKE_WRAPUP</span><span class="p">:</span>
+<span class="w">            </span><span class="n">mbedtls_ssl_handshake_wrapup</span><span class="p">(</span><span class="n">ssl</span><span class="p">);</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">default</span><span class="o">:</span>
+<span class="w">            </span><span class="n">MBEDTLS_SSL_DEBUG_MSG</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="s">"invalid state %d"</span><span class="p">,</span><span class="w"> </span><span class="n">ssl</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">));</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">MBEDTLS_ERR_SSL_BAD_INPUT_DATA</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>主要就是针对握手的状态进行握手交互，具体这里就不阐述了，可以参考《SSL/TLS协议分析》文章。</p>
+<h4 id="sctp">SCTP</h4>
+<p>SCTP主要使用的usrctp开源组件，</p>
+<h3 id="_11">传输</h3>
+<div class="codehilite"><pre><span></span><code><span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">g_interrupted</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">g_state</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">PEER_CONNECTION_COMPLETED</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">curr_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_timestamp</span><span class="p">();</span>
+
+<span class="w">      </span><span class="c1">// FPS 25</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">curr_time</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">video_time</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">40</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">video_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">curr_time</span><span class="p">;</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">reader_get_video_frame</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">size</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="n">peer_connection_send_video</span><span class="p">(</span><span class="n">g_pc</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">size</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">      </span><span class="p">}</span>
+
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">curr_time</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">audio_time</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">20</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">reader_get_audio_frame</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">size</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="n">peer_connection_send_audio</span><span class="p">(</span><span class="n">g_pc</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">size</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">audio_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">curr_time</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">      </span><span class="n">usleep</span><span class="p">(</span><span class="mi">1000</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/网络/stun协议.html">← STUN协议</a>
+    <a class="next" href="/laumy.github.io/posts/阅读/乌龟图分析法.html">乌龟图分析法 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>function graph tracer原理 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">概述</a><ul></ul></li><li><a href="#_2">注册</a><ul></ul></li><li><a href="#_3">跟踪入口函数</a><ul></ul></li><li><a href="#_4">跟踪出口函数</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>function graph tracer原理</h1>
+  <div class="meta">2024-08-31 · linux</div>
+  <div class="post-content"><h2 id="_1">概述</h2>
+<p>Function graph相对function trace的不同点是，在函数入口会trace，在函数出口也会trace。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">ksys_read</span>
+<span class="o">-&gt;</span><span class="n">vfs_read</span>
+<span class="o">-&gt;</span><span class="n">ftrace_caller</span>
+<span class="o">-&gt;</span><span class="n">prepare_ftrace_return</span>
+<span class="o">-&gt;</span><span class="n">function_graph_enter</span>
+<span class="o">-&gt;</span><span class="n">ftrace_push_return_trace</span><span class="p">(</span><span class="o">&amp;</span><span class="n">trace</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">ret</span><span class="p">,</span><span class="w"> </span><span class="n">frame_pointer</span><span class="p">)</span>
+<span class="o">-&gt;</span><span class="n">trace_graph_entry</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">funcgraph_ops</span><span class="p">.</span><span class="n">entryfunc</span>
+<span class="o">-&gt;</span><span class="n">__trace_graph_entry</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">trace_buffer_unlock_commit_nostack</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span><span class="w"> </span><span class="n">event</span><span class="p">)</span>
+
+<span class="w">   </span><span class="n">Xxxxxxx</span><span class="w"> </span><span class="n">函数体内容</span>
+
+<span class="w">   </span><span class="o">-&gt;</span><span class="n">return_to_handler</span><span class="w"> </span><span class="o">----</span><span class="n">修改的vfs_read的ra寄存器</span><span class="err">，</span><span class="n">让其执行ret返回是跳转到这个函数</span><span class="err">。</span>
+<span class="w">   </span><span class="o">-&gt;</span><span class="n">ftrace_return_to_handler</span>
+<span class="w">     </span><span class="o">-&gt;</span><span class="n">ftrace_pop_return_trace</span><span class="p">(</span><span class="o">&amp;</span><span class="n">trace</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">ret</span><span class="p">,</span><span class="w"> </span><span class="n">frame_pointer</span><span class="p">)</span>
+<span class="w">     </span><span class="o">-&gt;</span><span class="n">ftrace_graph_return</span><span class="p">(</span><span class="o">&amp;</span><span class="n">trace</span><span class="p">)</span>
+<span class="w">     </span><span class="o">-&gt;</span><span class="n">trace_graph_return</span><span class="w">   </span><span class="o">=</span><span class="n">funcgraph_ops</span><span class="p">.</span><span class="n">retfunc</span>
+<span class="w">   </span><span class="o">-&gt;</span><span class="n">__trace_graph_return</span><span class="p">(</span><span class="n">tr</span><span class="p">,</span><span class="w"> </span><span class="n">trace</span><span class="p">,</span><span class="w"> </span><span class="n">trace_ctx</span><span class="p">)</span>
+<span class="w">     </span><span class="o">-&gt;</span><span class="n">trace_buffer_unlock_commit_nostack</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span><span class="w"> </span><span class="n">event</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ret</span>
+</code></pre></div>
+<p><a href="\" title="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_d0687c3196452c2594f464e24b0c7aac.jpg\"><img alt='\"\"' src="\" title="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_d0687c3196452c2594f464e24b0c7aac.jpg\"/></a></p>
+<h2 id="_2">注册</h2>
+<p>与前面章节的function tracer一样，当前执行echo function_graph &gt; current_tracer时就会待用到graph_trace_init函数。 与function tracer一样，当echo function_graph &gt; current_tracer后，函数的入口nop指令会被替换为ftracer_caller。</p>
+<p><a href="\" title="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_334a09d7c5cc393a8d1c0fa1ffccc379.jpg\"><img alt='\"\"' src="\" title="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_334a09d7c5cc393a8d1c0fa1ffccc379.jpg\"/></a></p>
+<p>当还没有写入function_graph时，ftrace_caller的实现如下，其中第一处ftrace_stub是用于function tracer替换的，而第二处则是给function_graph替换的。</p>
+<p><a href="\" title="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_2efaa3bb8b12387ae793ec97d0f852df.jpg\"><img alt='\"\"' src="\" title="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_2efaa3bb8b12387ae793ec97d0f852df.jpg\"/></a></p>
+<p>当写入function_graph到current_tracer后，第二处的ftrace_stub被替换为prepare_ftrace_return，如下：</p>
+<p><a href="\" title="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_ed4a7dd1919870208bda77100528d263.jpg\"><img alt='\"\"' src="\" title="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_ed4a7dd1919870208bda77100528d263.jpg\"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">fgraph_ops</span><span class="w"> </span><span class="n">funcgraph_ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">entryfunc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">trace_graph_entry</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">retfunc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">trace_graph_return</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">graph_trace_init</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">trace_array</span><span class="w"> </span><span class="o">*</span><span class="n">tr</span><span class="p">)</span>
+<span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">register_ftrace_graph</span><span class="p">(</span><span class="o">&amp;</span><span class="n">funcgraph_ops</span><span class="p">);</span>
+<span class="n">tracing_start_cmdline_record</span><span class="p">();</span>
+<span class="n">tracing_start_sched_switch</span><span class="p">(</span><span class="n">RECORD_CMDLINE</span><span class="p">);</span><span class="w"> </span>
+</code></pre></div>
+<h2 id="_3">跟踪入口函数</h2>
+<p>下面我们来实际跟踪一下ftrace_caller之后的实现。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">ENTRY</span><span class="p">(</span><span class="n">ftrace_caller</span><span class="p">)</span>
+<span class="w">    </span><span class="n">SAVE_ABI</span>
+
+<span class="w">    </span><span class="n">addi</span><span class="w">    </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">t0</span><span class="p">,</span><span class="w"> </span><span class="o">-</span><span class="n">FENTRY_RA_OFFSET</span>
+<span class="w">    </span><span class="n">la</span><span class="w">  </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="n">function_trace_op</span>
+<span class="w">    </span><span class="n">REG_L</span><span class="w">   </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">(</span><span class="n">a1</span><span class="p">)</span>
+<span class="w">    </span><span class="n">mv</span><span class="w">  </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="n">ra</span>
+<span class="w">    </span><span class="n">mv</span><span class="w">  </span><span class="n">a3</span><span class="p">,</span><span class="w"> </span><span class="n">sp</span>
+
+<span class="nl">ftrace_call</span><span class="p">:</span>
+<span class="w">    </span><span class="p">.</span><span class="n">global</span><span class="w"> </span><span class="n">ftrace_call</span>
+<span class="w">    </span><span class="n">call</span><span class="w">    </span><span class="n">ftrace_stub</span>
+<span class="cp">#ifdef CONFIG_FUNCTION_GRAPH_TRACER</span>
+<span class="n">addi</span><span class="w">    </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">sp</span><span class="p">,</span><span class="w"> </span><span class="n">ABI_RA</span>
+<span class="w">    </span><span class="n">REG_L</span><span class="w">   </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="n">ABI_T0</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">    </span><span class="n">addi</span><span class="w">    </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="o">-</span><span class="n">FENTRY_RA_OFFSET</span>
+<span class="cp">#ifdef HAVE_FUNCTION_GRAPH_FP_TEST</span>
+<span class="w">    </span><span class="n">mv</span><span class="w">  </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="n">s0</span>
+<span class="cp">#endif</span>
+<span class="nl">ftrace_graph_call</span><span class="p">:</span>
+<span class="w">    </span><span class="p">.</span><span class="n">global</span><span class="w"> </span><span class="n">ftrace_graph_call</span>
+<span class="w">    </span><span class="n">call</span><span class="w">    </span><span class="n">ftrace_stub</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="n">RESTORE_ABI</span>
+<span class="w">    </span><span class="n">jr</span><span class="w"> </span><span class="n">t0</span>
+<span class="n">ENDPROC</span><span class="p">(</span><span class="n">ftrace_caller</span><span class="p">)</span>
+</code></pre></div>
+<p>上面代码经过宏展开后，变成下面的代码，我们从调用vfs_read的函数ksys_read开始分析。 ksys_read-&gt;vfs_read</p>
+<div class="codehilite"><pre><span></span><code><span class="p">...</span>
+<span class="mh">0xffffffff80384e6e</span><span class="w"> </span><span class="o">&lt;</span><span class="n">ksys_read</span><span class="o">+</span><span class="mi">122</span><span class="o">&gt;:</span><span class="w">  </span><span class="n">auipc</span><span class="w">   </span><span class="n">ra</span><span class="p">,</span><span class="mh">0xfffff</span>
+<span class="mh">0xffffffff80384e72</span><span class="w"> </span><span class="o">&lt;</span><span class="n">ksys_read</span><span class="o">+</span><span class="mi">126</span><span class="o">&gt;:</span><span class="w">  </span><span class="n">jalr</span><span class="w">    </span><span class="mi">594</span><span class="p">(</span><span class="n">ra</span><span class="p">)</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mh">0xffffffff803840c0</span><span class="w"> </span><span class="o">&lt;</span><span class="n">vfs_read</span><span class="o">&gt;</span>
+<span class="n">①</span><span class="w"> </span><span class="n">ra</span><span class="o">=</span><span class="n">PC</span><span class="o">+</span><span class="mi">4</span><span class="p">,</span><span class="n">即0xffffffff80384e76</span><span class="w"> </span><span class="p">,</span><span class="n">PC</span><span class="o">=</span><span class="mh">0xffffffff803840c0</span><span class="err">，</span><span class="n">这里保存了调用vfs_read的返回地址</span><span class="err">。</span>
+<span class="mh">0xffffffff80384e76</span><span class="w"> </span><span class="o">&lt;</span><span class="n">ksys_read</span><span class="o">+</span><span class="mi">130</span><span class="o">&gt;:</span><span class="w">  </span><span class="n">mv</span><span class="w">      </span><span class="n">s2</span><span class="p">,</span><span class="n">a0</span>
+<span class="mh">0xffffffff80384e78</span><span class="w"> </span><span class="o">&lt;</span><span class="n">ksys_read</span><span class="o">+</span><span class="mi">132</span><span class="o">&gt;:</span><span class="w">  </span><span class="n">bltz</span><span class="w">    </span><span class="n">a0</span><span class="p">,</span><span class="mh">0xffffffff80384ef4</span><span class="w"> </span><span class="o">&lt;</span><span class="n">ksys_read</span><span class="o">+</span><span class="mi">256</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>vfs_read-&gt;ftrace_caller</p>
+<div class="codehilite"><pre><span></span><code><span class="mh">0xffffffff803840c0</span><span class="w"> </span><span class="o">&lt;</span><span class="n">vfs_read</span><span class="o">+</span><span class="mi">0</span><span class="o">&gt;:</span><span class="w">     </span><span class="n">auipc</span><span class="w">   </span><span class="n">t0</span><span class="p">,</span><span class="mh">0xffc88</span>
+<span class="mh">0xffffffff803840c4</span><span class="w"> </span><span class="o">&lt;</span><span class="n">vfs_read</span><span class="o">+</span><span class="mi">4</span><span class="o">&gt;:</span><span class="w">     </span><span class="n">jalr</span><span class="w">    </span><span class="n">t0</span><span class="p">,</span><span class="mi">1404</span><span class="p">(</span><span class="n">t0</span><span class="p">)</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mh">0xffffffff8000c63c</span><span class="w"> </span><span class="o">&lt;</span><span class="n">ftrace_caller</span><span class="o">&gt;</span>
+<span class="n">②</span><span class="w"> </span><span class="n">t0</span><span class="o">=</span><span class="n">PC</span><span class="o">+</span><span class="mi">4</span><span class="n">即0xffffffff803840c8</span><span class="err">，</span><span class="n">PC</span><span class="o">=</span><span class="mh">0xffffffff8000c63c</span><span class="err">，</span><span class="n">这里没有使用ra</span><span class="err">，</span><span class="n">而是使用了t0</span><span class="err">，</span><span class="n">因此ra得以传递到ftrace_caller</span><span class="err">。</span>
+<span class="mh">0xffffffff803840c8</span><span class="w"> </span><span class="o">&lt;</span><span class="n">vfs_read</span><span class="o">+</span><span class="mi">0</span><span class="o">&gt;:</span><span class="w">     </span><span class="n">addi</span><span class="w">    </span><span class="n">sp</span><span class="p">,</span><span class="n">sp</span><span class="p">,</span><span class="mi">-176</span>
+<span class="mh">0xffffffff803840ca</span><span class="w"> </span><span class="o">&lt;</span><span class="n">vfs_read</span><span class="o">+</span><span class="mi">2</span><span class="o">&gt;:</span><span class="w">     </span><span class="n">sd</span><span class="w">      </span><span class="n">s0</span><span class="p">,</span><span class="mi">160</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+</code></pre></div>
+<p>ftrace_caller-&gt;prepare_ftrace_return</p>
+<div class="codehilite"><pre><span></span><code><span class="n">Dump</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">assembler</span><span class="w"> </span><span class="n">code</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">function</span><span class="w"> </span><span class="n">ftrace_caller</span><span class="o">:</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c63c</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">0</span><span class="o">&gt;:</span><span class="w">     </span><span class="n">addi</span><span class="w">    </span><span class="n">sp</span><span class="p">,</span><span class="n">sp</span><span class="p">,</span><span class="mi">-80</span>
+<span class="o">=&gt;</span><span class="w"> </span><span class="mh">0xffffffff8000c63e</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">2</span><span class="o">&gt;:</span><span class="w">     </span><span class="n">sd</span><span class="w">      </span><span class="n">a0</span><span class="p">,</span><span class="mi">0</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c640</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">4</span><span class="o">&gt;:</span><span class="w">     </span><span class="n">sd</span><span class="w">      </span><span class="n">a1</span><span class="p">,</span><span class="mi">8</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c642</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">6</span><span class="o">&gt;:</span><span class="w">     </span><span class="n">sd</span><span class="w">      </span><span class="n">a2</span><span class="p">,</span><span class="mi">16</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c644</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">8</span><span class="o">&gt;:</span><span class="w">     </span><span class="n">sd</span><span class="w">      </span><span class="n">a3</span><span class="p">,</span><span class="mi">24</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c646</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">10</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">sd</span><span class="w">      </span><span class="n">a4</span><span class="p">,</span><span class="mi">32</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c648</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">12</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">sd</span><span class="w">      </span><span class="n">a5</span><span class="p">,</span><span class="mi">40</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c64a</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">14</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">sd</span><span class="w">      </span><span class="n">a6</span><span class="p">,</span><span class="mi">48</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c64c</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">16</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">sd</span><span class="w">      </span><span class="n">a7</span><span class="p">,</span><span class="mi">56</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c64e</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">18</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">sd</span><span class="w">      </span><span class="n">t0</span><span class="p">,</span><span class="mi">64</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span><span class="w">  </span><span class="n">存储了ftrace_caller的返回地址</span><span class="err">。</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c650</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">20</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">sd</span><span class="w">      </span><span class="n">ra</span><span class="p">,</span><span class="mi">72</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span><span class="w">  </span><span class="n">存储了vfs_read的返回地址</span><span class="err">。</span>
+<span class="n">③开辟一个栈空间</span><span class="err">，</span><span class="n">将寄存器入栈</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c652</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">22</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">addi</span><span class="w">    </span><span class="n">a0</span><span class="p">,</span><span class="n">t0</span><span class="p">,</span><span class="mi">-8</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c656</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">26</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">auipc</span><span class="w">   </span><span class="n">a1</span><span class="p">,</span><span class="mh">0x251c</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c65a</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">30</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">addi</span><span class="w">    </span><span class="n">a1</span><span class="p">,</span><span class="n">a1</span><span class="p">,</span><span class="mi">578</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mh">0xffffffff82528898</span><span class="w"> </span><span class="o">&lt;</span><span class="n">function_trace_op</span><span class="o">&gt;</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c65e</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">34</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">ld</span><span class="w">      </span><span class="n">a2</span><span class="p">,</span><span class="mi">0</span><span class="p">(</span><span class="n">a1</span><span class="p">)</span>
+<span class="n">④获取全局变量function_trace_op</span><span class="err">，</span><span class="n">这是struct</span><span class="w"> </span><span class="n">ftrace_ops实例</span><span class="err">，</span><span class="n">function_trace_op</span><span class="p">.</span><span class="n">func存储了跟踪函数</span><span class="err">。</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c660</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">36</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">mv</span><span class="w">      </span><span class="n">a1</span><span class="p">,</span><span class="n">ra</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c662</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">38</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">mv</span><span class="w">      </span><span class="n">a3</span><span class="p">,</span><span class="n">sp</span>
+<span class="n">⑤a1参数记录了vfs_read的返回地址</span><span class="err">，</span><span class="n">a3记录了栈</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c664</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">40</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">auipc</span><span class="w">   </span><span class="n">ra</span><span class="p">,</span><span class="mh">0x0</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c668</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">44</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">jalr</span><span class="w">    </span><span class="mi">-1604</span><span class="p">(</span><span class="n">ra</span><span class="p">)</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mh">0xffffffff8000c020</span><span class="w"> </span><span class="o">&lt;</span><span class="n">ftrace_stub</span><span class="o">&gt;</span>
+<span class="n">⑥因为使能的是function_graph</span><span class="err">，</span><span class="n">所以ftrace_stub没有被替换</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c66c</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">48</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">addi</span><span class="w">    </span><span class="n">a0</span><span class="p">,</span><span class="n">sp</span><span class="p">,</span><span class="mi">72</span>
+<span class="n">⑦sp</span><span class="o">+</span><span class="mi">72</span><span class="n">存储的是vfs_read的ra</span><span class="err">，</span><span class="n">因此a0的值即为vfs_read函数ra的地址</span><span class="err">，</span><span class="o">*</span><span class="n">a0即返回地址</span><span class="err">，</span><span class="n">a0代表的是第一个函数参数</span><span class="err">，</span><span class="n">因此第一个函数参数为vfs_read的</span><span class="o">*</span><span class="n">parent</span><span class="err">。</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c66e</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">50</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">ld</span><span class="w">      </span><span class="n">a1</span><span class="p">,</span><span class="mi">64</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c670</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">52</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">addi</span><span class="w">    </span><span class="n">a1</span><span class="p">,</span><span class="n">a1</span><span class="p">,</span><span class="mi">-8</span>
+<span class="n">⑧</span><span class="w"> </span><span class="n">sp</span><span class="o">+</span><span class="mi">64</span><span class="n">存储的是ftrace_caller的返回地址</span><span class="err">，</span><span class="n">用ftrace_call的返回地址</span><span class="mi">-8</span><span class="n">就为vfs_read的入口地址</span><span class="err">，</span><span class="n">所以a1代表的是vfs_read的入口地址</span><span class="err">。</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c672</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">54</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">mv</span><span class="w">      </span><span class="n">a2</span><span class="p">,</span><span class="n">s0</span>
+<span class="n">⑨</span><span class="w"> </span><span class="n">a2为当前栈帧</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c674</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">56</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">auipc</span><span class="w">   </span><span class="n">ra</span><span class="p">,</span><span class="mh">0x0</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c678</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">60</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">jalr</span><span class="w">    </span><span class="mi">-1338</span><span class="p">(</span><span class="n">ra</span><span class="p">)</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mh">0xffffffff8000c13a</span><span class="w"> </span><span class="o">&lt;</span><span class="n">prepare_ftrace_return</span><span class="o">&gt;</span>
+<span class="n">⑩</span><span class="w"> </span><span class="n">更新ra</span><span class="o">=</span><span class="mh">0xffffffff8000c67c</span><span class="err">，</span><span class="n">跳转到prepare_ftrace_return</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c67c</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">64</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">ld</span><span class="w">      </span><span class="n">a0</span><span class="p">,</span><span class="mi">0</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c67e</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">66</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">ld</span><span class="w">      </span><span class="n">a1</span><span class="p">,</span><span class="mi">8</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c680</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">68</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">ld</span><span class="w">      </span><span class="n">a2</span><span class="p">,</span><span class="mi">16</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c682</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">70</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">ld</span><span class="w">      </span><span class="n">a3</span><span class="p">,</span><span class="mi">24</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c684</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">72</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">ld</span><span class="w">      </span><span class="n">a4</span><span class="p">,</span><span class="mi">32</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c686</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">74</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">ld</span><span class="w">      </span><span class="n">a5</span><span class="p">,</span><span class="mi">40</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c688</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">76</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">ld</span><span class="w">      </span><span class="n">a6</span><span class="p">,</span><span class="mi">48</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c68a</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">78</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">ld</span><span class="w">      </span><span class="n">a7</span><span class="p">,</span><span class="mi">56</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c68c</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">80</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">ld</span><span class="w">      </span><span class="n">t0</span><span class="p">,</span><span class="mi">64</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c68e</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">82</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">ld</span><span class="w">      </span><span class="n">ra</span><span class="p">,</span><span class="mi">72</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c690</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">84</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">addi</span><span class="w">    </span><span class="n">sp</span><span class="p">,</span><span class="n">sp</span><span class="p">,</span><span class="mi">80</span>
+<span class="w">   </span><span class="mh">0xffffffff8000c692</span><span class="w"> </span><span class="o">&lt;+</span><span class="mi">86</span><span class="o">&gt;:</span><span class="w">    </span><span class="n">jr</span><span class="w">      </span><span class="n">t0</span>
+<span class="n">End</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">assembler</span><span class="w"> </span><span class="n">dump</span><span class="p">.</span>
+</code></pre></div>
+<p>从上面可知，ftrace_caller函数后，就跳转到prepare_ftrace_return。 接下来看看prepare_ftrace_return</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">prepare_ftrace_return</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="o">*</span><span class="n">parent</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">self_addr</span><span class="p">,</span>
+<span class="w">               </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">frame_pointer</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">return_hooker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">)</span><span class="o">&amp;</span><span class="n">return_to_handler</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">old</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="n">atomic_read</span><span class="p">(</span><span class="err">¤</span><span class="n">t</span><span class="o">-&gt;</span><span class="n">tracing_graph_pause</span><span class="p">)))</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * We don\'t suffer access faults, so no extra fault-recovery assembly</span>
+<span class="cm">     * is needed here.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">old</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">parent</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">function_graph_enter</span><span class="p">(</span><span class="n">old</span><span class="p">,</span><span class="w"> </span><span class="n">self_addr</span><span class="p">,</span><span class="w"> </span><span class="n">frame_pointer</span><span class="p">,</span><span class="w"> </span><span class="n">parent</span><span class="p">))</span>
+<span class="w">        </span><span class="o">*</span><span class="n">parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">return_hooker</span><span class="p">;</span>
+<span class="w">    </span><span class="n">调用function_graph_enter</span><span class="err">，</span><span class="n">同时将vfs_read的返回地址修改为return_to_handler</span><span class="err">，</span><span class="n">也就是说当vfs_read函数执行返回时</span><span class="err">，</span><span class="n">会跳转到return_to_handler运行</span><span class="err">，</span><span class="n">这样就相当于在vfs_read的出口函数也插桩了</span><span class="err">。</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>function_graph_enter</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">function_graph_enter</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">ret</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">func</span><span class="p">,</span>
+<span class="w">             </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">frame_pointer</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="o">*</span><span class="n">retp</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">ftrace_graph_ent</span><span class="w"> </span><span class="n">trace</span><span class="p">;</span>
+
+<span class="cp">#ifndef CONFIG_HAVE_DYNAMIC_FTRACE_WITH_ARGS</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Skip graph tracing if the return location is served by direct trampoline,</span>
+<span class="cm">     * since call sequence and return addresses are unpredictable anyway.</span>
+<span class="cm">     * Ex: BPF trampoline may call original function and may skip frame</span>
+<span class="cm">     * depending on type of BPF programs attached.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ftrace_direct_func_count</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">        </span><span class="n">ftrace_find_rec_direct</span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">MCOUNT_INSN_SIZE</span><span class="p">))</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="n">trace</span><span class="p">.</span><span class="n">func</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">func</span><span class="p">;</span>
+<span class="w">    </span><span class="n">trace</span><span class="p">.</span><span class="n">depth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">++</span><span class="n">current</span><span class="o">-&gt;</span><span class="n">curr_ret_depth</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ftrace_push_return_trace</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span><span class="w"> </span><span class="n">func</span><span class="p">,</span><span class="w"> </span><span class="n">frame_pointer</span><span class="p">,</span><span class="w"> </span><span class="n">retp</span><span class="p">))</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">out</span><span class="p">;</span>
+<span class="n">①</span><span class="w"> </span><span class="n">将要跟踪函数vfs_read的返回地址</span><span class="err">、</span><span class="n">函数名称</span><span class="err">、</span><span class="n">进入时间存储到当前任务的task_struct中</span><span class="err">。</span>
+<span class="w">    </span><span class="cm">/* Only trace if the calling function expects to */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">ftrace_graph_entry</span><span class="p">(</span><span class="o">&amp;</span><span class="n">trace</span><span class="p">))</span><span class="w"> </span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">out_ret</span><span class="p">;</span>
+<span class="n">②struct</span><span class="w"> </span><span class="n">fgraph_ops</span><span class="w"> </span><span class="n">funcgraph_ops</span><span class="p">.</span><span class="n">entryfunc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">trace_graph_entry</span><span class="err">，</span><span class="n">调用trace_graph_entry函数</span><span class="err">，</span><span class="n">将trace信息写入ring</span><span class="w"> </span><span class="n">buffer</span><span class="err">。</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w"> </span><span class="nl">out_ret</span><span class="p">:</span>
+<span class="w">    </span><span class="n">current</span><span class="o">-&gt;</span><span class="n">curr_ret_stack</span><span class="o">--</span><span class="p">;</span>
+<span class="w"> </span><span class="nl">out</span><span class="p">:</span>
+<span class="w">    </span><span class="n">current</span><span class="o">-&gt;</span><span class="n">curr_ret_depth</span><span class="o">--</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>ftrace_push_return_trace，将要跟踪函数vfs_read的返回地址、函数名称、进入时间存储到当前任务的task_struct中。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span>
+<span class="nf">ftrace_push_return_trace</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">ret</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">func</span><span class="p">,</span>
+<span class="w">             </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">frame_pointer</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="o">*</span><span class="n">retp</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">calltime</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">index</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="n">ftrace_graph_is_dead</span><span class="p">()))</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">current</span><span class="o">-&gt;</span><span class="n">ret_stack</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * We must make sure the ret_stack is tested before we read</span>
+<span class="cm">     * anything else.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">smp_rmb</span><span class="p">();</span>
+
+<span class="w">    </span><span class="cm">/* The return trace stack is full */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">current</span><span class="o">-&gt;</span><span class="n">curr_ret_stack</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">FTRACE_RETFUNC_DEPTH</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">atomic_inc</span><span class="p">(</span><span class="err">¤</span><span class="n">t</span><span class="o">-&gt;</span><span class="n">trace_overrun</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">calltime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">trace_clock_local</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">++</span><span class="n">current</span><span class="o">-&gt;</span><span class="n">curr_ret_stack</span><span class="p">;</span>
+<span class="w">    </span><span class="n">barrier</span><span class="p">();</span>
+<span class="w">    </span><span class="n">current</span><span class="o">-&gt;</span><span class="n">ret_stack</span><span class="p">[</span><span class="n">index</span><span class="p">].</span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span><span class="w">  </span>
+<span class="w">    </span><span class="n">current</span><span class="o">-&gt;</span><span class="n">ret_stack</span><span class="p">[</span><span class="n">index</span><span class="p">].</span><span class="n">func</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">func</span><span class="p">;</span>
+<span class="n">current</span><span class="o">-&gt;</span><span class="n">ret_stack</span><span class="p">[</span><span class="n">index</span><span class="p">].</span><span class="n">calltime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">calltime</span><span class="p">;</span>
+<span class="c1">//将vfs_read的返回地址、vfs_read函数、进入vfs_read时间记录到当前任务的ret_stack，后续vfs_read退出时会使用到。</span>
+<span class="c1">//current是当前运行任务的struct task_sturct，在该结构中，为function graph专门定义了一块空间用于存储记录上面的信息。</span>
+<span class="cp">#ifdef HAVE_FUNCTION_GRAPH_FP_TEST</span>
+<span class="w">    </span><span class="n">current</span><span class="o">-&gt;</span><span class="n">ret_stack</span><span class="p">[</span><span class="n">index</span><span class="p">].</span><span class="n">fp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">frame_pointer</span><span class="p">;</span>
+<span class="cp">#endif</span>
+<span class="cp">#ifdef HAVE_FUNCTION_GRAPH_RET_ADDR_PTR</span>
+<span class="w">    </span><span class="n">current</span><span class="o">-&gt;</span><span class="n">ret_stack</span><span class="p">[</span><span class="n">index</span><span class="p">].</span><span class="n">retp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">retp</span><span class="p">;</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="_4">跟踪出口函数</h2>
+<p>当被跟踪的函数要退出时，由于修改了其ra寄存器，因此会跳转到return_to_handler，本文的实例是vfs_read，因此当vfs_read函数执行完时，本应该执行ret就退出，但是在前面将ra的内容改了，继而跳转执行return_to_handler。</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">#ifdef CONFIG_FUNCTION_GRAPH_TRACER</span>
+<span class="n">ENTRY</span><span class="p">(</span><span class="n">return_to_handler</span><span class="p">)</span>
+<span class="cm">/*</span>
+<span class="cm"> * On implementing the frame point test, the ideal way is to compare the</span>
+<span class="cm"> * s0 (frame pointer, if enabled) on entry and the sp (stack pointer) on return.</span>
+<span class="cm"> * However, the psABI of variable-length-argument functions does not allow this.</span>
+<span class="cm"> *</span>
+<span class="cm"> * So alternatively we check the *old* frame pointer position, that is, the</span>
+<span class="cm"> * value stored in -16(s0) on entry, and the s0 on return.</span>
+<span class="cm"> */</span>
+<span class="cp">#ifdef HAVE_FUNCTION_GRAPH_FP_TEST</span>
+<span class="w">    </span><span class="n">mv</span><span class="w">  </span><span class="n">t6</span><span class="p">,</span><span class="w"> </span><span class="n">s0</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="n">SAVE_RET_ABI_STATE</span>
+<span class="cp">#ifdef HAVE_FUNCTION_GRAPH_FP_TEST</span>
+<span class="w">    </span><span class="n">mv</span><span class="w">  </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">t6</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="n">call</span><span class="w">    </span><span class="n">ftrace_return_to_handler</span>
+<span class="w">    </span><span class="n">mv</span><span class="w">  </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="n">a0</span>
+<span class="w">    </span><span class="n">RESTORE_RET_ABI_STATE</span>
+<span class="w">    </span><span class="n">jalr</span><span class="w">    </span><span class="n">a2</span>
+<span class="n">ENDPROC</span><span class="p">(</span><span class="n">return_to_handler</span><span class="p">)</span>
+<span class="cp">#endif</span>
+</code></pre></div>
+<p>ftrace_return_to_handler</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="nf">ftrace_return_to_handler</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">frame_pointer</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">ftrace_graph_ret</span><span class="w"> </span><span class="n">trace</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+
+<span class="n">ftrace_pop_return_trace</span><span class="p">(</span><span class="o">&amp;</span><span class="n">trace</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">ret</span><span class="p">,</span><span class="w"> </span><span class="n">frame_pointer</span><span class="p">);</span>
+<span class="n">①与前面的ftrace_push_return_trace对应</span><span class="err">，</span><span class="n">将trace相关信息获取出来</span><span class="err">，</span><span class="n">如vfs_read的返回地址信息</span><span class="err">。</span>
+<span class="w">    </span><span class="n">trace</span><span class="p">.</span><span class="n">rettime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">trace_clock_local</span><span class="p">();</span>
+<span class="n">ftrace_graph_return</span><span class="p">(</span><span class="o">&amp;</span><span class="n">trace</span><span class="p">);</span>
+<span class="n">②</span><span class="w"> </span><span class="n">调用graph</span><span class="w"> </span><span class="n">退出函数</span><span class="err">，</span><span class="n">调用trace_graph_return</span><span class="o">-&gt;</span><span class="n">__trace_graph_return</span><span class="err">，</span><span class="n">将信息更新写入ring</span><span class="w"> </span><span class="n">buffer</span><span class="err">。</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * The ftrace_graph_return() may still access the current</span>
+<span class="cm">     * ret_stack structure, we need to make sure the update of</span>
+<span class="cm">     * curr_ret_stack is after that.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">barrier</span><span class="p">();</span>
+<span class="w">    </span><span class="n">current</span><span class="o">-&gt;</span><span class="n">curr_ret_stack</span><span class="o">--</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="o">!</span><span class="n">ret</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ftrace_graph_stop</span><span class="p">();</span>
+<span class="w">        </span><span class="n">WARN_ON</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="w">        </span><span class="cm">/* Might as well panic. What else to do? */</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">)</span><span class="n">panic</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/调试/内存地址对齐.html">← 内存地址对齐</a>
+    <a class="next" href="/laumy.github.io/posts/linux/camera基础知识.html">Camera基础知识 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

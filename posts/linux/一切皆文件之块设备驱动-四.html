@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>一切皆文件之块设备驱动（四） - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">实验环境</a><ul></ul></li><li><a href="#_2">块设备无文件系统方式读写</a><ul><li><a href="#_3">写数据</a></li><li><a href="#_4">读数据</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>一切皆文件之块设备驱动（四）</h1>
+  <div class="meta">2023-06-04 · linux</div>
+  <div class="post-content"><h2 id="_1">实验环境</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">kernel</span><span class="w"> </span><span class="n">version</span><span class="o">:</span><span class="w"> </span><span class="n">linux</span><span class="w"> </span><span class="mf">5.15</span>
+<span class="n">kernel</span><span class="w"> </span><span class="n">module</span><span class="o">:</span><span class="w"> </span><span class="n">simpleblk</span><span class="p">.</span><span class="n">ko</span><span class="w">  </span><span class="n">参考上一章节</span>
+<span class="n">application</span><span class="err">：</span><span class="n">app_test</span><span class="w">        </span><span class="n">参考上一章节</span>
+</code></pre></div>
+<h2 id="_2">块设备无文件系统方式读写</h2>
+<h3 id="_3">写数据</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c69fe5fb31aa6d753d775db469da9896.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（四）/images/wp_editor_md_c69fe5fb31aa6d753d775db469da9896.jpg"/></a></p>
+<p>存储设备没有格式化挂载文件系统，那么对磁盘设备的操作会经过/dev/xxx tmpfs文件系统和bdev伪文件系统组合的方式读写磁盘。</p>
+<ul>
+<li>Write系统调用经过VFS调用到def_blk_fops中的blkdev_write_iter，该函数中继续调用到__generic_file_write_iter。</li>
+<li>如果是缓冲I/O的方式，将经过4个步骤，分别为获取page cache、从用户空间拷贝数据到page、修改的缓存标记为脏页、根据阈值是否要写回脏页。</li>
+<li>在write_begin中会查询是否有磁盘对应的page cache，如果没有就申请一个page用于磁盘的缓冲；对于新申请的page cache，会调用ll_rw_block进行预读，将磁盘数据读取到page中，后面的操作就直接对page 操作即可。</li>
+</ul>
+<h4 id="page">数据写到缓存页page中（文件系统层）</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">ksys_write</span>
+<span class="w">    </span><span class="o">--&gt;</span><span class="n">vfs_write</span>
+<span class="w">        </span><span class="o">--&gt;</span><span class="n">new_sync_write</span>
+<span class="w">            </span><span class="o">--&gt;</span><span class="n">blkdev_write_iter</span>
+<span class="w">                </span><span class="o">--&gt;</span><span class="n">blk_start_plug</span><span class="p">(</span><span class="o">&amp;</span><span class="n">plug</span><span class="p">)</span>
+<span class="w">                </span><span class="o">--&gt;</span><span class="n">__generic_file_write_iter</span>
+<span class="w">                </span><span class="o">--&gt;</span><span class="n">blk_finish_plug</span><span class="p">(</span><span class="o">&amp;</span><span class="n">plug</span><span class="p">)</span>
+
+<span class="n">generic_perform_write</span>
+<span class="w">    </span><span class="o">--&gt;</span><span class="n">a_ops</span><span class="o">-&gt;</span><span class="n">write_begin</span><span class="w"> </span><span class="o">--&gt;</span><span class="n">blkdev_write_begin</span>
+<span class="w">        </span><span class="o">--&gt;</span><span class="n">block_write_begin</span>
+<span class="w">            </span><span class="o">--&gt;</span><span class="w"> </span><span class="n">grab_cache_page_write_begin</span><span class="w"> </span><span class="n">获取page缓存</span>
+<span class="w">            </span><span class="o">--&gt;</span><span class="w"> </span><span class="n">__block_write_begin_int</span><span class="w">  </span><span class="n">写数据开始初始化</span>
+<span class="w">                </span><span class="o">--&gt;</span><span class="n">head</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">create_page_buffers</span><span class="w">  </span><span class="n">分配一个buffer_head</span>
+<span class="w">                </span><span class="o">--&gt;</span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">buffer_mapped</span><span class="p">(</span><span class="n">bh</span><span class="p">))</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_block</span><span class="p">(</span><span class="n">inode</span><span class="p">,</span><span class="w"> </span><span class="n">block</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">                    </span><span class="o">--&gt;</span><span class="n">blkdev_get_block</span><span class="w"> </span><span class="n">将块与buffer_head映射</span><span class="err">（</span><span class="n">把bh</span><span class="o">-&gt;</span><span class="n">b_bdev设置为inode对应的i_bdev并设置block号</span><span class="err">）</span>
+<span class="w">    </span><span class="o">--&gt;</span><span class="n">copy_page_from_iter_atomic</span><span class="w">     </span><span class="n">用户拷贝数据到page中</span>
+<span class="w">     </span><span class="o">--&gt;</span><span class="n">a_ops</span><span class="o">-&gt;</span><span class="n">write_end</span><span class="w">  </span><span class="o">--&gt;</span><span class="n">blkdev_write_end</span><span class="w">  </span><span class="n">写数据结束</span><span class="err">，</span><span class="n">设置page为脏页</span>
+<span class="w">     </span><span class="o">--&gt;</span><span class="n">balance_dirty_pages_ratelimited</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span><span class="w"> </span><span class="n">脏页太多触发回写到磁盘</span>
+</code></pre></div>
+<h4 id="bio">打包数据成bio递交到块设备层</h4>
+<p>直接写磁盘一般有几种方式，在建立bh和磁盘映射时，如果数据不是最新的则调用ll_rw_block进行写；另外情况就是当脏页超过一定阈值、用户关闭文件等操作触发worker回写，本小节以触发worker方式回写为例。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">wb_workfn</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">wb_writeback</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">__writeback_inodes_wb</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">writeback_sb_inodes</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="n">__writeback_single_inode</span>
+
+<span class="o">-&gt;</span><span class="n">do_writepages</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="k">if</span><span class="p">(</span><span class="n">mapping</span><span class="o">-&gt;</span><span class="n">a_ops</span><span class="o">-&gt;</span><span class="n">writepages</span><span class="p">)</span><span class="w"> </span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mapping</span><span class="o">-&gt;</span><span class="n">a_ops</span><span class="o">-&gt;</span><span class="n">writepages</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span><span class="w"> </span><span class="n">wbc</span><span class="p">)</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">blkdev_writepages</span><span class="w"> </span><span class="n">调用bdev文件系统注册的写page函数</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="k">else</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">generic_writepages</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span><span class="w"> </span><span class="n">wbc</span><span class="p">);</span>
+
+<span class="n">blkdev_writepages</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">generic_writepages</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">blk_start_plug</span><span class="p">(</span><span class="o">&amp;</span><span class="n">plug</span><span class="p">)</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">write_cache_pages</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">__writepage</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">blk_finish_plug</span><span class="p">(</span><span class="o">&amp;</span><span class="n">plug</span><span class="p">);</span>
+
+<span class="n">__writepage</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">mapping</span><span class="o">-&gt;</span><span class="n">a_ops</span><span class="o">-&gt;</span><span class="n">writepage</span><span class="p">(</span><span class="n">page</span><span class="p">,</span><span class="w"> </span><span class="n">wbc</span><span class="p">);</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">blkdev_writepage</span><span class="w">  </span><span class="n">注意与blkdev_writepages的区别</span><span class="err">（</span><span class="n">多了个s</span><span class="err">）</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">block_write_full_page</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="n">__block_write_full_page</span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="n">submit_bh_wbc</span>
+
+<span class="n">submit_bh_wbc</span><span class="p">(</span><span class="n">REQ_OP_WRITE</span><span class="p">,</span><span class="w"> </span><span class="n">write_flags</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">,</span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_write_hint</span><span class="p">,</span><span class="w"> </span><span class="n">wbc</span><span class="p">);</span>
+<span class="w">     </span><span class="n">将bh转化为bio</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">bio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bio_alloc</span><span class="p">(</span><span class="n">GFP_NOIO</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span><span class="w"> </span><span class="n">分配一个bio</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_iter</span><span class="p">.</span><span class="n">bi_sector</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_blocknr</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_size</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">9</span><span class="p">);</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">bio_set_dev</span><span class="p">(</span><span class="n">bio</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_bdev</span><span class="p">);</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_write_hint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">write_hint</span><span class="p">;</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">bio_add_page</span><span class="p">(</span><span class="n">bio</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_page</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_size</span><span class="p">,</span><span class="w"> </span><span class="n">bh_offset</span><span class="p">(</span><span class="n">bh</span><span class="p">));</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_end_io</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">end_bio_bh_io_sync</span><span class="p">;</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_private</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">;</span>
+<span class="w">     </span><span class="n">递交bio</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">submit_bio</span><span class="p">(</span><span class="n">bio</span><span class="p">);</span>
+
+<span class="n">submit_bio</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">submit_bio_noacct</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">__submit_bio_noacct</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">__submit_bio</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">fops</span><span class="o">-&gt;</span><span class="n">submit_bio</span><span class="p">)</span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">disk</span><span class="o">-&gt;</span><span class="n">fops</span><span class="o">-&gt;</span><span class="n">submit_bio</span><span class="p">(</span><span class="n">bio</span><span class="p">);</span><span class="w"> </span><span class="n">如果块设备注册了submit_bio直接调用</span><span class="err">（</span><span class="n">一般是ramdisk使用这种方式</span><span class="err">）</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="k">else</span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="n">blk_mq_submit_bio</span><span class="p">(</span><span class="n">bio</span><span class="p">)</span><span class="w"> </span><span class="n">如果没有注册则进入mq</span>
+</code></pre></div>
+<h4 id="request">创建和发送request</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">blk_qc_t</span><span class="w"> </span><span class="nf">blk_mq_submit_bio</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">bio</span><span class="w"> </span><span class="o">*</span><span class="n">bio</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">获取存储设备的request</span><span class="w"> </span><span class="n">queue</span><span class="err">（</span><span class="n">包含blk_mq_ctx和blk_mq_hw_ctx</span><span class="err">）</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">request_queue</span><span class="w"> </span><span class="o">*</span><span class="n">q</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_disk</span><span class="o">-&gt;</span><span class="n">queue</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">如果内存区处于高位区</span><span class="err">，</span><span class="n">则重新映射到低位区</span>
+<span class="w">    </span><span class="n">blk_queue_bounce</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bio</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">如果bio块太大</span><span class="err">，</span><span class="n">则对bio进行分割</span>
+<span class="w">    </span><span class="n">__blk_queue_split</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bio</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">nr_segs</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">bio</span><span class="p">)</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">queue_exit</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">如果队列中没有禁用合并则尝试在task的current</span><span class="o">-&gt;</span><span class="n">plug上合并</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">is_flush_fua</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">blk_queue_nomerges</span><span class="p">(</span><span class="n">q</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">        </span><span class="n">blk_attempt_plug_merge</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">bio</span><span class="p">,</span><span class="w"> </span><span class="n">nr_segs</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">same_queue_rq</span><span class="p">))</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">queue_exit</span><span class="p">;</span><span class="w"> </span><span class="c1">//合并成功后直接退出</span>
+
+<span class="w">    </span><span class="n">为了管理request</span><span class="err">，</span><span class="n">早期内核为每个task都定义了一个struct</span><span class="w"> </span><span class="n">blk_plug</span><span class="err">，</span><span class="n">同task的request暂时都</span>
+<span class="w">    </span><span class="n">会挂载到blk_plug</span><span class="p">.</span><span class="n">mg_list中</span><span class="err">，</span><span class="n">新增的bio到来时</span><span class="err">，</span><span class="n">会遍历blk_plug</span><span class="p">.</span><span class="n">mq_list</span><span class="err">，</span><span class="n">如果存在合适的</span>
+<span class="w">    </span><span class="n">request直接添加</span><span class="err">，</span><span class="n">如果不存在就申请一个新的request添加</span><span class="err">。</span>
+
+<span class="w">    </span><span class="n">尝试在IO调度器或软队列ctx中合并</span><span class="err">，</span><span class="n">合并成功则返回</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">blk_mq_sched_bio_merge</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">bio</span><span class="p">,</span><span class="w"> </span><span class="n">nr_segs</span><span class="p">))</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">queue_exit</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">rq_qos_throttle</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">bio</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">hipri</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_opf</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">REQ_HIPRI</span><span class="p">;</span>
+<span class="w">    </span><span class="n">data</span><span class="p">.</span><span class="n">cmd_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_opf</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">如果bio没法合并到原有的request中去</span><span class="err">，</span><span class="n">则重新申请一个新的request</span><span class="err">。</span>
+<span class="w">    </span><span class="n">rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__blk_mq_alloc_request</span><span class="p">(</span><span class="o">&amp;</span><span class="n">data</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">rq_qos_track</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="n">bio</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">cookie</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">request_to_qc_t</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">hctx</span><span class="p">,</span><span class="w"> </span><span class="n">rq</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">将bio中的数据添加到新申请的request中</span>
+<span class="w">    </span><span class="n">blk_mq_bio_to_request</span><span class="p">(</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="n">bio</span><span class="p">,</span><span class="w"> </span><span class="n">nr_segs</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">获取plug</span>
+<span class="w">    </span><span class="n">plug</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">blk_mq_plug</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">bio</span><span class="p">);</span>
+
+<span class="w">    </span><span class="mf">1.</span><span class="w"> </span><span class="n">如果是刷新flush</span><span class="o">/</span><span class="n">fua请求</span><span class="err">，</span><span class="n">则绕过调度器直接插入请求</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="n">is_flush_fua</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="cm">/* Bypass scheduler for flush requests */</span>
+<span class="w">        </span><span class="n">blk_insert_flush</span><span class="p">(</span><span class="n">rq</span><span class="p">);</span>
+<span class="w">        </span><span class="n">blk_mq_run_hw_queue</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">hctx</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span><span class="n">启动请求派发</span>
+<span class="w">    </span><span class="mf">2.</span><span class="w"> </span><span class="n">当前任务正在做IO</span><span class="w"> </span><span class="n">Plug</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">设备硬件队列只有一个</span><span class="p">(</span><span class="n">hw_ctx</span><span class="o">?</span><span class="p">)</span><span class="err">，</span><span class="n">将request插入到当前任务的plug</span><span class="w"> </span><span class="n">list</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">plug</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">q</span><span class="o">-&gt;</span><span class="n">nr_hw_queues</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">||</span>
+<span class="w">           </span><span class="n">blk_mq_is_sbitmap_shared</span><span class="p">(</span><span class="n">rq</span><span class="o">-&gt;</span><span class="n">mq_hctx</span><span class="o">-&gt;</span><span class="n">flags</span><span class="p">)</span><span class="w"> </span><span class="o">||</span>
+<span class="w">           </span><span class="n">q</span><span class="o">-&gt;</span><span class="n">mq_ops</span><span class="o">-&gt;</span><span class="n">commit_rqs</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="n">blk_queue_nonrot</span><span class="p">(</span><span class="n">q</span><span class="p">)))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">request_count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">plug</span><span class="o">-&gt;</span><span class="n">rq_count</span><span class="p">;</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">request</span><span class="w"> </span><span class="o">*</span><span class="n">last</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">request_count</span><span class="p">)</span>
+<span class="w">            </span><span class="n">trace_block_plug</span><span class="p">(</span><span class="n">q</span><span class="p">);</span>
+<span class="w">        </span><span class="k">else</span>
+<span class="w">            </span><span class="n">last</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">list_entry_rq</span><span class="p">(</span><span class="n">plug</span><span class="o">-&gt;</span><span class="n">mq_list</span><span class="p">.</span><span class="n">prev</span><span class="p">);</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">request_count</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">blk_plug_max_rq_count</span><span class="p">(</span><span class="n">plug</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">(</span><span class="n">last</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">            </span><span class="n">blk_rq_bytes</span><span class="p">(</span><span class="n">last</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">BLK_PLUG_FLUSH_SIZE</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">blk_flush_plug_list</span><span class="p">(</span><span class="n">plug</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">);</span>
+<span class="w">            </span><span class="n">trace_block_plug</span><span class="p">(</span><span class="n">q</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="n">blk_add_rq_to_plug</span><span class="p">(</span><span class="n">plug</span><span class="p">,</span><span class="w"> </span><span class="n">rq</span><span class="p">);</span><span class="w"> </span>
+
+<span class="w">    </span><span class="mf">3.</span><span class="w"> </span><span class="n">如果request</span><span class="w"> </span><span class="n">queue配置了调度器</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">q</span><span class="o">-&gt;</span><span class="n">elevator</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="cm">/* Insert the request at the IO scheduler queue */</span>
+<span class="w">        </span><span class="n">blk_mq_sched_insert_request</span><span class="p">(</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span><span class="w"> </span><span class="n">将请求插入到调度器队列</span>
+
+<span class="w">    </span><span class="mf">4.</span><span class="w"> </span><span class="n">有plug</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">request</span><span class="w"> </span><span class="n">queue没有禁止合并</span>
+<span class="w">       </span><span class="n">走这个分支说明不是刷新请求</span><span class="err">、</span><span class="n">没有IO调度器</span><span class="err">。</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">plug</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">blk_queue_nomerges</span><span class="p">(</span><span class="n">q</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">list_empty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">plug</span><span class="o">-&gt;</span><span class="n">mq_list</span><span class="p">))</span>
+<span class="w">            </span><span class="n">same_queue_rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">same_queue_rq</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">list_del_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">same_queue_rq</span><span class="o">-&gt;</span><span class="n">queuelist</span><span class="p">);</span>
+<span class="w">            </span><span class="n">plug</span><span class="o">-&gt;</span><span class="n">rq_count</span><span class="o">--</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">blk_add_rq_to_plug</span><span class="p">(</span><span class="n">plug</span><span class="p">,</span><span class="w"> </span><span class="n">rq</span><span class="p">);</span>
+<span class="w">        </span><span class="n">trace_block_plug</span><span class="p">(</span><span class="n">q</span><span class="p">);</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">same_queue_rq</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">data</span><span class="p">.</span><span class="n">hctx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">same_queue_rq</span><span class="o">-&gt;</span><span class="n">mq_hctx</span><span class="p">;</span>
+<span class="w">            </span><span class="n">trace_block_unplug</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span>
+<span class="w">            </span><span class="n">blk_mq_try_issue_directly</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">hctx</span><span class="p">,</span><span class="w"> </span><span class="n">same_queue_rq</span><span class="p">,</span>
+<span class="w">                    </span><span class="o">&amp;</span><span class="n">cookie</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="mf">5.</span><span class="w"> </span><span class="n">设备硬件队列有多个</span><span class="err">（</span><span class="n">hw_ctx</span><span class="o">?</span><span class="err">）</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">q</span><span class="o">-&gt;</span><span class="n">nr_hw_queues</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">is_sync</span><span class="p">)</span><span class="w"> </span><span class="o">||</span>
+<span class="w">            </span><span class="o">!</span><span class="n">data</span><span class="p">.</span><span class="n">hctx</span><span class="o">-&gt;</span><span class="n">dispatch_busy</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="cm">/*</span>
+<span class="cm">         * There is no scheduler and we can try to send directly</span>
+<span class="cm">         * to the hardware.</span>
+<span class="cm">         */</span>
+<span class="w">        </span><span class="n">blk_mq_try_issue_directly</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">hctx</span><span class="p">,</span><span class="w"> </span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">cookie</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="cm">/* Default case. */</span>
+<span class="w">        </span><span class="n">blk_mq_sched_insert_request</span><span class="p">(</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">hipri</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">BLK_QC_T_NONE</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">cookie</span><span class="p">;</span>
+<span class="nl">queue_exit</span><span class="p">:</span>
+<span class="w">    </span><span class="n">blk_queue_exit</span><span class="p">(</span><span class="n">q</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">BLK_QC_T_NONE</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h4 id="ioblk_mq_run_hw_queue">IO派发blk_mq_run_hw_queue</h4>
+<p>在mutilate queue中很多点都会触发IO请求到块设备驱动中</p>
+<div class="codehilite"><pre><span></span><code><span class="n">blk_mq_run_hw_queue</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">__blk_mq_delay_run_hw_queue</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">blk_mq_sched_dispatch_requests</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">__blk_mq_sched_dispatch_requests</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="n">blk_mq_do_dispatch_sched</span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="n">blk_mq_dispatch_rq_list</span>
+<span class="w">                        </span><span class="o">-&gt;</span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">q</span><span class="o">-&gt;</span><span class="n">mq_ops</span><span class="o">-&gt;</span><span class="n">queue_rq</span><span class="p">(</span><span class="n">hctx</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bd</span><span class="p">);</span>
+<span class="w">                            </span><span class="o">-&gt;</span><span class="n">用户注册的回调函数</span><span class="p">.</span><span class="n">queue_rq</span>
+</code></pre></div>
+<p>示例dump_stack</p>
+<div class="codehilite"><pre><span></span><code><span class="p">[</span><span class="w">  </span><span class="mf">917.615686</span><span class="p">]</span><span class="w">  </span><span class="n">_queue_rq</span><span class="o">+</span><span class="mh">0x74</span><span class="o">/</span><span class="mh">0x210</span><span class="w"> </span><span class="p">[</span><span class="n">simplefs</span><span class="p">]</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.620462</span><span class="p">]</span><span class="w">  </span><span class="n">blk_mq_dispatch_rq_list</span><span class="o">+</span><span class="mh">0x130</span><span class="o">/</span><span class="mh">0x8cc</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.625633</span><span class="p">]</span><span class="w">  </span><span class="n">blk_mq_do_dispatch_sched</span><span class="o">+</span><span class="mh">0x2a8</span><span class="o">/</span><span class="mh">0x32c</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.630902</span><span class="p">]</span><span class="w">  </span><span class="n">__blk_mq_sched_dispatch_requests</span><span class="o">+</span><span class="mh">0x14c</span><span class="o">/</span><span class="mh">0x1b0</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.636948</span><span class="p">]</span><span class="w">  </span><span class="n">blk_mq_sched_dispatch_requests</span><span class="o">+</span><span class="mh">0x40</span><span class="o">/</span><span class="mh">0x80</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.642609</span><span class="p">]</span><span class="w">  </span><span class="n">__blk_mq_run_hw_queue</span><span class="o">+</span><span class="mh">0x58</span><span class="o">/</span><span class="mh">0x90</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.647389</span><span class="p">]</span><span class="w">  </span><span class="n">__blk_mq_delay_run_hw_queue</span><span class="o">+</span><span class="mh">0x1d4</span><span class="o">/</span><span class="mh">0x200</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.652951</span><span class="p">]</span><span class="w">  </span><span class="n">blk_mq_run_hw_queue</span><span class="o">+</span><span class="mh">0x98</span><span class="o">/</span><span class="mh">0x100</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.657634</span><span class="p">]</span><span class="w">  </span><span class="n">blk_mq_sched_insert_requests</span><span class="o">+</span><span class="mh">0x90</span><span class="o">/</span><span class="mh">0x170</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.663193</span><span class="p">]</span><span class="w">  </span><span class="n">blk_mq_flush_plug_list</span><span class="o">+</span><span class="mh">0x130</span><span class="o">/</span><span class="mh">0x1ec</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.668267</span><span class="p">]</span><span class="w">  </span><span class="n">blk_flush_plug_list</span><span class="o">+</span><span class="mh">0xec</span><span class="o">/</span><span class="mh">0x120</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.672950</span><span class="p">]</span><span class="w">  </span><span class="n">blk_finish_plug</span><span class="o">+</span><span class="mh">0x40</span><span class="o">/</span><span class="mh">0xe0</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.677149</span><span class="p">]</span><span class="w">  </span><span class="n">wb_writeback</span><span class="o">+</span><span class="mh">0x1e8</span><span class="o">/</span><span class="mh">0x3b0</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.681246</span><span class="p">]</span><span class="w">  </span><span class="n">wb_workfn</span><span class="o">+</span><span class="mh">0x39c</span><span class="o">/</span><span class="mh">0x584</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.685043</span><span class="p">]</span><span class="w">  </span><span class="n">process_one_work</span><span class="o">+</span><span class="mh">0x204</span><span class="o">/</span><span class="mh">0x420</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.689535</span><span class="p">]</span><span class="w">  </span><span class="n">worker_thread</span><span class="o">+</span><span class="mh">0x74</span><span class="o">/</span><span class="mh">0x4dc</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.693634</span><span class="p">]</span><span class="w">  </span><span class="n">kthread</span><span class="o">+</span><span class="mh">0x128</span><span class="o">/</span><span class="mh">0x134</span>
+<span class="p">[</span><span class="w">  </span><span class="mf">917.697247</span><span class="p">]</span><span class="w">  </span><span class="n">ret_from_fork</span><span class="o">+</span><span class="mh">0x10</span><span class="o">/</span><span class="mh">0x20</span>
+</code></pre></div>
+<h3 id="_4">读数据</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_6586bfe1e6c6b770f755723b513c66dd.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（四）/images/wp_editor_md_6586bfe1e6c6b770f755723b513c66dd.jpg"/></a> <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_db5cdf13a3a45712944c6a79faefd1b4.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（四）/images/wp_editor_md_db5cdf13a3a45712944c6a79faefd1b4.jpg"/></a></p>
+<h4 id="_5">预读</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">ksys_read</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">vfs_read</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">new_sync_read</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">file</span><span class="o">-&gt;</span><span class="n">f_op</span><span class="o">-&gt;</span><span class="n">read_iter</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="n">blkdev_read_iter</span>
+
+<span class="n">blkdev_read_iter</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">generic_file_read_iter</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">filemap_read</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">filemap_get_pages</span><span class="w"> </span><span class="n">获取page缓存</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="n">filemap_get_read_batch</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">last_index</span><span class="p">,</span><span class="w"> </span><span class="n">pvec</span><span class="p">);</span><span class="w"> </span><span class="n">获取缓存页面</span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="k">for</span><span class="p">(</span><span class="n">head</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xas_load</span><span class="p">(</span><span class="o">&amp;</span><span class="n">xas</span><span class="p">);</span><span class="w"> </span><span class="n">head</span><span class="p">;</span><span class="w"> </span><span class="n">head</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xas_next</span><span class="p">(</span><span class="o">&amp;</span><span class="n">xas</span><span class="p">))</span><span class="w"> </span><span class="n">遍历xarray树</span><span class="err">，</span><span class="n">查询是否有缓存页</span>
+<span class="w">                        </span><span class="o">-&gt;</span><span class="n">pagevec_add</span><span class="p">(</span><span class="n">pvec</span><span class="p">,</span><span class="w"> </span><span class="n">head</span><span class="p">)</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">pagevec_count</span><span class="p">(</span><span class="n">pvec</span><span class="p">))</span><span class="w"> </span><span class="n">如果没有获取到缓存页面</span><span class="err">，</span><span class="n">则进行页面预读</span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="n">page_cache_sync_readahead</span><span class="w"> </span><span class="n">文件预读</span><span class="err">（</span><span class="n">文件预读会在重新自己分配page</span><span class="err">）</span>
+<span class="w">                        </span><span class="o">-&gt;</span><span class="n">page_cache_sync_ra</span>
+<span class="w">                            </span><span class="o">-&gt;</span><span class="n">ondemand_readahead</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">pagevec_count</span><span class="p">(</span><span class="n">pvec</span><span class="p">))</span>
+<span class="w">                    </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">filemap_create_page</span><span class="p">(</span><span class="n">filp</span><span class="p">,</span><span class="w"> </span><span class="n">mapping</span><span class="p">...</span><span class="w"> </span><span class="n">如果还是没有获取到缓存页面</span><span class="err">，</span><span class="n">则创建一个新的页面</span>
+<span class="w">                        </span><span class="o">-&gt;</span><span class="n">add_to_page_cache_lru</span><span class="w"> </span><span class="n">添加页面到LRU中</span><span class="err">，</span><span class="n">便于回收</span>
+<span class="w">                        </span><span class="o">-&gt;</span><span class="n">error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">filemap_read_page</span><span class="p">(</span><span class="n">file</span><span class="p">,</span><span class="w"> </span><span class="n">mapping</span><span class="p">,</span><span class="w"> </span><span class="n">page</span><span class="p">);</span><span class="w"> </span><span class="n">读取数据到页面</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="n">page</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pvec</span><span class="o">-&gt;</span><span class="n">pages</span><span class="p">[</span><span class="n">pagevec_count</span><span class="p">(</span><span class="n">pvec</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">];</span><span class="w"> </span><span class="n">获取批量缓存的最后一页</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">PageReadahead</span><span class="p">(</span><span class="n">page</span><span class="p">))</span><span class="w"> </span><span class="n">判断最后一个页面是否需要预读</span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="n">filemap_readahead</span><span class="w"> </span><span class="n">文件预读</span>
+<span class="w">                        </span><span class="o">-&gt;</span><span class="n">page_cache_async_readahead</span>
+
+<span class="w">            </span><span class="o">-&gt;</span><span class="k">for</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">pagevec_count</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pvec</span><span class="p">);</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w">  </span><span class="n">拷贝数据给应用</span>
+<span class="w">                </span><span class="n">copied</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">copy_page_to_iter</span><span class="p">(</span><span class="n">page</span><span class="p">,</span><span class="w"> </span><span class="n">offset</span><span class="p">,</span><span class="w"> </span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">iter</span><span class="p">);</span>
+
+<span class="n">文件缓存页预读取</span>
+<span class="n">page_cache_sync_ra</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">ondemand_readahead</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">do_page_cache_ra</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">page_cache_ra_unbounded</span>
+<span class="w">                </span><span class="n">根据请求预读的数量遍历xarray树</span><span class="err">，</span><span class="n">如果page不存在就重新申请添加page并读取数据添加到LRU上</span><span class="err">。</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">nr_to_read</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="k">struct</span><span class="w"> </span><span class="nc">page</span><span class="w"> </span><span class="o">*</span><span class="n">page</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xa_load</span><span class="p">(</span><span class="o">&amp;</span><span class="n">mapping</span><span class="o">-&gt;</span><span class="n">i_pages</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">page</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">xa_is_value</span><span class="p">(</span><span class="n">page</span><span class="p">))</span>
+<span class="w">                        </span><span class="o">-&gt;</span><span class="n">read_pages</span><span class="p">(</span><span class="n">ractl</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">page_pool</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="n">page</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__page_cache_alloc</span><span class="p">(</span><span class="n">gfp_mask</span><span class="p">);</span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="n">read_pages</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="n">read_pages</span>
+
+<span class="n">read_pages</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">blk_start_plug</span><span class="p">(</span><span class="o">&amp;</span><span class="n">plug</span><span class="p">)</span><span class="w">  </span><span class="n">在task_struct上安装一个list</span><span class="p">,</span><span class="n">用于合并多个request请求</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">aops</span><span class="o">-&gt;</span><span class="n">readahead</span><span class="p">)</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">aops</span><span class="o">-&gt;</span><span class="n">readahead</span><span class="p">(</span><span class="n">rac</span><span class="p">)</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">blkdev_readahead</span><span class="w">  </span><span class="mf">1.</span><span class="w"> </span><span class="n">block层预读</span><span class="w"> </span><span class="o">------&gt;</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="p">(</span><span class="n">aops</span><span class="o">-&gt;</span><span class="n">readpages</span><span class="p">)</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">aops</span><span class="o">-&gt;</span><span class="n">readpages</span><span class="p">(</span><span class="n">rac</span><span class="o">-&gt;</span><span class="n">file</span><span class="p">,</span><span class="w"> </span><span class="n">rac</span><span class="o">-&gt;</span><span class="n">mapping</span><span class="p">,</span><span class="w"> </span><span class="n">pages</span><span class="p">,</span><span class="n">readahead_count</span><span class="p">(</span><span class="n">rac</span><span class="p">));</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="k">else</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="k">while</span><span class="w"> </span><span class="p">((</span><span class="n">page</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">readahead_page</span><span class="p">(</span><span class="n">rac</span><span class="p">)))</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">blk_finish_plug</span><span class="p">(</span><span class="o">&amp;</span><span class="n">plug</span><span class="p">);</span><span class="w">  </span><span class="mf">2.</span><span class="n">将task_struct上合并request请求flush到存储设备队列</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">blk_flush_plug_list</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">blk_mq_flush_plug_list</span>
+
+<span class="mf">1.</span><span class="n">block层预读</span><span class="w"> </span><span class="o">------&gt;</span><span class="n">blkdev_readahead</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">mpage_readahead</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">mpage_bio_submit</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">submit_bio</span><span class="p">(</span><span class="n">bio</span><span class="p">)</span>
+
+<span class="n">submit_bio</span><span class="p">(</span><span class="n">bio</span><span class="p">)</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">submit_bio_noacct</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">__submit_bio</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">blk_mq_submit_bio</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="n">plug</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">hwqueue</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span>
+
+<span class="mf">2.</span><span class="n">blk_mq_flush_plug_list</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">blk_mq_sched_insert_requests</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">blk_mq_run_hw_queue</span>
+
+<span class="n">blk_mq_run_hw_queue</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">__blk_mq_delay_run_hw_queue</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">__blk_mq_run_hw_queue</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">blk_mq_sched_dispatch_requests</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="n">blk_mq_do_dispatch_sched</span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="n">blk_mq_dispatch_rq_list</span>
+<span class="w">                        </span><span class="o">-&gt;</span><span class="n">用户注册的回调函数</span><span class="p">.</span><span class="n">queue_rq</span><span class="w"> </span><span class="o">--&gt;</span><span class="n">read</span>
+</code></pre></div>
+<h4 id="_6">从缓存中读取</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">ksys_read</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">vfs_read</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">new_sync_read</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">file</span><span class="o">-&gt;</span><span class="n">f_op</span><span class="o">-&gt;</span><span class="n">read_iter</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="n">blkdev_read_iter</span>
+
+<span class="n">blkdev_read_iter</span>
+<span class="w">    </span><span class="o">-&gt;</span><span class="n">generic_file_read_iter</span>
+<span class="w">        </span><span class="o">-&gt;</span><span class="n">filemap_read</span>
+<span class="w">            </span><span class="o">-&gt;</span><span class="n">filemap_get_pages</span><span class="w"> </span><span class="n">获取page缓存</span>
+<span class="w">                </span><span class="o">-&gt;</span><span class="n">filemap_get_read_batch</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">last_index</span><span class="p">,</span><span class="w"> </span><span class="n">pvec</span><span class="p">);</span><span class="w"> </span><span class="n">获取缓存页面</span>
+<span class="w">                    </span><span class="o">-&gt;</span><span class="k">for</span><span class="p">(</span><span class="n">head</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xas_load</span><span class="p">(</span><span class="o">&amp;</span><span class="n">xas</span><span class="p">);</span><span class="w"> </span><span class="n">head</span><span class="p">;</span><span class="w"> </span><span class="n">head</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xas_next</span><span class="p">(</span><span class="o">&amp;</span><span class="n">xas</span><span class="p">))</span><span class="w"> </span><span class="n">遍历xarray树</span><span class="err">，</span><span class="n">查询有缓存页</span>
+<span class="w">                        </span><span class="o">-&gt;</span><span class="n">pagevec_add</span><span class="p">(</span><span class="n">pvec</span><span class="p">,</span><span class="w"> </span><span class="n">head</span><span class="p">)</span>
+
+<span class="w">            </span><span class="o">-&gt;</span><span class="k">for</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">pagevec_count</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pvec</span><span class="p">);</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w">  </span><span class="n">拷贝数据给应用</span>
+<span class="w">                </span><span class="n">copied</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">copy_page_to_iter</span><span class="p">(</span><span class="n">page</span><span class="p">,</span><span class="w"> </span><span class="n">offset</span><span class="p">,</span><span class="w"> </span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">iter</span><span class="p">);</span>
+</code></pre></div>
+<p>与预读相比，如果在缓存中命中后，将直接从缓存中获取返回，在filemap_get_pages函数中获取缓存页，如果已经存在缓存页则不需要进行预读操作，接下来从缓存中拷贝数据给应用空间即可。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/linux/文件系统缓存.html">← 文件系统缓存</a>
+    <a class="next" href="/laumy.github.io/posts/linux/一切皆文件之块设备驱动-五.html">一切皆文件之块设备驱动（五） →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

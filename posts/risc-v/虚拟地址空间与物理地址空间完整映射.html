@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>虚拟地址空间与物理地址空间完整映射 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#setup-bootmem">setup bootmem</a><ul></ul></li><li><a href="#_1">完整映射</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>虚拟地址空间与物理地址空间完整映射</h1>
+  <div class="meta">2024-07-07 · risc-v</div>
+  <div class="post-content"><h2 id="setup-bootmem">setup bootmem</h2>
+<p>物理内存都添加到系统之后，会调用setup_bootmem对整个物理内存进行整理，主要的工作就是remove掉一些no-map区域（不归内核管理），同时保留一些关键区域，如内核镜像区，dtb中reserved的内存节点。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_2e42fa1b407a7f2adcede12a1f21e93c.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/六、虚拟地址空间与物理地址空间完整映射/images/wp_editor_md_2e42fa1b407a7f2adcede12a1f21e93c.jpg"/></a></p>
+<p>上图中，浅绿色的就是reserved部分，不能被分配使用，而剩下的部分就可以通过调用上小章节中的函数去使用内存了。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">setup_bootmem</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">memblock_region</span><span class="w"> </span><span class="o">*</span><span class="n">reg</span><span class="p">;</span>
+<span class="w">    </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">mem_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">vmlinux_end</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__pa</span><span class="p">(</span><span class="o">&amp;</span><span class="n">_end</span><span class="p">);</span>
+<span class="w">    </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">vmlinux_start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__pa</span><span class="p">(</span><span class="o">&amp;</span><span class="n">_start</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* Find the memory region containing the kernel */</span>
+<span class="w">    </span><span class="n">for_each_memblock</span><span class="p">(</span><span class="n">memory</span><span class="p">,</span><span class="w"> </span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">end</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">reg</span><span class="o">-&gt;</span><span class="n">base</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">reg</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">reg</span><span class="o">-&gt;</span><span class="n">base</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">vmlinux_end</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">vmlinux_end</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">end</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">mem_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">min</span><span class="p">(</span><span class="n">reg</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="n">phys_addr_t</span><span class="p">)</span><span class="o">-</span><span class="n">PAGE_OFFSET</span><span class="p">);</span>
+
+<span class="w">            </span><span class="cm">/*</span>
+<span class="cm">             * Remove memblock from the end of usable area to the</span>
+<span class="cm">             * end of region</span>
+<span class="cm">             */</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">reg</span><span class="o">-&gt;</span><span class="n">base</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">mem_size</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end</span><span class="p">)</span>
+<span class="w">                </span><span class="n">memblock_remove</span><span class="p">(</span><span class="n">reg</span><span class="o">-&gt;</span><span class="n">base</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">mem_size</span><span class="p">,</span>
+<span class="w">                        </span><span class="n">end</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">reg</span><span class="o">-&gt;</span><span class="n">base</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">mem_size</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">mem_size</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* Reserve from the start of the kernel to the end of the kernel */</span>
+<span class="w">    </span><span class="n">memblock_reserve</span><span class="p">(</span><span class="n">vmlinux_start</span><span class="p">,</span><span class="w"> </span><span class="n">vmlinux_end</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">vmlinux_start</span><span class="p">);</span>
+<span class="w">    </span><span class="n">①将内核镜像地址空间添加到</span><span class="o">&amp;</span><span class="n">memblock</span><span class="p">.</span><span class="n">reserved</span><span class="err">。</span>
+<span class="w">    </span><span class="n">set_max_mapnr</span><span class="p">(</span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">mem_size</span><span class="p">));</span>
+<span class="w">    </span><span class="n">max_low_pfn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">memblock_end_of_DRAM</span><span class="p">());</span>
+
+<span class="cp">#ifdef CONFIG_BLK_DEV_INITRD</span>
+<span class="w">    </span><span class="n">setup_initrd</span><span class="p">();</span>
+<span class="cp">#endif </span><span class="cm">/* CONFIG_BLK_DEV_INITRD */</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Avoid using early_init_fdt_reserve_self() since __pa() does</span>
+<span class="cm">     * not work for DTB pointers that are fixmap addresses</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">memblock_reserve</span><span class="p">(</span><span class="n">dtb_early_pa</span><span class="p">,</span><span class="w"> </span><span class="n">fdt_totalsize</span><span class="p">(</span><span class="n">dtb_early_va</span><span class="p">));</span>
+<span class="w">    </span><span class="n">②将dtb的空间添加到</span><span class="o">&amp;</span><span class="n">memblock</span><span class="p">.</span><span class="n">reserved</span>
+<span class="n">early_init_fdt_scan_reserved_mem</span><span class="p">();</span>
+<span class="n">③遍历设备树的节点</span><span class="err">，</span><span class="n">将</span><span class="o">/</span><span class="n">memreserve</span><span class="o">/</span><span class="err">，</span><span class="n">reserved</span><span class="o">-</span><span class="n">memory节点添加到</span><span class="o">&amp;</span><span class="n">memblock</span><span class="p">.</span><span class="n">reserved</span>
+<span class="w">    </span><span class="n">memblock_allow_resize</span><span class="p">();</span>
+<span class="w">    </span><span class="n">memblock_dump_all</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">for_each_memblock</span><span class="p">(</span><span class="n">memory</span><span class="p">,</span><span class="w"> </span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">start_pfn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">memblock_region_memory_base_pfn</span><span class="p">(</span><span class="n">reg</span><span class="p">);</span>
+<span class="w">        </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">end_pfn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">memblock_region_memory_end_pfn</span><span class="p">(</span><span class="n">reg</span><span class="p">);</span>
+
+<span class="w">        </span><span class="n">memblock_set_node</span><span class="p">(</span><span class="n">PFN_PHYS</span><span class="p">(</span><span class="n">start_pfn</span><span class="p">),</span>
+<span class="w">                  </span><span class="n">PFN_PHYS</span><span class="p">(</span><span class="n">end_pfn</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start_pfn</span><span class="p">),</span>
+<span class="w">                  </span><span class="o">&amp;</span><span class="n">memblock</span><span class="p">.</span><span class="n">memory</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span><span class="w">  </span>
+
+<span class="n">下面是调用memblock_dump_all的信息</span><span class="err">：</span>
+<span class="n">MEMBLOCK</span><span class="w"> </span><span class="n">configuration</span><span class="o">:</span>
+<span class="n">memory</span><span class="w"> </span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x000000000fe00000</span><span class="w"> </span><span class="n">reserved</span><span class="w"> </span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x000000000091288b</span>
+<span class="n">memory</span><span class="p">.</span><span class="n">cnt</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mh">0x1</span>
+<span class="n">memory</span><span class="p">[</span><span class="mh">0x0</span><span class="p">]</span><span class="w"> </span><span class="p">[</span><span class="mh">0x0000000080200000-0x000000008fffffff</span><span class="p">],</span><span class="w"> </span><span class="mh">0x000000000fe00000</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="n">flags</span><span class="o">:</span><span class="w"> </span><span class="mh">0x0</span>
+<span class="n">reserved</span><span class="p">.</span><span class="n">cnt</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mh">0x3</span>
+<span class="n">reserved</span><span class="p">[</span><span class="mh">0x0</span><span class="p">]</span><span class="w"> </span><span class="p">[</span><span class="mh">0x0000000080000000-0x000000008003ffff</span><span class="p">],</span><span class="w"> </span><span class="mh">0x0000000000040000</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="n">flags</span><span class="o">:</span><span class="w"> </span><span class="mh">0x0</span>
+<span class="n">reserved</span><span class="p">[</span><span class="mh">0x1</span><span class="p">]</span><span class="w"> </span><span class="p">[</span><span class="mh">0x0000000080200000-0x0000000080ad133b</span><span class="p">],</span><span class="w"> </span><span class="mh">0x00000000008d133c</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="n">flags</span><span class="o">:</span><span class="w"> </span><span class="mh">0x0</span>
+<span class="n">reserved</span><span class="p">[</span><span class="mh">0x2</span><span class="p">]</span><span class="w"> </span><span class="p">[</span><span class="mh">0x0000000082200000-0x000000008220154e</span><span class="p">],</span><span class="w"> </span><span class="mh">0x000000000000154f</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="n">flags</span><span class="o">:</span><span class="w"> </span><span class="mh">0x0</span>
+</code></pre></div>
+<p>小结： （1）系统通过memblock以数组memory type的方式记录物理内存空间，数组中每一个内存区域描述了一段内存信息，包括base，size，node id等。 （2）在memblock信息中，已经被使用或者被内核定义需要保留的区域，会存储在reserved 数组中。 （3）memory type数组中并不是代表整个内核系统的内存空间，因为部分驱动会保留一段内存区域供自己单独使用，其在dts中具有no-map属性的reserved-memory节点，不会由内核创建地址映射。 （4）可以通过内核调试节点/sys/kernel/debug/memblock进行查询相关信息</p>
+<h2 id="_1">完整映射</h2>
+<p>在前面部分只完成了kernel、dtb，部分临时页表的临时映射，也就是说对于内核来说使能了MMU后也只能访问kernel，dtb，部分临时页表。在前面阶段，内核也只知道kernel，dtb的物理位置，对于其他的内存位置内核是不清楚的。通过memblock机制后，内核系统已经对物理内存布局信息比较清楚了，那么就需要对内存完成最后的映射。主要的工作是，对此前的kernel、dtb等映射重新做一次调整，统一使用swapper_pg_dir根目录页表，同时对于新纳入memblock中的内存建立映射，填充好对应的页表。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">setup_vm_final</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">map_size</span><span class="p">;</span>
+<span class="w">    </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">pa</span><span class="p">,</span><span class="w"> </span><span class="n">start</span><span class="p">,</span><span class="w"> </span><span class="n">end</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">memblock_region</span><span class="w"> </span><span class="o">*</span><span class="n">reg</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/* Set mmu_enabled flag */</span>
+<span class="w">    </span><span class="n">mmu_enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/* Setup swapper PGD for fixmap */</span>
+<span class="w">    </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">swapper_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="n">FIXADDR_START</span><span class="p">,</span>
+<span class="w">               </span><span class="n">__pa</span><span class="p">(</span><span class="n">fixmap_pgd_next</span><span class="p">),</span>
+<span class="w">               </span><span class="n">PGDIR_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">①</span><span class="w"> </span><span class="n">将fixmap的映射的页表从early_pg_dir切换为swapper_pg_dir</span><span class="err">。</span>
+<span class="w">    </span><span class="cm">/* Map all memory banks */</span>
+<span class="w">    </span><span class="n">for_each_memblock</span><span class="p">(</span><span class="n">memory</span><span class="p">,</span><span class="w"> </span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">reg</span><span class="o">-&gt;</span><span class="n">base</span><span class="p">;</span>
+<span class="w">        </span><span class="n">end</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">start</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">reg</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">start</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">end</span><span class="p">)</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">memblock_is_nomap</span><span class="p">(</span><span class="n">reg</span><span class="p">))</span>
+<span class="w">            </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">start</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">__pa</span><span class="p">(</span><span class="n">PAGE_OFFSET</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">            </span><span class="n">__pa</span><span class="p">(</span><span class="n">PAGE_OFFSET</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end</span><span class="p">)</span>
+<span class="w">            </span><span class="n">start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__pa</span><span class="p">(</span><span class="n">PAGE_OFFSET</span><span class="p">);</span>
+
+<span class="w">        </span><span class="n">map_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">best_map_size</span><span class="p">(</span><span class="n">start</span><span class="p">,</span><span class="w"> </span><span class="n">end</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start</span><span class="p">);</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">pa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">start</span><span class="p">;</span><span class="w"> </span><span class="n">pa</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end</span><span class="p">;</span><span class="w"> </span><span class="n">pa</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">map_size</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">__va</span><span class="p">(</span><span class="n">pa</span><span class="p">);</span>
+<span class="w">            </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">swapper_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">pa</span><span class="p">,</span>
+<span class="w">                       </span><span class="n">map_size</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL_EXEC</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="n">②遍历memblock中的内存</span><span class="err">，</span><span class="n">对所有的内存进行映射</span><span class="err">，</span><span class="n">根目录页表为swapper_pg_dir</span><span class="err">，</span><span class="n">二级页表和PTE页表会使用memblock_phys_alloc进行分配内存</span><span class="err">，</span><span class="n">对已经分配的内存访问会先反向映射到fixmap地址空间</span><span class="err">，</span><span class="n">通过fixmap进行访问页表</span><span class="err">。</span>
+<span class="w">    </span><span class="cm">/* Clear fixmap PTE and PMD mappings */</span>
+<span class="w">    </span><span class="n">clear_fixmap</span><span class="p">(</span><span class="n">FIX_PTE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">clear_fixmap</span><span class="p">(</span><span class="n">FIX_PMD</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* Move to swapper page table */</span>
+<span class="w">    </span><span class="n">csr_write</span><span class="p">(</span><span class="n">CSR_SATP</span><span class="p">,</span><span class="w"> </span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">__pa</span><span class="p">(</span><span class="n">swapper_pg_dir</span><span class="p">))</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">SATP_MODE</span><span class="p">);</span>
+<span class="n">local_flush_tlb_all</span><span class="p">();</span>
+<span class="n">③将swapper_pg_dir的根目录写到satp寄存器</span><span class="err">，</span><span class="n">这样就完成了整个物理内存到虚拟地址空间的映射</span><span class="err">，</span><span class="n">所有的物理内存空间都可以进行访问了</span><span class="err">。</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>到此，内核通过memblock知道物理内存的布局信息，虚拟地址翻译到物理内存所需要的页表都填充好了，所有要访问的物理内存都映射虚拟地址空间，所有的物理内存都可以通过虚拟地址正常访问了。内存下一阶段的初始化会涉及到Node、Zone以及伙伴系统等，这里就先不阐述。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/risc-v/启动第一个应用进程.html">← 启动第一个应用进程</a>
+    <a class="next" href="/laumy.github.io/posts/risc-v/异常初始化.html">异常初始化 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

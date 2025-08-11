@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>lerobot ACT实现分析 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#actconfig">配置类ACTConfig</a><ul><li><a href="#_1">输入/输出结构</a></li><li><a href="#_2">架构配置</a></li></ul></li><li><a href="#actpolicy">策略入口类ACTPolicy</a><ul><li><a href="#_3">初始化逻辑</a></li><li><a href="#_4">推理逻辑</a></li><li><a href="#_5">训练损失计算</a></li></ul></li><li><a href="#act">核心算法ACT</a><ul><li><a href="#_6">整体结构</a></li><li><a href="#forward">forward方法</a></li></ul></li><li><a href="#act_1">ACT编码器</a><ul><li><a href="#actencoder">ACTEncoder</a></li><li><a href="#actencoderlayer">ACTEncoderLayer</a></li></ul></li><li><a href="#act_2">ACT解码器</a><ul><li><a href="#actdecoder">ACTDecoder</a></li><li><a href="#actdecoderlayer">ACTDecoderLayer</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>lerobot ACT实现分析</h1>
+  <div class="meta">2025-08-04 · ai</div>
+  <div class="post-content"><h2 id="actconfig">配置类ACTConfig</h2>
+<div class="codehilite"><pre><span></span><code><span class="nd">@PreTrainedConfig</span><span class="o">.</span><span class="n">register_subclass</span><span class="p">(</span><span class="s2">"act"</span><span class="p">)</span>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">ACTConfig</span><span class="p">(</span><span class="n">PreTrainedConfig</span><span class="p">):</span>
+    <span class="c1"># 输入/输出结构</span>
+    <span class="n">chunk_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>  <span class="c1"># 动作块长度（每次预测的动作序列长度）</span>
+    <span class="n">n_action_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>  <span class="c1"># 每次策略调用执行的动作步数（≤ chunk_size）</span>
+    <span class="n">temporal_ensemble_coeff</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 时序集成系数（None表示禁用）</span>
+
+    <span class="c1"># VAE配置</span>
+    <span class="n">use_vae</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># 是否启用VAE（增强动作多样性）</span>
+    <span class="n">latent_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span>  <span class="c1"># 潜在空间维度</span>
+    <span class="n">kl_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>  <span class="c1"># KL散度损失权重</span>
+
+    <span class="c1"># Transformer配置</span>
+    <span class="n">dim_model</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">512</span>  <span class="c1"># Transformer隐藏维度</span>
+    <span class="n">n_heads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span>  <span class="c1"># 注意力头数</span>
+    <span class="n">n_encoder_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>  <span class="c1"># 编码器层数</span>
+    <span class="n">n_decoder_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># 解码器层数（原始实现bug，仅用第1层）</span>
+
+    <span class="c1"># 视觉Backbone</span>
+    <span class="n">vision_backbone</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"resnet18"</span>  <span class="c1"># 图像特征提取网络</span>
+    <span class="o">......</span>
+</code></pre></div>
+<p>ACTConfig是ACT算法核心配置类，主要定义了模型结构、输入输出格式、训练参数和推理逻辑等。</p>
+<h3 id="_1">输入/输出结构</h3>
+<p>参数主要配置模型输入观测、输出动作的基本格式，是连接环境与模型的桥梁。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Input / output structure.</span>
+<span class="n">n_obs_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># 输入观测的时间步数（当前仅支持1步观测，即当前时刻观测）</span>
+<span class="n">chunk_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>  <span class="c1"># 动作块长度：每次预测的连续动作序列长度（核心参数，决定分块粒度）</span>
+<span class="n">n_action_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>  <span class="c1"># 每次策略调用执行的动作步数（≤ chunk_size，默认与chunk_size一致，即一次执行整段动作块）</span>
+
+<span class="n">normalization_mapping</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">NormalizationMode</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+    <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">"VISUAL"</span><span class="p">:</span> <span class="n">NormalizationMode</span><span class="o">.</span><span class="n">MEAN_STD</span><span class="p">,</span>  <span class="c1"># 图像特征归一化：减均值除标准差</span>
+        <span class="s2">"STATE"</span><span class="p">:</span> <span class="n">NormalizationMode</span><span class="o">.</span><span class="n">MEAN_STD</span><span class="p">,</span>   <span class="c1"># 状态特征（如机器人关节角）归一化：同上</span>
+        <span class="s2">"ACTION"</span><span class="p">:</span> <span class="n">NormalizationMode</span><span class="o">.</span><span class="n">MEAN_STD</span><span class="p">,</span>  <span class="c1"># 动作归一化：同上（确保训练时输入分布稳定）</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+</code></pre></div>
+<ul>
+<li>chunk_size 是 ACT 算法的核心设计：将长时序动作生成分解为固定长度的“动作块”（如100步），避免一次性规划整个任务序列，降低计算复杂度。</li>
+<li>n_action_steps 控制每次策略调用后实际执行的动作步数。例如，若 chunk_size=100 且 n_action_steps=50，则模型预测100步动作，执行前50步，丢弃后50步（适用于需要频繁重新规划的场景）。</li>
+</ul>
+<h3 id="_2">架构配置</h3>
+<p>从此前的<a href="https://www.laumy.tech/2431.html" title="上一篇文章">具身智能ACT算法</a>我们知道ACT模型算法主要是基于transformer结构，从实现上模型的核心组件可以分为视觉backbone、transformer、VAE结构。</p>
+<p><strong>（1）视觉backbone配置</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Vision backbone.</span>
+<span class="n">vision_backbone</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"resnet18"</span>  <span class="c1"># 视觉特征提取网络：使用ResNet18（轻量级，适合实时控制）</span>
+<span class="n">pretrained_backbone_weights</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">"ResNet18_Weights.IMAGENET1K_V1"</span>  <span class="c1"># 预训练权重：使用ImageNet-1K预训练参数初始化，提升特征提取能力</span>
+<span class="n">replace_final_stride_with_dilation</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 是否用空洞卷积替换ResNet的最终2x2 stride（默认关闭，保持特征图分辨率）</span>
+</code></pre></div>
+<p>上面的参数是ACT算法中用于图像特征提取模块的核心配置，影响模型对视觉输入的理解能力和计算效率。</p>
+<p>首先指定了图像特征提取的骨干网络为resnet18，其仅有18层网络，参数量约1100万，常用于实时机器人控制场景，ResNet是通过残差连接缓解深层网络梯度消失问题，能有效提取多尺度图像特征包括边缘纹理到语义信息。视觉 Backbone 的输出（如 ResNet-18 的 layer4 特征图）会被展平为序列，与机器人状态、潜在向量等多模态特征拼接后输入 Transformer 编码器。</p>
+<p>其次指定了resnet18预训练权重的来源，默认使用使用 ImageNet-1K 数据集预训练的权重。</p>
+<p>最后的replace_final_stride_with_dilation默认关闭，主要是控制是否用“空洞卷积”替换resnet最后一层的2*2步幅卷积。关闭空洞卷积适合对实时性要求高、特征分辨率要求低的场景，如粗粒度抓取任务。如果打开可保留更多的空洞细节（如物体边缘、纹理），适合精细操作如螺丝拧入、零件对齐、但是需要权衡计算量增加和内存的占用。</p>
+<p><strong>（2）transformer配置</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Transformer layers.</span>
+<span class="n">pre_norm</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Transformer块归一化位置：False=后归一化（原始ACT实现），True=前归一化（更稳定但需调参）</span>
+<span class="n">dim_model</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">512</span>    <span class="c1"># Transformer隐藏层维度（特征维度）</span>
+<span class="n">n_heads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span>        <span class="c1"># 多头注意力头数（8头，总注意力维度=512/8=64/头）</span>
+<span class="n">dim_feedforward</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3200</span>  <span class="c1"># 前馈网络中间维度（通常为dim_model的4-6倍，此处3200=512*6.25）</span>
+<span class="n">feedforward_activation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"relu"</span>  <span class="c1"># 前馈网络激活函数（ReLU，原始ACT实现）</span>
+<span class="n">n_encoder_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>  <span class="c1"># Transformer编码器层数（4层，用于融合多模态输入特征）</span>
+<span class="c1"># 注：原始ACT实现中n_decoder_layers=7，但因代码bug仅使用第1层，此处对齐原始实现设为1</span>
+<span class="n">n_decoder_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># Transformer解码器层数（1层，用于生成动作块序列）</span>
+</code></pre></div>
+<p>上面参数定义了ACT算法中Transformer 编码器/解码器的核心结构参数，直接决定模型的序列建模能力、计算效率和特征融合效果。</p>
+<ul>
+<li>pre_norm: 归一化位置 ，False=原始行为，True=训练更稳定（需重新调参），若训练发散，可尝试设为 True。</li>
+<li>dim_model:特征维度（模型容量），增大→更强表达能力，但计算/内存成本平方级增长，机器人实时场景建议 ≤ 1024。</li>
+<li>n_heads:注意力并行头数，增多更细粒度关注，但通信开销增大 ，保持 dim_model/n_heads = 64（如 512/8=64）。</li>
+<li>n_encoder_layers: 特征融合深度，增多融合更充分，但推理延迟增加，机械臂操作建议 4-6 层。</li>
+<li>n_decoder_layers: 动作生成深度，受原始 bug 限制，固定为 1 以对齐行为，若修复原始 bug，可尝试增至 3-4 层。</li>
+</ul>
+<p><strong>（3）VAE变分自编码配置</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># VAE.</span>
+<span class="n">use_vae</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>          <span class="c1"># 是否启用VAE（默认启用，通过潜在空间建模动作分布）</span>
+<span class="n">latent_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span>          <span class="c1"># VAE潜在空间维度（32维，压缩动作序列信息）</span>
+<span class="n">n_vae_encoder_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span> <span class="c1"># VAE编码器层数（4层Transformer，用于将动作块编码为潜在分布）</span>
+</code></pre></div>
+<p><strong>（4）推理配置</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Inference.</span>
+<span class="c1"># Note: ACT原论文中启用时序集成时默认值为0.01</span>
+<span class="n">temporal_ensemble_coeff</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 时序集成系数：None=禁用，&gt;0=启用（指数加权平均平滑动作）</span>
+</code></pre></div>
+<p>该参数就是是否启动ACT的Temporal Ensembling机制，时序集成（Temporal Ensembling） 功能的启用与权重计算方式，用于在推理时平滑动作序列，避免机器人执行突变动作（尤其适用于精细操作如机械臂抓取、插入等任务）。</p>
+<p>要启动Temporal Ensembling机制需显式设置该参数为非 None 的浮点值（如 0.01），且需满足n_action_steps 必须设为 1（每次策略调用仅执行 1 步动作，确保每步都通过集成优化）。</p>
+<p>当 temporal_ensemble_coeff = α（如 0.01）时，ACTTemporalEnsembler 会对连续多轮预测的动作块（chunk_size 长度）进行 指数加权平均。</p>
+<p><strong>（5）训练损失配置</strong></p>
+<div class="codehilite"><pre><span></span><code>    <span class="c1"># Training and loss computation.</span>
+    <span class="n">dropout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>
+    <span class="n">kl_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>
+</code></pre></div>
+<p>dropout控制 Transformer 层的 随机失活概率，用于正则化，防止模型过拟合训练数据。在训练过程中，以 dropout 概率（此处 10%）随机将 Transformer 层（如多头注意力输出、前馈网络输出）的部分神经元激活值设为 0，强制模型学习更鲁棒的特征（不依赖特定神经元组合）</p>
+<p>kl_weight控制 KL 散度损失（KL-divergence Loss） 的权重，仅在启用 VAE（use_vae=True，默认启用）时生效。10.0 是一个较大的权重，表明原始 ACT 实现中更注重约束潜在分布的“规范性”（接近标准正态），以确保 VAE 能生成多样化的动作序列，避免模型仅记忆训练数据中的动作模式。</p>
+<p><strong>（6）训练优化</strong></p>
+<div class="codehilite"><pre><span></span><code>    <span class="c1"># Training preset</span>
+    <span class="n">optimizer_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span>
+    <span class="n">optimizer_weight_decay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span>
+    <span class="n">optimizer_lr_backbone</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span>
+</code></pre></div>
+<p>optimizer_lr控制除视觉Backbone外所有参数（如Transformer编码器/解码器、VAE层等）的梯度更新步长。学习率过大会导致训练不稳定（Loss震荡），过小则收敛缓慢。1e-5（0.00001）是训练Transformer类模型的经典学习率（如BERT、GPT等），尤其适用于。</p>
+<p>optimizer_weight_decay权重衰减（L2正则化）系数，用于抑制过拟合。过小（如1e-5）：正则化不足，易过拟合训练数据。过大（如1e-3）：过度抑制参数更新，导致模型欠拟合。适用于机器人操作任务，训练数据通常包含噪声（如传感器误差、动作抖动），权重衰减可提升模型对噪声的鲁棒性。</p>
+<p>optimizer_lr_backbone视觉Backbone（如ResNet18）参数的专用学习率。ACT原论文中Backbone与主模型联合训练，未使用更小的Backbone学习率。</p>
+<p>在实际的工程中，可在get_optim_params 中显式区分Backbone与非Backbone参数，应用不同学习率：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">get_optim_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">"params"</span><span class="p">:</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">n</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"model.backbone"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">],</span>
+            <span class="s2">"lr"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimizer_lr</span><span class="p">,</span>  <span class="c1"># 主参数学习率</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">"params"</span><span class="p">:</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">n</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"model.backbone"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">],</span>
+            <span class="s2">"lr"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">optimizer_lr_backbone</span><span class="p">,</span>  <span class="c1"># Backbone专用学习率</span>
+        <span class="p">},</span>
+    <span class="p">]</span>
+</code></pre></div>
+<h2 id="actpolicy">策略入口类ACTPolicy</h2>
+<h3 id="_3">初始化逻辑</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">ACTPolicy</span><span class="p">(</span><span class="n">PreTrainedPolicy</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ACTConfig</span><span class="p">,</span> <span class="n">dataset_stats</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="c1"># 输入/输出归一化（标准化数据分布）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">normalize_inputs</span> <span class="o">=</span> <span class="n">Normalize</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">input_features</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">normalization_mapping</span><span class="p">,</span> <span class="n">dataset_stats</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">unnormalize_outputs</span> <span class="o">=</span> <span class="n">Unnormalize</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">output_features</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">normalization_mapping</span><span class="p">,</span> <span class="n">dataset_stats</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">ACT</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>  <span class="c1"># 加载ACT神经网络</span>
+
+        <span class="c1"># 初始化时序集成器（若启用）</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">temporal_ensemble_coeff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">temporal_ensembler</span> <span class="o">=</span> <span class="n">ACTTemporalEnsembler</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">temporal_ensemble_coeff</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>  <span class="c1"># 重置动作队列/集成器</span>
+</code></pre></div>
+<p>这段代码定义了一个基于Action Chunking Transformer (ACT)的策略类，主要用于机器人操作任务的动作生成。</p>
+<p>self.normalize_inputs、self.normalize_targets、self.unnormalize_outputs。这3个参数用于数据预处理和后处理的关键组件，负责输入特征的归一化、目标动作的归一化以及模型输出动作的反归一化。</p>
+<p>根据config.temporal_ensemble_coeff条件来判断是否初始化temporal ensembler，用于联系预测的动作块进行加权平均，提升动作输出的稳定性。ACTTemporalEnsembler通过指数权重（exp(-temporal_ensemble_coeff * i)）对历史动作进行加权， older动作权重更高（原论文默认系数0.01）。</p>
+<h3 id="_4">推理逻辑</h3>
+<p>select_action是ACTPolicy类的核心方法，主要的目的就是根据环境观测(batch)然后预测输出机器人要执行的动作。生成预测的动作有两种模式，一个是启用temporal ensemble方式另外一种不启用。</p>
+<p>在进入预测生成动作之前先调用self.eval()强制策略进入评估模式（推理），因为策略处于训练模式（启用dropout等）。</p>
+<p><strong>（1）时间集成模式</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">select_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">temporal_ensemble_coeff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">actions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict_action_chunk</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># 生成动作块</span>
+        <span class="n">action</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_ensembler</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">actions</span><span class="p">)</span>  <span class="c1"># 时序集成平滑</span>
+        <span class="k">return</span> <span class="n">action</span>
+</code></pre></div>
+<p>开启temporal ensemble：根据配置中temporal_ensemble_coeff条件优先走temporal ensemble模式。该模式先调用self.predict_action_chunk(batch)调用模型预测一个动作块（(batch_size, chunk_size, action_dim)），即一次性预测多个连续动作。然后调用self.temporal_ensembler.update(actions)通过时间集成器对动作块进行加权平滑（ older 动作权重更高，原论文默认系数 0.01），输出单个稳定动作。主要的目的就是论文中的减少动作抖动，提升机器人控制平滑性。需要注意的是如果开启了该模式，n_action_steps 必须为 1，否则会破坏集成器的时序加权逻辑。</p>
+<p>时间集成核心实现</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">ACTTemporalEnsembler</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">temporal_ensemble_coeff</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">chunk_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="c1"># 指数权重：w_i = exp(-coeff * i)，i为动作索引（0为最旧动作）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_weights</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">temporal_ensemble_coeff</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">chunk_size</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_weights_cumsum</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble_weights</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># 权重累加和（用于归一化）</span>
+
+    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">actions</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="c1"># actions: (batch_size, chunk_size, action_dim)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensembled_actions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ensembled_actions</span> <span class="o">=</span> <span class="n">actions</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>  <span class="c1"># 初始化集成动作</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># 在线加权更新：历史动作 * 累计权重 + 新动作 * 当前权重，再归一化</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ensembled_actions</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_weights_cumsum</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ensembled_actions_count</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ensembled_actions</span> <span class="o">+=</span> <span class="n">actions</span><span class="p">[:,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_weights</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ensembled_actions_count</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ensembled_actions</span> <span class="o">/=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_weights_cumsum</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ensembled_actions_count</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensembled_actions</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>  <span class="c1"># 返回集成后的首步动作</span>
+</code></pre></div>
+<p><strong>（2）动作队列模式</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">select_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_action_queue</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># 生成动作块（chunk_size步），取前n_action_steps步存入队列</span>
+        <span class="n">actions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict_action_chunk</span><span class="p">(</span><span class="n">batch</span><span class="p">)[:,</span> <span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">n_action_steps</span><span class="p">]</span>
+        <span class="c1"># 队列形状：(n_action_steps, batch_size, action_dim)，故转置后入队</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_action_queue</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">actions</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_action_queue</span><span class="o">.</span><span class="n">popleft</span><span class="p">()</span>  <span class="c1"># 每次弹出队列首步动作</span>
+</code></pre></div>
+<p>关闭temporal ensemble：未启用时间集成器是，使用简单的动作队列缓存动作块并逐步输出。首先调用调用 predict_action_chunk 获取动作块，这里将会输出一个chunk的动作。但是并不是把这个chunk的集合全都送入队列，而是截取前 n_action_steps 个动作（n_action_steps 为每次预测的动作步数，通常 ≤ chunk_size）。举个例子如果chunk_size是100，但是n_action_steps是50，那么策略一次预测出100个序列动作，但是只取前面的50个。最后把这动作块进行转置后加入队列，之所以转置是因为模型输出动作块形状为 (batch_size, n_action_steps, action_dim)，而队列需要按时间步顺序存储（即 (n_action_steps, batch_size, action_dim)），因此通过 transpose(0, 1) 交换前两维。</p>
+<p>为什么预测了chunk块，要用n_action_steps做限制了？</p>
+<p>可能是因为利用了批量推理的效率，避免因动作块过长导致环境状态变化（如物体移动、机器人位姿偏移）时动作失效。同时限制单次执行的动作步数，强制模型在 n_action_steps 步后重新推理（基于最新观测），确保动作与环境状态同步。</p>
+<h3 id="_5">训练损失计算</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+    <span class="n">batch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_inputs</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># 输入归一化</span>
+    <span class="n">batch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_targets</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># 目标动作归一化</span>
+
+    <span class="n">actions_hat</span><span class="p">,</span> <span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">log_sigma_x2</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># 模型输出：预测动作、VAE分布参数</span>
+
+    <span class="c1"># L1损失（忽略填充动作）</span>
+    <span class="n">l1_loss</span> <span class="o">=</span> <span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">l1_loss</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="n">ACTION</span><span class="p">],</span> <span class="n">actions_hat</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">"none"</span><span class="p">)</span> <span class="o">*</span> <span class="o">~</span><span class="n">batch</span><span class="p">[</span><span class="s2">"action_is_pad"</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="n">loss_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"l1_loss"</span><span class="p">:</span> <span class="n">l1_loss</span><span class="o">.</span><span class="n">item</span><span class="p">()}</span>
+
+    <span class="c1"># VAE KL散度损失（若启用）</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">use_vae</span><span class="p">:</span>
+        <span class="n">mean_kld</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">log_sigma_x2</span> <span class="o">-</span> <span class="n">mu</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="n">log_sigma_x2</span><span class="o">.</span><span class="n">exp</span><span class="p">()))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+        <span class="n">loss_dict</span><span class="p">[</span><span class="s2">"kld_loss"</span><span class="p">]</span> <span class="o">=</span> <span class="n">mean_kld</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">l1_loss</span> <span class="o">+</span> <span class="n">mean_kld</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">kl_weight</span>  <span class="c1"># 总损失 = 重构损失 + KL权重 * KL损失</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">l1_loss</span>
+    <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="n">loss_dict</span>
+</code></pre></div>
+<p>这是ACTPolicy类训练模型的接口，负责接收输入数据、通过模推理生成动作预测、计算损失并返回总损失及损失组件字典。</p>
+<p>首先对输入的观测数据进行归一化处理，normalize_inputs 基于数据集统计信息（均值、标准差）将输入特征缩放到标准分布（通常均值为0、方差为1），确保模型训练时输入数据分布稳定。</p>
+<p>接着将图像特征统一整理到到 batch[OBS_IMAGES] 列表中，便于模型后续提取图像特征。</p>
+<p>其次调用self.model(batch)进行模型推理返回模型预测的归一化动作序列，已经如果启用了VAE返回latent分布的均值和对数方差。</p>
+<p>计算预测动作（actions_hat）与真实动作（batch[ACTION]）的 L1 损失（平均绝对误差）。KL散度的理论意义在于度量两个概率分布之间的差异程度，当KL散度越大的时候，说明两者的差异程度越大；而当KL散度小的时候，则说明两者的差异程度小。如果两者相同的话，则该KL散度应该为0。如果启动了VAE，需要再计算KL散度，总的损失为L1损失与加权KL损失知乎，其中kl_weight是控制损失权重的超参数。如果没有启动VAE直接返回L1损失。</p>
+<h2 id="act">核心算法ACT</h2>
+<h3 id="_6">整体结构</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">ACT</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ACTConfig</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+
+        <span class="c1"># VAE编码器（可选）：将动作序列编码为潜在分布</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">use_vae</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder</span> <span class="o">=</span> <span class="n">ACTEncoder</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">is_vae_encoder</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder_latent_output_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">latent_dim</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># 输出mu和log(sigma²)</span>
+
+        <span class="c1"># 视觉Backbone：ResNet提取图像特征</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">image_features</span><span class="p">:</span>
+            <span class="n">backbone_model</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">torchvision</span><span class="o">.</span><span class="n">models</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">vision_backbone</span><span class="p">)(</span><span class="n">weights</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">pretrained_backbone_weights</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">backbone</span> <span class="o">=</span> <span class="n">IntermediateLayerGetter</span><span class="p">(</span><span class="n">backbone_model</span><span class="p">,</span> <span class="n">return_layers</span><span class="o">=</span><span class="p">{</span><span class="s2">"layer4"</span><span class="p">:</span> <span class="s2">"feature_map"</span><span class="p">})</span>  <span class="c1"># 取layer4特征图</span>
+
+        <span class="c1"># Transformer编码器-解码器</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">encoder</span> <span class="o">=</span> <span class="n">ACTEncoder</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>  <span class="c1"># 处理多模态输入（图像、状态、潜在向量）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">decoder</span> <span class="o">=</span> <span class="n">ACTDecoder</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>  <span class="c1"># 生成动作块</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">action_head</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">action_feature</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># 动作输出头</span>
+</code></pre></div>
+<p>这段代码是ACT类的构造函数，主要是负责初始化模型的核心组件，包括VAE编码器、视觉backbone、transformer编码器/解码器、输入投影层、位置嵌入和动作预测头等。</p>
+<p><strong>（1）VAE编码器初始化</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">use_vae</span><span class="p">:</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder</span> <span class="o">=</span> <span class="n">ACTEncoder</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">is_vae_encoder</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># VAE 编码器（Transformer 架构）</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder_cls_embed</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">)</span>  <span class="c1"># CLS 标记嵌入（用于 latent 分布参数）</span>
+    <span class="c1"># 机器人状态投影层：将关节状态特征映射到模型隐藏维度</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">robot_state_feature</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder_robot_state_input_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">robot_state_feature</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span>
+        <span class="p">)</span>
+    <span class="c1"># 动作投影层：将动作特征映射到模型隐藏维度</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder_action_input_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">action_feature</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span>
+    <span class="p">)</span>
+    <span class="c1"># Latent 分布投影层：将 VAE 编码器输出映射为 latent 均值和方差（维度=2*latent_dim）</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder_latent_output_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">latent_dim</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="c1"># 固定正弦位置嵌入：为 VAE 编码器输入序列添加位置信息（CLS + 机器人状态 + 动作序列）</span>
+    <span class="n">num_input_token_encoder</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">config</span><span class="o">.</span><span class="n">chunk_size</span>  <span class="c1"># 1（CLS） + chunk_size（动作序列长度）</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">robot_state_feature</span><span class="p">:</span>
+        <span class="n">num_input_token_encoder</span> <span class="o">+=</span> <span class="mi">1</span>  <span class="c1"># 若包含机器人状态，增加 1 个 token</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+        <span class="s2">"vae_encoder_pos_enc"</span><span class="p">,</span>  <span class="c1"># 注册为缓冲区（不参与梯度更新）</span>
+        <span class="n">create_sinusoidal_pos_embedding</span><span class="p">(</span><span class="n">num_input_token_encoder</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p>调用ACTEncoder初始化一个VAE编码器，本质是一个transformer编码器，其参数is_vae_encoder=True 标志用于区分该编码器为 VAE 专用（影响层数、注意力机制等配置，具体见 ACTEncoder 实现）。</p>
+<p>定义一个可学习的CLS标记，类似BERT中的[CLS],用于聚合VAE编码器输入序列的全局信息，最终生成latent分布参数（均值和方差），nn.Embedding(1, config.dim_model) 创建一个单元素嵌入表，输出维度为模型隐藏维度 dim_model。</p>
+<p>当输入包含机器人状态特征（如关节角度、速度）时启用。通过线性层将机器人状态特征（原始维度）映射到模型隐藏维度 dim_model，确保与其他输入 token（如动作序列）维度一致，可拼接为序列输入。</p>
+<p>同理将动作序列中的每个动作（原始维度，如机器人关节控制维度）通过线性层映射到 dim_model，转换为 Transformer 可处理的 token 序列。</p>
+<p>将 VAE 编码器输出的 CLS 标记特征（维度 dim_model）映射到 latent 分布的参数空间。</p>
+<p>最后的固定正弦位置嵌入，其作用是为 VAE 编码器的输入序列添加固定位置信息，帮助 Transformer 区分不同位置的 token（CLS、机器人状态、动作序列中的不同时间步）。</p>
+<p><strong>（2）视觉backbone初始化</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">image_features</span><span class="p">:</span>
+    <span class="n">backbone_model</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">torchvision</span><span class="o">.</span><span class="n">models</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">vision_backbone</span><span class="p">)(</span>
+        <span class="n">replace_stride_with_dilation</span><span class="o">=</span><span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">replace_final_stride_with_dilation</span><span class="p">],</span>  <span class="c1"># 控制最后一层是否使用空洞卷积</span>
+        <span class="n">weights</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">pretrained_backbone_weights</span><span class="p">,</span>  <span class="c1"># 预训练权重（如 ImageNet）</span>
+        <span class="n">norm_layer</span><span class="o">=</span><span class="n">FrozenBatchNorm2d</span><span class="p">,</span>  <span class="c1"># 冻结 BatchNorm 层（避免微调时破坏预训练分布）</span>
+    <span class="p">)</span>
+    <span class="c1"># 提取 ResNet 的 layer4 输出作为图像特征图（高层语义特征）</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">backbone</span> <span class="o">=</span> <span class="n">IntermediateLayerGetter</span><span class="p">(</span><span class="n">backbone_model</span><span class="p">,</span> <span class="n">return_layers</span><span class="o">=</span><span class="p">{</span><span class="s2">"layer4"</span><span class="p">:</span> <span class="s2">"feature_map"</span><span class="p">})</span>
+</code></pre></div>
+<p>当ACT类中配置包含图像特征，初始化图像特征提取骨干网络，并通过 IntermediateLayerGetter 提取高层视觉特征供后续 Transformer 处理。</p>
+<p>首先调用getattr动态加载 torchvision.models 中的 ResNet 模型（如 resnet18、resnet50），具体型号由配置 config.vision_backbone 指定。</p>
+<p>然后使用 torchvision.ops.misc.IntermediateLayerGetter 从 ResNet 中提取指定层的输出，作为图像的高层特征。return_layers={"layer4": "feature_map"}指定提取 ResNet 的 layer4（最后一个残差块）输出，并将其重命名为 feature_map。ResNet 的 layer4 输出包含最抽象的视觉语义信息（如物体轮廓、纹理），是下游任务（如 Transformer 编码）的关键输入。self.backbone 调用时返回字典 {"feature_map": tensor}，其中 tensor 为形状 (B, C, H, W) 的特征图（B 为 batch 大小，C 为通道数，H/W 为特征图高/宽）。</p>
+<p><strong>（3）transformer编码器/解码器初始化</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Transformer 编码器：处理输入特征（latent、机器人状态、环境状态、图像特征）</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">encoder</span> <span class="o">=</span> <span class="n">ACTEncoder</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="c1"># Transformer 解码器：生成动作序列（作为 VAE 解码器时，输入为 latent；否则直接处理编码器输出）</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">decoder</span> <span class="o">=</span> <span class="n">ACTDecoder</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</code></pre></div>
+<p>这两行代码是初始化ACT核心组件transformer编码器和解码器。</p>
+<p><strong>（4）输入投影层</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 机器人状态投影：将机器人关节状态特征（如关节角度、速度）映射到 dim_model</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">robot_state_feature</span><span class="p">:</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">encoder_robot_state_input_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">robot_state_feature</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span>
+    <span class="p">)</span>
+<span class="c1"># 环境状态投影：将环境状态特征（如物体位置）映射到 dim_model</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">env_state_feature</span><span class="p">:</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">encoder_env_state_input_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">env_state_feature</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span>
+    <span class="p">)</span>
+<span class="c1"># Latent 投影：将 VAE 输出的 latent 向量映射到 dim_model</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">encoder_latent_input_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">latent_dim</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">)</span>
+<span class="c1"># 图像特征投影：通过 1x1 卷积将 Backbone 输出的特征图（C×H×W）映射到 dim_model</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">image_features</span><span class="p">:</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">encoder_img_feat_input_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span>
+        <span class="n">backbone_model</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span>  <span class="c1"># Backbone 输出通道数（如 ResNet18 的 layer4 输出为 512）</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> 
+        <span class="n">kernel_size</span><span class="o">=</span><span class="mi">1</span>  <span class="c1"># 1x1 卷积不改变空间维度，仅调整通道数</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p>在 Transformer 编码器中，要求所有输入 token 具有相同的维度（dim_model），而不同输入特征（状态、图像、latent 等）的原始维度各异，投影层通过线性/卷积变换实现维度对齐。 投影层（Projection Layer） 是一类用于将不同类型的输入特征（如机器人状态、环境状态、 latent 向量、图像特征等）映射到统一维度的神经网络层。其核心作用是将原始输入特征的维度转换为 Transformer 编码器能够处理的隐藏维度（即代码中的 config.dim_model），确保多模态输入（如状态、图像）能被编码器统一处理。</p>
+<p>在ACT类中定义了多个投影层</p>
+<ul>
+<li>self.config.robot_state_feature：输入为机器人状态特征（如关节角度、速度），原始维度为 self.config.robot_state_feature.shape[0]，通过线性层（nn.Linear）将机器人状态的原始维度映射到 dim_model，使其成为 Transformer 编码器可接收的 token。</li>
+<li>self.config.env_state_feature:环境状态特征（如物体位置、场景参数），原始维度为 self.config.env_state_feature.shape[0]，与机器人状态投影层类似，通过线性层将环境状态映射到 dim_model，实现多模态特征的维度统一。</li>
+<li>self.encoder_latent_input_proj：输入是Latent 向量（来自 VAE 采样或零向量），维度为 config.latent_dim，将 latent 向量从 latent 空间维度映射到 dim_model，作为 Transformer 编码器的核心输入 token 之一。</li>
+<li>self.encoder_img_feat_input_proj：输入是图像特征图（来自 ResNet 骨干网络的 layer4 输出），通道数为 backbone_model.fc.in_features（如 ResNet18 为 512），通过 1x1 卷积层（nn.Conv2d）将图像特征图的通道数调整为 dim_model，同时保持空间维度（H×W）不变，以便展平为序列 token 输入 Transformer。</li>
+</ul>
+<p><strong>（5）位置嵌入</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 1D 位置嵌入：用于 latent、机器人状态、环境状态等非图像特征（共 n_1d_tokens 个 token）</span>
+<span class="n">n_1d_tokens</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># latent 占 1 个 token</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">robot_state_feature</span><span class="p">:</span>
+    <span class="n">n_1d_tokens</span> <span class="o">+=</span> <span class="mi">1</span>  <span class="c1"># 机器人状态占 1 个 token</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">env_state_feature</span><span class="p">:</span>
+    <span class="n">n_1d_tokens</span> <span class="o">+=</span> <span class="mi">1</span>  <span class="c1"># 环境状态占 1 个 token</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">encoder_1d_feature_pos_embed</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">n_1d_tokens</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">)</span>  <span class="c1"># 可学习的 1D 位置嵌入</span>
+
+<span class="c1"># 2D 位置嵌入：用于图像特征图（H×W 空间位置）</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">image_features</span><span class="p">:</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">encoder_cam_feat_pos_embed</span> <span class="o">=</span> <span class="n">ACTSinusoidalPositionEmbedding2d</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># 正弦 2D 位置嵌入</span>
+</code></pre></div>
+<p>位置嵌入是 Transformer 的关键组件，用于解决自注意力机制 对输入序列顺序不敏感 的问题。本代码中有一个1D特征位置嵌入层和图像特征位置嵌入式层。</p>
+<ul>
+<li>1D 特征位置嵌入式层：为 1D 特征 token 提供 可学习的位置嵌入，帮助 Transformer 区分不同类型 token 的位置（如 latent 是第 1 个 token，机器人状态是第 2 个等）。</li>
+<li>2D 图像特征位置嵌入层：为图像特征图的 2D 空间像素 提供 正弦位置嵌入，编码像素在特征图中的 (高度, 宽度) 空间位置信息。</li>
+</ul>
+<p><strong>（6）解码器位置嵌入与动作预测头</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="bp">self</span><span class="o">.</span><span class="n">decoder_pos_embed</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">)</span>  <span class="c1"># chunk_size 为动作序列长度</span>
+
+<span class="bp">self</span><span class="o">.</span><span class="n">action_head</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">action_feature</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</code></pre></div>
+<ul>
+<li>self.decoder_pos_embed：为解码器生成的动作序列（action chunk）提供 可学习的位置嵌入，帮助 Transformer 解码器区分动作序列中不同时间步的位置信息（如第 1 个动作、第 2 个动作等）。</li>
+<li>self.action_head：将解码器输出的高维特征（config.dim_model 维度）投影到实际动作空间维度，生成最终可执行的动作序列。</li>
+</ul>
+<h3 id="forward">forward方法</h3>
+<p>forward负责执行 Action Chunking Transformer 的完整前向传播流程，涵盖 VAE 编码（可选）、多模态输入处理、Transformer 编码器-解码器计算，最终输出动作序列及潜在变量分布参数（若启用 VAE）。以下是分步骤解析。</p>
+<p><strong>（1）输入验证与 batch_size 确定</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">use_vae</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span><span class="p">:</span>
+    <span class="k">assert</span> <span class="s2">"action"</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">,</span> <span class="s2">"actions must be provided when using the variational objective in training mode."</span>
+
+<span class="k">if</span> <span class="s2">"observation.images"</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">:</span>
+    <span class="n">batch_size</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="s2">"observation.images"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">batch_size</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="s2">"observation.environment_state"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</code></pre></div>
+<p>若启用变分目标（VAE）且处于训练模式，需确保输入包含动作序列（"action"），因为 VAE 编码器需以动作序列为目标数据。确定batch_size，根据输入模态（图像或环境状态）确定批次大小，确保后续张量操作维度对齐。</p>
+<p><strong>（2） Latent 向量生成（VAE 编码逻辑）</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 构建 VAE 编码器输入：[cls_token, 机器人状态（可选）, 动作序列]</span>
+<span class="n">cls_embed</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder_cls_embed</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="s2">"1 d -&gt; b 1 d"</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="n">batch_size</span><span class="p">)</span>  <span class="c1"># (B, 1, D)</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">robot_state_feature</span><span class="p">:</span>
+    <span class="n">robot_state_embed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder_robot_state_input_proj</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="s2">"observation.state"</span><span class="p">])</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># (B, 1, D)</span>
+<span class="n">action_embed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder_action_input_proj</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="s2">"action"</span><span class="p">])</span>  <span class="c1"># (B, S, D)</span>
+<span class="n">vae_encoder_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cls_embed</span><span class="p">,</span> <span class="n">robot_state_embed</span><span class="p">,</span> <span class="n">action_embed</span><span class="p">]</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">robot_state_feature</span> <span class="k">else</span> <span class="p">[</span><span class="n">cls_embed</span><span class="p">,</span> <span class="n">action_embed</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># (B, S+2, D) 或 (B, S+1, D)</span>
+
+<span class="c1"># 添加固定正弦位置嵌入</span>
+<span class="n">pos_embed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder_pos_enc</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># (S+2, 1, D)</span>
+
+<span class="c1"># 构建注意力掩码（忽略填充 token）</span>
+<span class="n">cls_joint_is_pad</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">robot_state_feature</span> <span class="k">else</span> <span class="mi">1</span><span class="p">),</span> <span class="kc">False</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">batch</span><span class="p">[</span><span class="s2">"observation.state"</span><span class="p">]</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+<span class="n">key_padding_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cls_joint_is_pad</span><span class="p">,</span> <span class="n">batch</span><span class="p">[</span><span class="s2">"action_is_pad"</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># (B, S+2) 或 (B, S+1)</span>
+
+<span class="c1"># VAE 编码器前向传播，提取 cls token 输出</span>
+<span class="n">cls_token_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder</span><span class="p">(</span><span class="n">vae_encoder_input</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">pos_embed</span><span class="o">=</span><span class="n">pos_embed</span><span class="p">,</span> <span class="n">key_padding_mask</span><span class="o">=</span><span class="n">key_padding_mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># (B, D)</span>
+<span class="n">latent_pdf_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vae_encoder_latent_output_proj</span><span class="p">(</span><span class="n">cls_token_out</span><span class="p">)</span>  <span class="c1"># (B, 2*latent_dim)</span>
+<span class="n">mu</span> <span class="o">=</span> <span class="n">latent_pdf_params</span><span class="p">[:,</span> <span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">latent_dim</span><span class="p">]</span>  <span class="c1"># 均值 (B, latent_dim)</span>
+<span class="n">log_sigma_x2</span> <span class="o">=</span> <span class="n">latent_pdf_params</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">latent_dim</span><span class="p">:]</span>  <span class="c1"># 2*log(标准差) (B, latent_dim)</span>
+
+<span class="c1"># 重参数化采样 latent 向量</span>
+<span class="n">latent_sample</span> <span class="o">=</span> <span class="n">mu</span> <span class="o">+</span> <span class="n">log_sigma_x2</span><span class="o">.</span><span class="n">div</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">exp</span><span class="p">()</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>  <span class="c1"># (B, latent_dim)</span>
+</code></pre></div>
+<p>将动作序列编码为 latent 分布（均值 mu、方差相关参数 log_sigma_x2），并通过重参数化技巧采样得到 latent 向量，作为 Transformer 编码器的核心输入。</p>
+<p><strong>（3）无VAE时的latent向量初始化</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">mu</span> <span class="o">=</span> <span class="n">log_sigma_x2</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">latent_sample</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">batch_size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">latent_dim</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="s2">"observation.state"</span><span class="p">]</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+</code></pre></div>
+<p>如果不启用VAE或非训练模式，直接使用零向量作为latent输入。</p>
+<p><strong>（4）transformer编码器输入构建</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">encoder_in_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">encoder_latent_input_proj</span><span class="p">(</span><span class="n">latent_sample</span><span class="p">)]</span>  <span class="c1"># latent 投影：(B, latent_dim) → (B, dim_model)</span>
+<span class="n">encoder_in_pos_embed</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoder_1d_feature_pos_embed</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>  <span class="c1"># 1D token 位置嵌入：(n_1d_tokens, 1, dim_model)</span>
+
+<span class="c1"># 添加机器人状态 token（若启用）</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">robot_state_feature</span><span class="p">:</span>
+    <span class="n">encoder_in_tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoder_robot_state_input_proj</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="s2">"observation.state"</span><span class="p">]))</span>  <span class="c1"># (B, dim_model)</span>
+
+<span class="c1"># 添加环境状态 token（若启用）</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">env_state_feature</span><span class="p">:</span>
+    <span class="n">encoder_in_tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoder_env_state_input_proj</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="s2">"observation.environment_state"</span><span class="p">]))</span>  <span class="c1"># (B, dim_model)</span>
+</code></pre></div>
+<p>1D特征token处理，通过线性层（nn.Linear）将 latent 向量、机器人/环境状态的原始维度映射到模型隐藏维度 dim_model，确保各 token 维度一致。为每个 1D token（latent、状态）分配可学习的位置嵌入，编码其在序列中的位置信息。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">image_features</span><span class="p">:</span>
+    <span class="n">all_cam_features</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">all_cam_pos_embeds</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">img</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">[</span><span class="s2">"observation.images"</span><span class="p">]:</span>  <span class="c1"># 遍历多相机图像</span>
+        <span class="c1"># 骨干网络提取特征图（如 ResNet layer4 输出）</span>
+        <span class="n">cam_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">backbone</span><span class="p">(</span><span class="n">img</span><span class="p">)[</span><span class="s2">"feature_map"</span><span class="p">]</span>  <span class="c1"># (B, C_backbone, H, W)</span>
+        <span class="c1"># 图像位置嵌入（2D 正弦位置编码）</span>
+        <span class="n">cam_pos_embed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoder_cam_feat_pos_embed</span><span class="p">(</span><span class="n">cam_features</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">cam_features</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>  <span class="c1"># (1, dim_model, H, W)</span>
+        <span class="c1"># 特征投影：调整通道数至 dim_model</span>
+        <span class="n">cam_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoder_img_feat_input_proj</span><span class="p">(</span><span class="n">cam_features</span><span class="p">)</span>  <span class="c1"># (B, dim_model, H, W)</span>
+        <span class="c1"># 展平为序列：(H*W, B, dim_model)</span>
+        <span class="n">cam_features</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">rearrange</span><span class="p">(</span><span class="n">cam_features</span><span class="p">,</span> <span class="s2">"b c h w -&gt; (h w) b c"</span><span class="p">)</span>
+        <span class="n">cam_pos_embed</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">rearrange</span><span class="p">(</span><span class="n">cam_pos_embed</span><span class="p">,</span> <span class="s2">"b c h w -&gt; (h w) b c"</span><span class="p">)</span>
+        <span class="n">all_cam_features</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cam_features</span><span class="p">)</span>
+        <span class="n">all_cam_pos_embeds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cam_pos_embed</span><span class="p">)</span>
+    <span class="c1"># 拼接多相机特征</span>
+    <span class="n">encoder_in_tokens</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">all_cam_features</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">encoder_in_pos_embed</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">all_cam_pos_embeds</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+</code></pre></div>
+<p>对于图像的特征输入，启用图像输入，通过视觉骨干网络提取特征并转换为序列 token。通过 1x1 卷积（encoder_img_feat_input_proj）将特征图通道数调整为 dim_model，再展平为序列 token（H*W 个像素 token）。通过 ACTSinusoidalPositionEmbedding2d 为像素 token 添加空间位置信息，编码其在特征图中的 (H, W) 坐标。</p>
+<p><strong>（5）transformer编码器-解码器前向传播</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 堆叠所有输入 token 和位置嵌入</span>
+<span class="n">encoder_in_tokens</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">encoder_in_tokens</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># (seq_len, B, dim_model)</span>
+<span class="n">encoder_in_pos_embed</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">encoder_in_pos_embed</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># (seq_len, 1, dim_model)</span>
+
+<span class="c1"># 编码器前向传播</span>
+<span class="n">encoder_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoder</span><span class="p">(</span><span class="n">encoder_in_tokens</span><span class="p">,</span> <span class="n">pos_embed</span><span class="o">=</span><span class="n">encoder_in_pos_embed</span><span class="p">)</span>  <span class="c1"># (seq_len, B, dim_model)</span>
+</code></pre></div>
+<p>上面为编码器输出，输入序列为包含 1D 特征 token（latent、状态）和图像像素 token，总长度为 seq_len = n_1d_tokens + sum(H*W for 各相机)。通过自注意力机制融合多模态输入，输出包含全局上下文的特征序列 encoder_out。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 解码器输入初始化为零向量（类似 DETR 的目标查询）</span>
+<span class="n">decoder_in</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">encoder_in_pos_embed</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">encoder_in_pos_embed</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>  <span class="c1"># (chunk_size, B, dim_model)</span>
+
+<span class="c1"># 解码器前向传播（交叉注意力融合编码器输出）</span>
+<span class="n">decoder_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decoder</span><span class="p">(</span>
+    <span class="n">decoder_in</span><span class="p">,</span>
+    <span class="n">encoder_out</span><span class="p">,</span>
+    <span class="n">encoder_pos_embed</span><span class="o">=</span><span class="n">encoder_in_pos_embed</span><span class="p">,</span>  <span class="c1"># 编码器位置嵌入</span>
+    <span class="n">decoder_pos_embed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">decoder_pos_embed</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>  <span class="c1"># 解码器动作序列位置嵌入</span>
+<span class="p">)</span>  <span class="c1"># (chunk_size, B, dim_model)</span>
+
+<span class="c1"># 转换维度并投影到动作空间</span>
+<span class="n">decoder_out</span> <span class="o">=</span> <span class="n">decoder_out</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># (B, chunk_size, dim_model)</span>
+<span class="n">actions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">action_head</span><span class="p">(</span><span class="n">decoder_out</span><span class="p">)</span>  <span class="c1"># (B, chunk_size, action_dim)</span>
+
+<span class="k">return</span> <span class="n">actions</span><span class="p">,</span> <span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">log_sigma_x2</span><span class="p">)</span>
+</code></pre></div>
+<p>解码器部分，初始化为零向量序列（长度 chunk_size，即一次预测的动作数量），类似 DETR 的“目标查询”。解码器通过交叉注意力机制关注编码器输出的上下文特征，生成动作序列特征。通过 action_head（线性层）将解码器输出的高维特征投影到机器人动作空间维度（action_dim），得到最终动作序列。</p>
+<p>最终返回actions和(mu, log_sigma_x2)。前者是形状 (B, chunk_size, action_dim)，预测的动作序列；后者是若启用 VAE，返回 latent 分布的均值和方差参数（log_sigma_x2 = 2*log(σ)），否则为 (None, None)。</p>
+<h2 id="act_1">ACT编码器</h2>
+<h3 id="actencoder">ACTEncoder</h3>
+<p>ACTEncoder 是 Transformer 编码器的顶层容器，负责堆叠多个 ACTEncoderLayer（编码器层）并执行最终归一化，支持 VAE 编码器 和 主 Transformer 编码器 两种角色。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">ACTEncoder</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ACTConfig</span><span class="p">,</span> <span class="n">is_vae_encoder</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_vae_encoder</span> <span class="o">=</span> <span class="n">is_vae_encoder</span>
+        <span class="c1"># 根据角色选择编码器层数（VAE 编码器 vs 主编码器）</span>
+        <span class="n">num_layers</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">n_vae_encoder_layers</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_vae_encoder</span> <span class="k">else</span> <span class="n">config</span><span class="o">.</span><span class="n">n_encoder_layers</span>
+        <span class="c1"># 堆叠 num_layers 个编码器层</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">ACTEncoderLayer</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">)])</span>
+        <span class="c1"># 最终归一化（预归一化模式下启用）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">)</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">pre_norm</span> <span class="k">else</span> <span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()</span>
+</code></pre></div>
+<p>通过 is_vae_encoder 区分角色，分别使用 n_vae_encoder_layers（VAE 专用层数）或 n_encoder_layers（主编码器层数）。通过 nn.ModuleList 管理多个 ACTEncoderLayer，形成深度编码器结构。若 config.pre_norm=True（预归一化），对所有层输出做最终归一化；否则使用 nn.Identity（无操作），此时归一化在每层内部完成（后归一化）。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">pos_embed</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">key_padding_mask</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">:</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">layer</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">pos_embed</span><span class="o">=</span><span class="n">pos_embed</span><span class="p">,</span> <span class="n">key_padding_mask</span><span class="o">=</span><span class="n">key_padding_mask</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span>
+</code></pre></div>
+<ul>
+<li>逐层特征提取：输入张量 x（形状通常为 (seq_len, batch_size, dim_model)）依次通过所有 ACTEncoderLayer，每层融合自注意力和前馈网络特征。</li>
+<li>位置嵌入与掩码：pos_embed 提供序列位置信息，key_padding_mask 标记需忽略的填充位置，两者均传递给每层。</li>
+<li>最终归一化：所有层处理完毕后，通过 self.norm 输出最终特征。</li>
+</ul>
+<h3 id="actencoderlayer">ACTEncoderLayer</h3>
+<p>下面是单个编码器层的实现</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">ACTEncoderLayer</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ACTConfig</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># 自注意力模块</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">self_attn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">MultiheadAttention</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">n_heads</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="c1"># 前馈网络（Linear -&gt; Activation -&gt; Dropout -&gt; Linear）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_feedforward</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_feedforward</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">)</span>
+        <span class="c1"># 归一化与 dropout 层</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dropout</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="c1"># 激活函数与归一化模式标记</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">activation</span> <span class="o">=</span> <span class="n">get_activation_fn</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">feedforward_activation</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pre_norm</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">pre_norm</span>
+</code></pre></div>
+<p>ACTEncoderLayer 是编码器的核心计算单元，包含 自注意力机制、前馈网络 和 残差连接，支持预归一化（PreNorm）或后归一化（PostNorm）模式。</p>
+<ul>
+<li>自注意力：nn.MultiheadAttention 实现多头注意力，输入维度 dim_model，头数 n_heads。</li>
+<li>前馈网络：将特征从 dim_model 映射到 dim_feedforward（扩展维度），经激活和 dropout 后映射回 dim_model。</li>
+<li>归一化与 dropout：每层包含两个归一化层（norm1 用于注意力，norm2 用于前馈网络）和两个 dropout 层，增强训练稳定性。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">pos_embed</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">key_padding_mask</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="c1"># 自注意力模块 + 残差连接</span>
+    <span class="n">skip</span> <span class="o">=</span> <span class="n">x</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_norm</span><span class="p">:</span>  <span class="c1"># 预归一化：先归一化再计算注意力</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">k</span> <span class="o">=</span> <span class="n">x</span> <span class="k">if</span> <span class="n">pos_embed</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x</span> <span class="o">+</span> <span class="n">pos_embed</span>  <span class="c1">#  query 和 key 融合位置嵌入</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">self_attn</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">key_padding_mask</span><span class="o">=</span><span class="n">key_padding_mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># 取注意力输出（忽略权重）</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">skip</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># 残差连接 + dropout</span>
+
+    <span class="c1"># 前馈网络模块 + 残差连接</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_norm</span><span class="p">:</span>  <span class="c1"># 预归一化：先归一化再计算前馈</span>
+        <span class="n">skip</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># 后归一化：先计算注意力再归一化</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">skip</span> <span class="o">=</span> <span class="n">x</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">activation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linear1</span><span class="p">(</span><span class="n">x</span><span class="p">))))</span>  <span class="c1"># 前馈网络</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">skip</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># 残差连接 + dropout</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_norm</span><span class="p">:</span>  <span class="c1"># 后归一化：最后归一化输出</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span>
+</code></pre></div>
+<p>上面是forward方法，可以分为自注意力阶段和前馈网络阶段。</p>
+<ul>
+<li>自注意力阶段：残差连接，skip 保存输入，注意力输出经 dropout1 后与 skip 相加。位置嵌入，q 和 k 若有 pos_embed 则叠加位置信息，帮助模型捕捉序列顺序。归一化时机，pre_norm=True 时，先对 x 归一化（norm1）再计算注意力；否则后归一化（注意力后通过 norm1 归一化）。</li>
+<li>前馈网络阶段：前馈计算，x 经线性层扩展维度、激活（如 ReLU/GELU）、dropout、线性层压缩维度。残差与归一化，类似注意力阶段，pre_norm 决定归一化时机，最终输出融合残差的特征。</li>
+</ul>
+<p>总结一下，ACTEncoder，通过堆叠多个 ACTEncoderLayer 实现深度编码，动态适配 VAE 或主编码器角色，输出融合全局依赖的序列特征。ACTEncoderLayer，单个编码器层核心，通过“自注意力+前馈网络+残差连接”提取局部与全局特征，支持预/后归一化模式，是 Transformer 编码器的基础组件。两者协同构成 ACT 模型的编码器部分，负责将多模态输入（如图像、状态）编码为上下文特征，供解码器生成动作序列。</p>
+<h2 id="act_2">ACT解码器</h2>
+<h3 id="actdecoder">ACTDecoder</h3>
+<p>ACTDecoder 是 Transformer 解码器的顶层模块，负责堆叠多个 ACTDecoderLayer（解码器子层）并对最终输出进行归一化，实现从编码器上下文特征到动作序列的映射。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">ACTDecoder</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ACTConfig</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">ACTDecoderLayer</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">n_decoder_layers</span><span class="p">)])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">)</span>
+</code></pre></div>
+<p>通过 nn.ModuleList 创建 config.n_decoder_layers 个 ACTDecoderLayer 实例，构成深度解码器（每层包含自注意力、交叉注意力和前馈网络）。使用 nn.LayerNorm 对所有解码器层的输出进行归一化，稳定训练过程。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">encoder_out</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">decoder_pos_embed</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">encoder_pos_embed</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">:</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">layer</span><span class="p">(</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">encoder_out</span><span class="p">,</span> <span class="n">decoder_pos_embed</span><span class="o">=</span><span class="n">decoder_pos_embed</span><span class="p">,</span> <span class="n">encoder_pos_embed</span><span class="o">=</span><span class="n">encoder_pos_embed</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span>
+</code></pre></div>
+<p>输入参数如下：</p>
+<ul>
+<li>x：解码器输入序列（初始为零向量，形状 (chunk_size, batch_size, dim_model)，chunk_size 为动作序列长度）；</li>
+<li>encoder_out：编码器输出特征（形状 (encoder_seq_len, batch_size, dim_model)）；</li>
+<li>decoder_pos_embed：解码器位置嵌入（为动作序列提供时序位置信息）；</li>
+<li>encoder_pos_embed：编码器位置嵌入（为编码器特征提供位置信息，辅助交叉注意力）。</li>
+</ul>
+<p>将输入 x、编码器输出 encoder_out 及位置嵌入依次传入每个 ACTDecoderLayer，更新 x 为每层输出。所有层处理完毕后，通过 self.norm 对输出进行归一化，返回形状为 (chunk_size, batch_size, dim_model) 的特征张量（后续将映射为动作序列）。</p>
+<h3 id="actdecoderlayer">ACTDecoderLayer</h3>
+<p>下面再介绍下ACTDecoderLayer。</p>
+<p>ACTDecoderLayer 是解码器的基础单元，包含 自注意力（捕捉动作序列内部依赖）、交叉注意力（融合编码器上下文特征）和 前馈网络（增强特征表达能力）三大模块，支持预归一化（PreNorm）或后归一化（PostNorm）模式。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">ACTDecoderLayer</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ACTConfig</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># 自注意力（解码器内部时序依赖建模）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">self_attn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">MultiheadAttention</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">n_heads</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="c1"># 交叉注意力（融合编码器输出特征）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">multihead_attn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">MultiheadAttention</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">n_heads</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="c1"># 前馈网络（特征变换与增强）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_feedforward</span><span class="p">)</span>  <span class="c1"># 升维</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_feedforward</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">)</span>  <span class="c1"># 降维</span>
+        <span class="c1"># 归一化层（3个，分别对应自注意力、交叉注意力、前馈网络）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm3</span> <span class="o">=</span> <span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+        <span class="c1"># Dropout层（3个，增强正则化）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout3</span> <span class="o">=</span> <span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dropout</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+        <span class="c1"># 激活函数（如ReLU/GELU）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">activation</span> <span class="o">=</span> <span class="n">get_activation_fn</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">feedforward_activation</span><span class="p">)</span>
+        <span class="c1"># 归一化模式标记（PreNorm/PostNorm）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pre_norm</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">pre_norm</span>
+</code></pre></div>
+<p>前向传播forward可以分为3个阶段，分为自注意力-&gt;交叉注意力-&gt;前馈网络，每个阶段都包含归一化-&gt;计算-&gt;dropout-&gt;残差连接的逻辑。</p>
+<p><strong>（1）自注意力阶段</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">skip</span> <span class="o">=</span> <span class="n">x</span>  <span class="c1"># 残差连接的输入</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_norm</span><span class="p">:</span>  <span class="c1"># 预归一化：先归一化，再计算注意力</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="c1"># Query和Key融合位置嵌入（Value不融合，保持原始特征）</span>
+<span class="n">q</span> <span class="o">=</span> <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">maybe_add_pos_embed</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">decoder_pos_embed</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">self_attn</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># 自注意力输出（忽略注意力权重）</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">skip</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># 残差连接 + Dropout</span>
+</code></pre></div>
+<p><strong>（2）交叉注意力阶段</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_norm</span><span class="p">:</span>  <span class="c1"># 预归一化：更新残差输入，归一化当前特征</span>
+    <span class="n">skip</span> <span class="o">=</span> <span class="n">x</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>  <span class="c1"># 后归一化：先归一化自注意力输出，再更新残差输入</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">skip</span> <span class="o">=</span> <span class="n">x</span>
+<span class="c1"># Query（解码器特征）融合解码器位置嵌入，Key（编码器特征）融合编码器位置嵌入</span>
+<span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">multihead_attn</span><span class="p">(</span>
+    <span class="n">query</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">maybe_add_pos_embed</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">decoder_pos_embed</span><span class="p">),</span>
+    <span class="n">key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">maybe_add_pos_embed</span><span class="p">(</span><span class="n">encoder_out</span><span class="p">,</span> <span class="n">encoder_pos_embed</span><span class="p">),</span>
+    <span class="n">value</span><span class="o">=</span><span class="n">encoder_out</span><span class="p">,</span>
+<span class="p">)[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># 交叉注意力输出（忽略权重）</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">skip</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># 残差连接 + Dropout</span>
+</code></pre></div>
+<p><strong>（3）前馈网络</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_norm</span><span class="p">:</span>  <span class="c1"># 预归一化：更新残差输入，归一化当前特征</span>
+    <span class="n">skip</span> <span class="o">=</span> <span class="n">x</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>  <span class="c1"># 后归一化：先归一化交叉注意力输出，再更新残差输入</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">skip</span> <span class="o">=</span> <span class="n">x</span>
+<span class="c1"># 前馈网络：升维→激活→Dropout→降维</span>
+<span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">activation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linear1</span><span class="p">(</span><span class="n">x</span><span class="p">))))</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">skip</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># 残差连接 + Dropout</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_norm</span><span class="p">:</span>  <span class="c1"># 后归一化：最后归一化前馈网络输出</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/ai/再论transformer原理.html">← 再论transformer原理</a>
+    <a class="next" href="/laumy.github.io/posts/ai/具身智能act算法.html">具身智能ACT算法 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

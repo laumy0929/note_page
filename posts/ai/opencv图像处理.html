@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>opencv图像处理 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">图像滤波</a><ul><li><a href="#_2">均值滤波</a></li><li><a href="#_3">高斯滤波</a></li><li><a href="#_4">中值滤波</a></li><li><a href="#_5">示例</a></li></ul></li><li><a href="#_6">图像形态学</a><ul><li><a href="#_7">膨胀与腐蚀</a></li><li><a href="#_8">阈值化</a></li><li><a href="#_9">开闭运算、顶帽、黑帽</a></li><li><a href="#_10">示例</a></li></ul></li><li><a href="#_11">图像边缘检测</a><ul><li><a href="#canny">canny</a></li><li><a href="#_12">霍夫变换</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>opencv图像处理</h1>
+  <div class="meta">2025-05-28 · ai</div>
+  <div class="post-content"><h2 id="_1">图像滤波</h2>
+<p>图像的滤波核心是<strong>使用一个小的矩阵（滤波器或卷积核）在图像上进行滑动卷积，将计算得到的结果作为目标像素的值</strong>。</p>
+<h3 id="_2">均值滤波</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">cv</span><span class="o">::</span><span class="n">blur</span><span class="p">(</span><span class="n">InputArray</span><span class="w"> </span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">OutputArray</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="n">Size</span><span class="w"> </span><span class="n">ksize</span><span class="p">,</span>
+<span class="w">         </span><span class="n">Point</span><span class="w"> </span><span class="n">anchor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Point</span><span class="p">(</span><span class="mi">-1</span><span class="p">,</span><span class="mi">-1</span><span class="p">),</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">borderType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BORDER_DEFAULT</span><span class="p">);</span>
+</code></pre></div>
+<ul>
+<li>src:输入的原始图像，支持Mat格式</li>
+<li>dst:经过滤波处理的图像</li>
+<li>ksize:滤波器大小，通常为2D大小，表示滤波的宽度和高度。</li>
+<li>anchor:锚点指定窗口内的参考点，默认是Point(-1,-1)表示窗口中心点</li>
+<li>boarderType:边界类型，用来处理边界参数的外推方式。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">src</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">imread</span><span class="p">(</span><span class="s">"image.jpg"</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">IMREAD_GRAYSCALE</span><span class="p">);</span>
+<span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">dst</span><span class="p">;</span>
+<span class="n">cv</span><span class="o">::</span><span class="n">blur</span><span class="p">(</span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Size</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">));</span><span class="w">  </span><span class="c1">// 3x3的均值滤波</span>
+</code></pre></div>
+<h3 id="_3">高斯滤波</h3>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">cv::GaussianBlur</span><span class="p">(</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="o">&amp;</span><span class="w"> </span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="o">&amp;</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Size</span><span class="w"> </span><span class="n">ksize</span><span class="p">,</span>
+<span class="w">    </span><span class="kt">double</span><span class="w"> </span><span class="n">sigmaX</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="n">sigmaY</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">borderType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">BORDER_DEFAULT</span><span class="w"> </span><span class="p">);</span>
+</code></pre></div>
+<ul>
+<li>sigmaX：X方向的标准差，决定模糊的程度，值越大，模糊效果越强。</li>
+<li>sigmaY：Y方向的标准差，默认是0，表示与X方向相同。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="n">cv</span><span class="o">::</span><span class="n">GaussianBlur</span><span class="p">(</span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Size</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">  </span><span class="c1">// 5x5的高斯滤波</span>
+</code></pre></div>
+<h3 id="_4">中值滤波</h3>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">medianBlur</span><span class="p">(</span><span class="n">InputArray</span><span class="w"> </span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">OutputArray</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">ksize</span><span class="p">);</span>
+</code></pre></div>
+<ul>
+<li>ksize： 滤波器窗口大小</li>
+</ul>
+<p>示例</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cv</span><span class="o">::</span><span class="n">medianBlur</span><span class="p">(</span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">);</span><span class="w">  </span><span class="c1">// 5x5的中值滤波</span>
+</code></pre></div>
+<h3 id="_5">示例</h3>
+<p>下面示例，将图片使用高斯噪音处理，然后再使用滤波器进行模糊，噪音就可以看起来过滤掉。</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;fcntl.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;fstream&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;iostream&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/fb.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;signal.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdint.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;sys/ioctl.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;unistd.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;opencv2/opencv.hpp&gt;</span>
+
+<span class="k">using</span><span class="w"> </span><span class="k">namespace</span><span class="w"> </span><span class="nn">cv</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="k">namespace</span><span class="w"> </span><span class="nn">std</span><span class="p">;</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">add_gaussian_noise</span><span class="p">(</span><span class="n">Mat</span><span class="o">&amp;</span><span class="w"> </span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="n">mean</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="n">stddev</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">Mat</span><span class="w"> </span><span class="n">noise</span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span><span class="w"> </span><span class="n">image</span><span class="p">.</span><span class="n">type</span><span class="p">());</span>
+
+<span class="w">    </span><span class="n">randn</span><span class="p">(</span><span class="n">noise</span><span class="p">,</span><span class="w"> </span><span class="n">mean</span><span class="p">,</span><span class="w"> </span><span class="n">stddev</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">image</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">image</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">noise</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">display_image</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">Mat</span><span class="o">&amp;</span><span class="w"> </span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">framebuffer_width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">720</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">ofstream</span><span class="w"> </span><span class="n">ofs</span><span class="p">(</span><span class="s">"/dev/fb0"</span><span class="p">);</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">framebuffer</span><span class="p">;</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">framebuffer</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">COLOR_BGR2BGRA</span><span class="p">);</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Size2f</span><span class="w"> </span><span class="n">frame_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">framebuffer</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">frame_size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span><span class="w"> </span><span class="n">y</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ofs</span><span class="p">.</span><span class="n">seekp</span><span class="p">(</span><span class="n">y</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">framebuffer_width</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">4</span><span class="p">);</span>
+<span class="w">        </span><span class="n">ofs</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="kt">char</span><span class="o">*&gt;</span><span class="p">(</span><span class="n">framebuffer</span><span class="p">.</span><span class="n">ptr</span><span class="p">(</span><span class="n">y</span><span class="p">)),</span><span class="w"> </span><span class="n">frame_size</span><span class="p">.</span><span class="n">width</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">4</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="o">**</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">Mat</span><span class="w"> </span><span class="n">image</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">imread</span><span class="p">(</span><span class="s">"test1.jpg"</span><span class="p">,</span><span class="w"> </span><span class="n">IMREAD_COLOR</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">cerr</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">"Error: Could not open or find the image!"</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">endl</span><span class="p">;</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="kt">double</span><span class="w"> </span><span class="n">mean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">2.0</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">double</span><span class="w"> </span><span class="n">stddev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">30.0</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">add_gaussian_noise</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">mean</span><span class="p">,</span><span class="w"> </span><span class="n">stddev</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">image</span><span class="p">);</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">imwrite</span><span class="p">(</span><span class="s">"noise.jpg"</span><span class="p">,</span><span class="w"> </span><span class="n">image</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">usleep</span><span class="p">(</span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">Mat</span><span class="w"> </span><span class="n">dst</span><span class="p">;</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">GaussianBlur</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Size</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">),</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span><span class="w"> </span>
+<span class="w">    </span><span class="c1">//cv::medianBlur(image, dst, 5);</span>
+<span class="w">    </span><span class="c1">//cv::blur(src, dst, cv::Size(3, 3));</span>
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">dst</span><span class="p">);</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">imwrite</span><span class="p">(</span><span class="s">"dst.jpg"</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>如下图，中间是加了噪声的，最后一张是通过高斯滤波处理之后的。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_60a334698f29ab4862d1ace5d67329c5.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_60a334698f29ab4862d1ace5d67329c5.jpg"/></a></p>
+<h2 id="_6">图像形态学</h2>
+<h3 id="_7">膨胀与腐蚀</h3>
+<p>膨胀操作会增加图像中的白色区域或前景区域，使得图像中的对象或结构变得更大。具体来说，它会将图像中的每个像素点扩展到其邻域像素中（根据结构元素的大小和形状）。这意味着如果结构元素的一部分重叠在一个前景区域内，该区域就会被扩展。使白色区域扩展，物体变大。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cv2</span><span class="p">.</span><span class="n">dilate</span><span class="p">(</span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="o">=</span><span class="n">None</span><span class="p">,</span><span class="w"> </span><span class="n">kernel</span><span class="p">,</span><span class="w"> </span><span class="n">anchor</span><span class="o">=</span><span class="p">(</span><span class="mi">-1</span><span class="p">,</span><span class="w"> </span><span class="mi">-1</span><span class="p">),</span><span class="w"> </span><span class="n">iterations</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="n">borderType</span><span class="o">=</span><span class="n">cv2</span><span class="p">.</span><span class="n">BORDER_CONSTANT</span><span class="p">,</span><span class="w"> </span><span class="n">borderValue</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</code></pre></div>
+<ul>
+<li>iteration：膨胀迭代次数，越大效果越明显</li>
+<li>borderType：边界填充类型</li>
+<li>borderValue：边界填充值，默认0是黑色</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">kernel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">getStructuringElement</span><span class="p">(</span><span class="n">cv</span><span class="o">::</span><span class="n">MORPH_RECT</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Size</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">));</span>
+<span class="c1">//创建一个3*3的矩形结构元素</span>
+<span class="n">cv</span><span class="o">::</span><span class="n">dilate</span><span class="p">(</span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="n">kernel</span><span class="p">);</span>
+</code></pre></div>
+<p>腐蚀操作的效果与膨胀相反，它会减少图像中的白色区域或前景区域，使得图像中的对象变得更小。腐蚀操作会检查每个像素的邻域，如果邻域内的所有像素都是前景像素（白色），该像素才保持前景，否则变为背景（黑色）。使白色区域收缩，物体变小。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">kernel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">getStructuringElement</span><span class="p">(</span><span class="n">cv</span><span class="o">::</span><span class="n">MORPH_RECT</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Size</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">));</span>
+<span class="n">cv</span><span class="o">::</span><span class="n">erode</span><span class="p">(</span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="n">kernel</span><span class="p">);</span>
+</code></pre></div>
+<p>以下是示例</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;fcntl.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;fstream&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;iostream&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/fb.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;signal.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdint.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;sys/ioctl.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;unistd.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;opencv2/opencv.hpp&gt;</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">display_image</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="o">&amp;</span><span class="w"> </span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">framebuffer_width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">720</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">ofstream</span><span class="w"> </span><span class="n">ofs</span><span class="p">(</span><span class="s">"/dev/fb0"</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">ofs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">cerr</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">"Error: Could not open framebuffer device!"</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">framebuffer</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">channels</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">cv</span><span class="o">::</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">framebuffer</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">COLOR_GRAY2BGRA</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">channels</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">3</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">cv</span><span class="o">::</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">framebuffer</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">COLOR_BGR2BGRA</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">channels</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">4</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">image</span><span class="p">.</span><span class="n">copyTo</span><span class="p">(</span><span class="n">framebuffer</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">cerr</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">"Error: Unsupported image format!"</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Size2f</span><span class="w"> </span><span class="n">frame_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">framebuffer</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">frame_size</span><span class="p">.</span><span class="n">width</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">framebuffer_width</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// 计算新的宽高，保持图像的纵横比</span>
+<span class="w">        </span><span class="kt">float</span><span class="w"> </span><span class="n">aspect_ratio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">frame_size</span><span class="p">.</span><span class="n">height</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">frame_size</span><span class="p">.</span><span class="n">width</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">newWidth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">framebuffer_width</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">newHeight</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="n">newWidth</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">aspect_ratio</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// 调整图像大小</span>
+<span class="w">        </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">resizedImage</span><span class="p">;</span>
+<span class="w">        </span><span class="n">cv</span><span class="o">::</span><span class="n">resize</span><span class="p">(</span><span class="n">framebuffer</span><span class="p">,</span><span class="w"> </span><span class="n">resizedImage</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Size</span><span class="p">(</span><span class="n">newWidth</span><span class="p">,</span><span class="w"> </span><span class="n">newHeight</span><span class="p">));</span>
+<span class="w">        </span><span class="n">framebuffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">resizedImage</span><span class="p">;</span>
+<span class="w">        </span><span class="n">frame_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">resizedImage</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">frame_size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span><span class="w"> </span><span class="n">y</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ofs</span><span class="p">.</span><span class="n">seekp</span><span class="p">(</span><span class="n">y</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">framebuffer_width</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">4</span><span class="p">);</span>
+<span class="w">        </span><span class="n">ofs</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="kt">char</span><span class="o">*&gt;</span><span class="p">(</span><span class="n">framebuffer</span><span class="p">.</span><span class="n">ptr</span><span class="p">(</span><span class="n">y</span><span class="p">)),</span><span class="w"> </span><span class="n">frame_size</span><span class="p">.</span><span class="n">width</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">4</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="o">**</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">image</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">imread</span><span class="p">(</span><span class="s">"test1.jpg"</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">IMREAD_COLOR</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">cerr</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">"Error: Could not open or find the image!"</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="kt">double</span><span class="w"> </span><span class="n">mean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">2.0</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">double</span><span class="w"> </span><span class="n">stddev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">30.0</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">image</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">usleep</span><span class="p">(</span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">dst</span><span class="p">;</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">kernel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">getStructuringElement</span><span class="p">(</span><span class="n">cv</span><span class="o">::</span><span class="n">MORPH_RECT</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Size</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">));</span>
+
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">dilate</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="n">kernel</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">dst</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">usleep</span><span class="p">(</span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">erode</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="n">kernel</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">dst</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="_8">阈值化</h3>
+<p>阈值（Thresholding）是一种常见的图像分割方法，用于将灰度图像转换为二值图像。通过设置一个阈值，将像素值高于该阈值的区域设为白色（255），低于阈值的区域设为黑色（0），从而简化图像内容，便于后续处理。</p>
+<p><strong>二值化阈值</strong>：二值化是将图像中的像素值根据设定的阈值分为两类，通常用于简单的图像分割。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cv</span><span class="o">::</span><span class="n">threshold</span><span class="p">(</span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="n">thresh</span><span class="p">,</span><span class="w"> </span><span class="n">maxval</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="p">);</span>
+
+<span class="n">示例</span><span class="err">：</span><span class="n">cv</span><span class="o">::</span><span class="n">threshold</span><span class="p">(</span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="mi">127</span><span class="p">,</span><span class="w"> </span><span class="mi">255</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">THRESH_BINARY</span><span class="p">);</span>
+</code></pre></div>
+<ul>
+<li>thresh: 阈值，决定像素分类的分界线。</li>
+<li>maxval：根据type选择，满足条件设置为最大值。</li>
+<li>type: 阈值类型</li>
+</ul>
+<p><strong>自适应阈值</strong>：根据图像的局部区域动态计算阈值，适用于光照不均匀的图像。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cv</span><span class="o">::</span><span class="n">adaptiveThreshold</span><span class="p">(</span><span class="w"> </span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="n">maxValue</span><span class="p">,</span><span class="w"> </span><span class="n">adaptiveMethod</span><span class="p">,</span>
+<span class="w">     </span><span class="n">thresholdType</span><span class="p">,</span><span class="w"> </span><span class="n">blockSize</span><span class="p">,</span><span class="w"> </span><span class="n">C</span><span class="p">);</span>
+</code></pre></div>
+<ul>
+<li>maxVaule：二值化的最大值，一般为255</li>
+<li>adaptiveMethod： ADAPTIVE_THRESH_MEAN_C是使用邻域的均值作为阈值，ADAPTIVE_THRESH_GAUSSIAN_C ：使用邻域的加权均值（高斯加权）作为阈值。</li>
+<li>thresholdType：阈值类型，通常使用 THRESH_BINARY 或 THRESH_BINARY_INV。</li>
+<li>blockSize：邻域的大小，必须是奇数（例如 3 , 5 , 7 , ...），该窗口在图像上滑动。</li>
+<li>C：调整值，用于从计算的阈值中减去。调整结果的灵敏度。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="n">cv</span><span class="o">::</span><span class="n">adaptiveThreshold</span><span class="p">(</span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="mi">255</span><span class="p">,</span>
+<span class="w">        </span><span class="n">cv</span><span class="o">::</span><span class="n">ADAPTIVE_THRESH_MEAN_C</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">THRESH_BINARY</span><span class="p">,</span><span class="w"> </span><span class="mi">11</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span>
+</code></pre></div>
+<h3 id="_9">开闭运算、顶帽、黑帽</h3>
+<ul>
+<li>开运算：开运算是先进行腐蚀操作再进行膨胀操作。它通常用于去除小的噪点或小的物体，同时保留较大区域的结构。</li>
+<li>闭运算：闭运算是先进行膨胀操作再进行腐蚀操作。它用于去除小的黑色区域（如小孔洞或空隙），并连接物体之间的细小裂缝。</li>
+<li>顶帽：顶帽是开运算的结果与原图像之间的差异，主要用于提取比背景更亮的区域或小的亮点。</li>
+<li>黑帽：黑帽是闭运算的结果与原图像之间的差异，主要用于提取比背景更暗的区域或小的暗点。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">cv::morphologyEx</span><span class="p">(</span><span class="w"> </span><span class="n">InputArray</span><span class="w"> </span><span class="n">src</span><span class="p">,</span><span class="w">  </span><span class="n">OutputArray</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">op</span><span class="p">,</span>
+<span class="w">    </span><span class="n">InputArray</span><span class="w"> </span><span class="n">kernel</span><span class="p">,</span><span class="w"> </span><span class="n">Point</span><span class="w"> </span><span class="n">anchor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Point</span><span class="p">(</span><span class="mi">-1</span><span class="p">,</span><span class="w"> </span><span class="mi">-1</span><span class="p">),</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">iterations</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">borderType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BORDER_CONSTANT</span><span class="p">,</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">Scalar</span><span class="o">&amp;</span><span class="n">borderValue</span><span class="o">=</span><span class="n">morphologyDefaultBorderValue</span><span class="p">()</span><span class="w">  </span><span class="p">);</span>
+</code></pre></div>
+<ul>
+<li>kernel：结构元素，通常使用 cv::getStructuringElement() 生成。</li>
+<li>op:形态学操作类型。</li>
+</ul>
+<p>下面是op的类型</p>
+<ul>
+<li>cv:MORPH_OPEN：开运算。</li>
+<li>cv::MORPH_CLOSE：闭运算。</li>
+<li>cv::MORPH_GRADIENT: 形态学梯度（膨胀 - 腐蚀），提取物体边缘。</li>
+<li>cv::MORPH_TOPHAT :顶帽运算（原图 - 开运算结果），提取比背景亮的区域。</li>
+<li>cv::MORPH_BLACKHAT 黑帽运算（闭运算结果 - 原图），提取比背景暗的区域。</li>
+</ul>
+<h3 id="_10">示例</h3>
+<p>示例程序如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="o">**</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">image</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">imread</span><span class="p">(</span><span class="s">"test1.jpg"</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">IMREAD_GRAYSCALE</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">cerr</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">"Error: Could not open or find the image!"</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">binary_img</span><span class="p">;</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">threshold</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">binary_img</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span><span class="w"> </span><span class="mi">255</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">THRESH_BINARY</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">kernel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">getStructuringElement</span><span class="p">(</span><span class="n">cv</span><span class="o">::</span><span class="n">MORPH_RECT</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Size</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">));</span>
+
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">dst</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">opened_img</span><span class="p">,</span><span class="w"> </span><span class="n">closed_img</span><span class="p">,</span><span class="w"> </span><span class="n">tophat_img</span><span class="p">,</span><span class="w"> </span><span class="n">blackhat_img</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">morphologyEx</span><span class="p">(</span><span class="n">binary_img</span><span class="p">,</span><span class="w"> </span><span class="n">opened_img</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">MORPH_OPEN</span><span class="p">,</span><span class="w"> </span><span class="n">kernel</span><span class="p">);</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">morphologyEx</span><span class="p">(</span><span class="n">binary_img</span><span class="p">,</span><span class="w"> </span><span class="n">closed_img</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">MORPH_CLOSE</span><span class="p">,</span><span class="w"> </span><span class="n">kernel</span><span class="p">);</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">morphologyEx</span><span class="p">(</span><span class="n">binary_img</span><span class="p">,</span><span class="w"> </span><span class="n">tophat_img</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">MORPH_TOPHAT</span><span class="p">,</span><span class="w"> </span><span class="n">kernel</span><span class="p">);</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">morphologyEx</span><span class="p">(</span><span class="n">binary_img</span><span class="p">,</span><span class="w"> </span><span class="n">blackhat_img</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">MORPH_BLACKHAT</span><span class="p">,</span><span class="w"> </span><span class="n">kernel</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">image</span><span class="p">);</span>
+<span class="w">    </span><span class="n">usleep</span><span class="p">(</span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span>
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">binary_img</span><span class="p">);</span>
+<span class="w">    </span><span class="n">usleep</span><span class="p">(</span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span>
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">closed_img</span><span class="p">);</span>
+<span class="w">    </span><span class="n">usleep</span><span class="p">(</span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span>
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">tophat_img</span><span class="p">);</span>
+<span class="w">    </span><span class="n">usleep</span><span class="p">(</span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span>
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">blackhat_img</span><span class="p">);</span>
+
+<span class="p">}</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_4d1a022fc3bfa4765c2c4a367834992f.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_4d1a022fc3bfa4765c2c4a367834992f.jpg"/></a></p>
+<h2 id="_11">图像边缘检测</h2>
+<h3 id="canny">canny</h3>
+<p>Canny边缘检测是一个多阶段的图像处理算法，用于提取图像中的边缘。它的目标是识别图像中强度变化较大的区域，即边缘</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">image</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">imread</span><span class="p">(</span><span class="s">"test1.jpg"</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">IMREAD_GRAYSCALE</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">cerr</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">"Error: Could not open image!"</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// 进行 Canny 边缘检测</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">edges</span><span class="p">;</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Canny</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">edges</span><span class="p">,</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">200</span><span class="p">);</span><span class="w"> </span><span class="c1">// 低阈值 100，高阈值 200</span>
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">edges</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>下面是处理的前后效果。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_a622ce4a43591be2e6486d0a3798328d.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_a622ce4a43591be2e6486d0a3798328d.jpg"/></a></p>
+<h3 id="_12">霍夫变换</h3>
+<p>霍夫变换（Hough Transform）是一种用于检测图像中的几何形状（如直线、圆等）的方法。它主要用于图像中的特征检测，特别是在噪声较大的图像中，可以有效地进行形状的识别。霍夫变换的基本思想是将图像中的边缘点通过一种数学映射，转化到参数空间，然后在参数空间中寻找对应的曲线（或直线、圆等）。</p>
+<p><strong>霍夫线变换</strong>： 检测线。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cv2</span><span class="p">.</span><span class="n">HoughLinesP</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">rho</span><span class="p">,</span><span class="w"> </span><span class="n">theta</span><span class="p">,</span><span class="w"> </span><span class="n">threshold</span><span class="p">,</span><span class="w"> </span><span class="n">minLineLength</span><span class="p">,</span><span class="w"> </span><span class="n">maxLineGap</span><span class="p">)</span>
+</code></pre></div>
+<ul>
+<li>image: 输入图像，通常是经过边缘检测（如 Canny 边缘检测）后的二值图像。</li>
+<li>rho: 直线距离精度，单位是像素，通常设置为 1。</li>
+<li>theta: 角度精度，单位是弧度，通常设置为 np.pi / 180（即 1°）。</li>
+<li>threshold: 最小投票数，当某一候选直线在参数空间中的投票数大于此阈值时，认为检测到直线。</li>
+<li>minLineLength: 最小直线长度。只有长度大于该值的直线才会被返回。</li>
+<li>maxLineGap: 最大直线间隙。如果两段直线之间的间隙小于该值，则认为它们是同一条直线的两部分</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">img</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">imread</span><span class="p">(</span><span class="s">"test1.jpg"</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">img</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">cerr</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">"Error: Could not open image!"</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// 图像预处理：边缘检测</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">edges</span><span class="p">;</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Canny</span><span class="p">(</span><span class="n">img</span><span class="p">,</span><span class="w"> </span><span class="n">edges</span><span class="p">,</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span><span class="w"> </span><span class="mi">150</span><span class="p">);</span><span class="w">  </span><span class="c1">// 使用 Canny 边缘检测</span>
+
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">edges</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">usleep</span><span class="p">(</span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// 使用 HoughLinesP 进行霍夫变换（概率霍夫变换）</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">cv</span><span class="o">::</span><span class="n">Vec4i</span><span class="o">&gt;</span><span class="w"> </span><span class="n">lines</span><span class="p">;</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">HoughLinesP</span><span class="p">(</span><span class="n">edges</span><span class="p">,</span><span class="w"> </span><span class="n">lines</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">CV_PI</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">180</span><span class="p">,</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">);</span><span class="w">  </span><span class="c1">// 参数为 (边缘图像, 输出的直线, ρ精度, θ精度, 阈值, 最小线段长度, 最大线段间隙)</span>
+
+<span class="w">    </span><span class="c1">// 绘制检测到的直线</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">img</span><span class="p">.</span><span class="n">clone</span><span class="p">();</span>
+<span class="w">    </span><span class="c1">//cv::cvtColor(result, result, cv::COLOR_GRAY2BGR);  // 将灰度图转为彩色图以显示彩色直线</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">lines</span><span class="p">.</span><span class="n">size</span><span class="p">();</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">cv</span><span class="o">::</span><span class="n">Vec4i</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">lines</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">        </span><span class="n">cv</span><span class="o">::</span><span class="n">line</span><span class="p">(</span><span class="n">result</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Point</span><span class="p">(</span><span class="n">l</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">l</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span><span class="w"> </span>
+<span class="w">            </span><span class="n">cv</span><span class="o">::</span><span class="n">Point</span><span class="p">(</span><span class="n">l</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="w"> </span><span class="n">l</span><span class="p">[</span><span class="mi">3</span><span class="p">]),</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Scalar</span><span class="p">(</span><span class="mi">255</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">),</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span><span class="w">  </span><span class="c1">// 绘制直线</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">result</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>上面的示例中，先使用canny进行边缘处理，然后送入到霍夫变换中进行检测，最后绘制成直线。下面是检测后的效果。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_72fba2bbfb0f2a1baa00d06d002b8258.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_72fba2bbfb0f2a1baa00d06d002b8258.jpg"/></a></p>
+<p><strong>霍夫圆变换</strong>： 检测圆。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cv2</span><span class="p">.</span><span class="n">HoughCircles</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">method</span><span class="p">,</span><span class="w"> </span><span class="n">dp</span><span class="p">,</span><span class="w"> </span><span class="n">minDist</span><span class="p">,</span><span class="w"> </span><span class="n">param1</span><span class="p">,</span><span class="w"> </span><span class="n">param2</span><span class="p">,</span><span class="w"> </span><span class="n">minRadius</span><span class="p">,</span><span class="w"> </span><span class="n">maxRadius</span><span class="p">)</span>
+</code></pre></div>
+<ul>
+<li>image: 输入图像，通常是灰度图像。</li>
+<li>method: 霍夫变换的检测方法。对于 HoughCircles，一般使用 cv2.HOUGH_GRADIENT。</li>
+<li>dp: 分辨率反比，表示霍夫空间的分辨率与图像分辨率的比例。通常设置为 1。</li>
+<li>minDist: 设定圆心之间的最小距离，防止检测到相互靠得太近的圆。</li>
+<li>param1: 边缘检测的高阈值（Canny 边缘检测的高阈值）。</li>
+<li>param2: 圆的中心检测阈值，较小的值会检测到更多的圆，较大的值会检测较少的圆。</li>
+<li>minRadius: 最小圆半径（单位：像素）。</li>
+<li>maxRadius: 最大圆半径（单位：像素）。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">img</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">imread</span><span class="p">(</span><span class="s">"test1.jpg"</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">img</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">cerr</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">"Error: Could not open image!"</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// 进行边缘检测</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">edges</span><span class="p">;</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Canny</span><span class="p">(</span><span class="n">img</span><span class="p">,</span><span class="w"> </span><span class="n">edges</span><span class="p">,</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span><span class="w"> </span><span class="mi">150</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">edges</span><span class="p">);</span>
+<span class="w">    </span><span class="n">usleep</span><span class="p">(</span><span class="mi">1000</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// 存储检测到的圆</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">cv</span><span class="o">::</span><span class="n">Vec3f</span><span class="o">&gt;</span><span class="w"> </span><span class="n">circles</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// 使用霍夫圆变换检测圆</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">HoughCircles</span><span class="p">(</span><span class="n">edges</span><span class="p">,</span><span class="w"> </span><span class="n">circles</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">HOUGH_GRADIENT</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">23</span><span class="p">,</span><span class="w"> </span><span class="mi">80</span><span class="p">,</span><span class="w"> </span><span class="mi">52</span><span class="p">,</span><span class="w"> </span><span class="mi">27</span><span class="p">,</span><span class="w"> </span><span class="mi">100</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// 在原图上绘制检测到的圆</span>
+<span class="w">    </span><span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">img</span><span class="p">.</span><span class="n">clone</span><span class="p">();</span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">circles</span><span class="p">.</span><span class="n">size</span><span class="p">();</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">cv</span><span class="o">::</span><span class="n">Point</span><span class="w"> </span><span class="n">center</span><span class="p">(</span><span class="n">cvRound</span><span class="p">(</span><span class="n">circles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span><span class="w"> </span><span class="n">cvRound</span><span class="p">(</span><span class="n">circles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]));</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">radius</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cvRound</span><span class="p">(</span><span class="n">circles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">2</span><span class="p">]);</span>
+<span class="w">        </span><span class="c1">// 绘制圆心</span>
+<span class="w">        </span><span class="n">cv</span><span class="o">::</span><span class="n">circle</span><span class="p">(</span><span class="n">result</span><span class="p">,</span><span class="w"> </span><span class="n">center</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Scalar</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">255</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">),</span><span class="w"> </span><span class="mi">-1</span><span class="p">);</span>
+<span class="w">        </span><span class="c1">// 绘制圆</span>
+<span class="w">        </span><span class="n">cv</span><span class="o">::</span><span class="n">circle</span><span class="p">(</span><span class="n">result</span><span class="p">,</span><span class="w"> </span><span class="n">center</span><span class="p">,</span><span class="w"> </span><span class="n">radius</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">Scalar</span><span class="p">(</span><span class="mi">255</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">),</span><span class="w"> </span><span class="mi">3</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">display_image</span><span class="p">(</span><span class="n">result</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>同样是先使用canny检测进行处理，然后再使用霍夫圆进行检测圆，最后试用cv::circle进行绘制。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_54cd04d254a6dabd481f68fc9b382123.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_54cd04d254a6dabd481f68fc9b382123.jpg"/></a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/ai/全连接层与卷积层参数计算.html">← 全连接层与卷积层参数计算</a>
+    <a class="next" href="/laumy.github.io/posts/ai/opencv视频流.html">opencv视频流 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>裁剪脚本 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>裁剪脚本</h1>
+  <div class="meta">2025-03-18 · 调试</div>
+  <div class="post-content"><h1 id="_1">查找当前目录大于指定大小</h1>
+<div class="codehilite"><pre><span></span><code><span class="ch">#!/bin/bash</span>
+
+<span class="c1"># 遍历当前目录及子目录中的所有文件</span>
+find<span class="w"> </span>.<span class="w"> </span>-type<span class="w"> </span>f<span class="w"> </span>-exec<span class="w"> </span>du<span class="w"> </span>-b<span class="w"> </span><span class="o">{}</span><span class="w"> </span>+<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="nb">read</span><span class="w"> </span>size<span class="w"> </span>file<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">    </span><span class="c1"># 如果文件大小为50KB（即50 * 1024字节）</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$size</span><span class="s2">"</span><span class="w"> </span>-gt<span class="w"> </span><span class="m">51200</span><span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">        </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"文件: </span><span class="nv">$file</span><span class="s2">, 大小: </span><span class="k">$((</span><span class="nv">size</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="m">1024</span><span class="k">))</span><span class="s2"> KB"</span>
+<span class="w">    </span><span class="k">fi</span>
+<span class="k">done</span>
+</code></pre></div>
+<h1 id="_2">查找当前的库是哪些应用依赖</h1>
+<div class="codehilite"><pre><span></span><code><span class="ch">#!/bin/bash</span>
+
+<span class="c1"># 当前目录</span>
+<span class="nv">dst_lib</span><span class="o">=</span>libblkid.so
+<span class="nv">search_dir</span><span class="o">=</span><span class="s2">"."</span>
+<span class="c1"># 递归查找所有可执行文件</span>
+find<span class="w"> </span><span class="s2">"</span><span class="nv">$search_dir</span><span class="s2">"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="nb">read</span><span class="w"> </span>-r<span class="w"> </span>file<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">    </span><span class="c1"># 使用 ldd 检查依赖</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span>riscv32-linux-musl-readelf<span class="w"> </span>-d<span class="w"> </span><span class="s2">"</span><span class="nv">$file</span><span class="s2">"</span><span class="w"> </span><span class="m">2</span>&gt;/dev/null<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-q<span class="w"> </span><span class="s2">"</span><span class="nv">$dst_lib</span><span class="s2">"</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">        </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"</span><span class="nv">$file</span><span class="s2"> 依赖 </span><span class="nv">$dst_lib</span><span class="s2">"</span>
+<span class="w">        </span><span class="k">fi</span>
+<span class="k">done</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/语言/c-回顾.html">← C++回顾</a>
+    <a class="next" href="/laumy.github.io/posts/ai/2条命令本地部署deepseek.html">2条命令本地部署deepseek →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

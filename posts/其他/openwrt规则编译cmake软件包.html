@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>openwrt规则编译cmake软件包 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#cmakeliststxt">软件包中有完整CMakelists.txt</a><ul></ul></li><li><a href="#cmakeliststxtbuild">软件包中有完整CMakelists.txt但需要创建build目录</a><ul></ul></li><li><a href="#cmakelisttext">软件包中只有部分CMakelist.text</a><ul><li><a href="#makefile">Makefile文件</a></li><li><a href="#patches">patches</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>openwrt规则编译cmake软件包</h1>
+  <div class="meta">2024-12-11 · 其他</div>
+  <div class="post-content"><h2 id="cmakeliststxt">软件包中有完整CMakelists.txt</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">include</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">TOPDIR</span><span class="p">)</span><span class="o">/</span><span class="n">rules</span><span class="p">.</span><span class="n">mk</span>
+
+<span class="nl">PKG_NAME</span><span class="p">:</span><span class="o">=</span><span class="n">usrsctp</span>
+<span class="nl">PKG_VERSION</span><span class="p">:</span><span class="o">=</span><span class="mf">0.9.5.0</span>
+<span class="nl">PKG_RELEASE</span><span class="p">:</span><span class="o">=</span><span class="mi">3</span>
+
+<span class="nl">PKG_SOURCE</span><span class="p">:</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">PKG_NAME</span><span class="p">)</span><span class="o">-</span><span class="n">$</span><span class="p">(</span><span class="n">PKG_VERSION</span><span class="p">).</span><span class="n">tar</span><span class="p">.</span><span class="n">gz</span>
+<span class="nl">PKG_SOURCE_URL</span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="n">https</span><span class="o">:</span><span class="c1">//codeload.github.com/sctplab/usrsctp/tar.gz/v$(PKG_VERSION)?</span>
+<span class="nl">PKG_HASH</span><span class="p">:</span><span class="o">=</span><span class="mi">260107</span><span class="n">caf318650a57a8caa593550e39bca6943e93f970c80d6c17e59d62cd92</span>
+
+<span class="nl">PKG_LICENSE</span><span class="p">:</span><span class="o">=</span><span class="n">MIT</span>
+<span class="nl">PKG_LICENSE_FILES</span><span class="p">:</span><span class="o">=</span><span class="n">LICENSE</span>
+
+<span class="nl">PKG_BUILD_PARALLEL</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span>
+
+<span class="n">include</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">INCLUDE_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">package</span><span class="p">.</span><span class="n">mk</span>
+<span class="n">include</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">INCLUDE_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">cmake</span><span class="p">.</span><span class="n">mk</span>
+
+<span class="n">define</span><span class="w"> </span><span class="n">Package</span><span class="o">/</span><span class="n">usrsctp</span>
+<span class="w">  </span><span class="nl">SECTION</span><span class="p">:</span><span class="o">=</span><span class="n">libs</span>
+<span class="w">  </span><span class="nl">CATEGORY</span><span class="p">:</span><span class="o">=</span><span class="n">Libraries</span>
+<span class="w">  </span><span class="nl">TITLE</span><span class="p">:</span><span class="o">=</span><span class="n">sctp</span><span class="w"> </span><span class="n">stack</span>
+<span class="w">  </span><span class="nl">URL</span><span class="p">:</span><span class="o">=</span><span class="n">https</span><span class="o">:</span><span class="c1">//github.com/sctplab/usrsctp</span>
+<span class="n">endef</span>
+
+<span class="n">define</span><span class="w"> </span><span class="n">Package</span><span class="o">/</span><span class="n">cJSON</span><span class="o">/</span><span class="n">description</span>
+<span class="w">  </span><span class="n">this</span><span class="w"> </span><span class="n">is</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">userland</span><span class="w"> </span><span class="n">SCTP</span><span class="w"> </span><span class="n">stack</span>
+<span class="n">endef</span>
+
+<span class="n">CMAKE_OPTIONS</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="o">-</span><span class="n">DBUILD_SHARED_LIBS</span><span class="o">=</span><span class="n">on</span>
+
+<span class="cp">#Provide compilation dependencies for other modules to call</span>
+<span class="n">define</span><span class="w"> </span><span class="n">Build</span><span class="o">/</span><span class="n">InstallDev</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">INSTALL_DIR</span><span class="p">)</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">include</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">CP</span><span class="p">)</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">PKG_INSTALL_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="n">usrsctp</span><span class="p">.</span><span class="n">h</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">include</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">INSTALL_DIR</span><span class="p">)</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">CP</span><span class="p">)</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">PKG_INSTALL_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">libusrsctp</span><span class="p">.</span><span class="n">so</span><span class="o">*</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">INSTALL_DIR</span><span class="p">)</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">pkgconfig</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">CP</span><span class="p">)</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">PKG_INSTALL_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">pkgconfig</span><span class="o">/</span><span class="n">usrsctp</span><span class="p">.</span><span class="n">pc</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">pkgconfig</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">SED</span><span class="p">)</span><span class="w"> </span><span class="err">'</span><span class="n">s</span><span class="p">,</span><span class="o">/</span><span class="n">usr</span><span class="p">,</span><span class="n">$</span><span class="p">(</span><span class="n">STAGING_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="p">,</span><span class="n">g</span><span class="err">'</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">pkgconfig</span><span class="o">/</span><span class="n">usrsctp</span><span class="p">.</span><span class="n">pc</span>
+<span class="n">endef</span>
+
+<span class="cp">#Installed to the root file system for call at runtime</span>
+<span class="n">define</span><span class="w"> </span><span class="n">Package</span><span class="o">/</span><span class="n">usrsctp</span><span class="o">/</span><span class="n">install</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">INSTALL_DIR</span><span class="p">)</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">CP</span><span class="p">)</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">PKG_INSTALL_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">libusrsctp</span><span class="p">.</span><span class="n">so</span><span class="o">*</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span>
+<span class="n">endef</span>
+
+<span class="n">$</span><span class="p">(</span><span class="n">eval</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">call</span><span class="w"> </span><span class="n">BuildPackage</span><span class="p">,</span><span class="n">usrsctp</span><span class="p">))</span>
+</code></pre></div>
+<p>如上是示例，这种类型比较简单，包含了cmake.mk后，openwrt会自动生成编译，只需要安装需要被其他代码依赖的库和头文件，以及运行时需要的库即可。</p>
+<h2 id="cmakeliststxtbuild">软件包中有完整CMakelists.txt但需要创建build目录</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">include</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">TOPDIR</span><span class="p">)</span><span class="o">/</span><span class="n">rules</span><span class="p">.</span><span class="n">mk</span>
+
+<span class="nl">PKG_NAME</span><span class="p">:</span><span class="o">=</span><span class="n">libsrtp</span>
+<span class="nl">PKG_VERSION</span><span class="p">:</span><span class="o">=</span><span class="mf">2.6.0</span>
+<span class="nl">PKG_RELEASE</span><span class="p">:</span><span class="o">=</span><span class="mi">3</span>
+
+<span class="nl">PKG_SOURCE</span><span class="p">:</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">PKG_NAME</span><span class="p">)</span><span class="o">-</span><span class="n">$</span><span class="p">(</span><span class="n">PKG_VERSION</span><span class="p">).</span><span class="n">tar</span><span class="p">.</span><span class="n">gz</span>
+<span class="nl">PKG_SOURCE_URL</span><span class="p">:</span><span class="o">=</span><span class="n">https</span><span class="o">:</span><span class="c1">//codeload.github.com/cisco/libsrtp/tar.gz/v$(PKG_VERSION)?</span>
+<span class="nl">PKG_HASH</span><span class="p">:</span><span class="o">=</span><span class="n">bf641aa654861be10570bfc137d1441283822418e9757dc71ebb69a6cf84ea6b</span>
+
+<span class="nl">PKG_LICENSE</span><span class="p">:</span><span class="o">=</span><span class="n">MIT</span>
+<span class="nl">PKG_LICENSE_FILES</span><span class="p">:</span><span class="o">=</span><span class="n">LICENSE</span>
+
+<span class="nl">PKG_BUILD_PARALLEL</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span>
+
+<span class="n">include</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">INCLUDE_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">package</span><span class="p">.</span><span class="n">mk</span>
+<span class="n">include</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">INCLUDE_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">cmake</span><span class="p">.</span><span class="n">mk</span>
+
+<span class="n">define</span><span class="w"> </span><span class="n">Package</span><span class="o">/</span><span class="n">libsrtp</span>
+<span class="w">  </span><span class="nl">SECTION</span><span class="p">:</span><span class="o">=</span><span class="n">libs</span>
+<span class="w">  </span><span class="nl">CATEGORY</span><span class="p">:</span><span class="o">=</span><span class="n">Libraries</span>
+<span class="w">  </span><span class="nl">TITLE</span><span class="p">:</span><span class="o">=</span><span class="n">libsrtp</span><span class="w"> </span><span class="n">Client</span><span class="w"> </span><span class="n">Library</span>
+<span class="w">  </span><span class="nl">URL</span><span class="p">:</span><span class="o">=</span><span class="n">https</span><span class="o">:</span><span class="c1">//github.com/cisco/libsrtp</span>
+<span class="n">endef</span>
+
+<span class="n">define</span><span class="w"> </span><span class="n">Package</span><span class="o">/</span><span class="n">libsrtp</span><span class="o">/</span><span class="n">description</span>
+<span class="w">  </span><span class="n">srtp</span><span class="w"> </span><span class="n">Library</span>
+<span class="n">endef</span>
+
+<span class="n">CMAKE_BINARY_SUBDIR</span><span class="o">=</span><span class="n">build</span>
+
+<span class="n">CMAKE_OPTIONS</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="o">-</span><span class="n">DBUILD_SHARED_LIBS</span><span class="o">=</span><span class="n">on</span><span class="w"> </span><span class="o">-</span><span class="n">DTEST_APPS</span><span class="o">=</span><span class="n">off</span>
+
+<span class="n">define</span><span class="w"> </span><span class="n">Build</span><span class="o">/</span><span class="n">InstallDev</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">INSTALL_DIR</span><span class="p">)</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="n">srtp2</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">CP</span><span class="p">)</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">PKG_INSTALL_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="n">srtp2</span><span class="cm">/*.h $(1)/usr/include/srtp2</span>
+<span class="cm">    $(INSTALL_DIR) $(1)/usr/lib</span>
+<span class="cm">    $(CP) $(PKG_INSTALL_DIR)/usr/lib/lib*.so* $(1)/usr/lib/</span>
+<span class="cm">endef</span>
+
+<span class="cm">define Package/libsrtp/install</span>
+<span class="cm">    $(INSTALL_DIR) $(1)/usr/lib</span>
+<span class="cm">    $(CP) $(PKG_INSTALL_DIR)/usr/lib/lib*.so* $(1)/usr/lib/</span>
+<span class="cm">endef</span>
+
+<span class="cm">$(eval $(call BuildPackage,libsrtp))</span>
+</code></pre></div>
+<p>这种相对前面的方式类似，只是这种软件包CMakelist.text要求需要创建build目录进行编译，因此在Makefile中添加CMAKE_BINARY_SUBDIR=build进行声明。因此在编译输出目录，可以看到openwrt会先创建build目录，而第一种方式是没有创建build目录。</p>
+<h2 id="cmakelisttext">软件包中只有部分CMakelist.text</h2>
+<p>这种方式就是软件包中没有提供完整的CMakelist.txt，但是提供了部分，需要用户包含提供部分的Cmakelist.txt实现，这种方式目前是通过打patches的方式生成主要CMakelist.txt。</p>
+<h3 id="makefile">Makefile文件</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">include</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">TOPDIR</span><span class="p">)</span><span class="o">/</span><span class="n">rules</span><span class="p">.</span><span class="n">mk</span>
+
+<span class="nl">PKG_NAME</span><span class="p">:</span><span class="o">=</span><span class="n">coreMQTT</span>
+<span class="nl">PKG_VERSION</span><span class="p">:</span><span class="o">=</span><span class="mf">2.3.1</span>
+<span class="nl">PKG_RELEASE</span><span class="p">:</span><span class="o">=</span><span class="mi">3</span>
+
+<span class="nl">PKG_SOURCE</span><span class="p">:</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">PKG_NAME</span><span class="p">)</span><span class="o">-</span><span class="n">$</span><span class="p">(</span><span class="n">PKG_VERSION</span><span class="p">).</span><span class="n">tar</span><span class="p">.</span><span class="n">gz</span>
+<span class="nl">PKG_SOURCE_URL</span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="n">https</span><span class="o">:</span><span class="c1">//codeload.github.com/FreeRTOS/coreMQTT/tar.gz/v$(PKG_VERSION)?</span>
+<span class="nl">PKG_HASH</span><span class="p">:</span><span class="o">=</span><span class="n">b8e95044e6ef8381610949b7fe546c5ddf4e52989ce9938209d5dd5f3371b5d7</span>
+
+<span class="nl">PKG_LICENSE</span><span class="p">:</span><span class="o">=</span><span class="n">MIT</span>
+<span class="nl">PKG_LICENSE_FILES</span><span class="p">:</span><span class="o">=</span><span class="n">LICENSE</span>
+
+<span class="nl">PKG_BUILD_PARALLEL</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span>
+
+<span class="n">include</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">INCLUDE_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">package</span><span class="p">.</span><span class="n">mk</span>
+<span class="n">include</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">INCLUDE_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">cmake</span><span class="p">.</span><span class="n">mk</span>
+
+<span class="n">define</span><span class="w"> </span><span class="n">Package</span><span class="o">/</span><span class="n">coreMQTT</span>
+<span class="w">  </span><span class="nl">SECTION</span><span class="p">:</span><span class="o">=</span><span class="n">libs</span>
+<span class="w">  </span><span class="nl">CATEGORY</span><span class="p">:</span><span class="o">=</span><span class="n">Libraries</span>
+<span class="w">  </span><span class="nl">TITLE</span><span class="p">:</span><span class="o">=</span><span class="n">coreMQTT</span><span class="w"> </span><span class="n">Client</span><span class="w"> </span><span class="n">Library</span>
+<span class="w">  </span><span class="nl">URL</span><span class="p">:</span><span class="o">=</span><span class="n">https</span><span class="o">:</span><span class="c1">//github.com/FreeRTOS/coreMQTT</span>
+<span class="n">endef</span>
+
+<span class="n">define</span><span class="w"> </span><span class="n">Package</span><span class="o">/</span><span class="n">coreMQTT</span><span class="o">/</span><span class="n">description</span>
+<span class="w">  </span><span class="n">coreMQTT</span><span class="w"> </span><span class="n">Client</span><span class="w"> </span><span class="n">Library</span>
+<span class="n">endef</span>
+
+<span class="n">define</span><span class="w"> </span><span class="n">Build</span><span class="o">/</span><span class="n">InstallDev</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">INSTALL_DIR</span><span class="p">)</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">include</span>
+<span class="w">    </span><span class="n">$</span><span class="p">(</span><span class="n">CP</span><span class="p">)</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">PKG_INSTALL_DIR</span><span class="p">)</span><span class="cm">/*.h $(1)/usr/include</span>
+<span class="cm">    $(CP) $(PKG_INSTALL_DIR)/include/*.h $(1)/usr/include</span>
+<span class="cm">    $(INSTALL_DIR) $(1)/usr/lib</span>
+<span class="cm">    $(CP) $(PKG_INSTALL_DIR)/usr/lib/lib*.so* $(1)/usr/lib/</span>
+<span class="cm">endef</span>
+
+<span class="cm">define Package/coreMQTT/install</span>
+<span class="cm">    $(INSTALL_DIR) $(1)/usr/lib</span>
+<span class="cm">    $(CP) $(PKG_INSTALL_DIR)/usr/lib/libcoreMQTT.so* $(1)/usr/lib/</span>
+<span class="cm">endef</span>
+
+<span class="cm">$(eval $(call BuildPackage,coreMQTT))</span>
+</code></pre></div>
+<h3 id="patches">patches</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">diff</span><span class="w"> </span><span class="o">--</span><span class="n">git</span><span class="w"> </span><span class="n">a</span><span class="o">/</span><span class="n">CMakeLists</span><span class="p">.</span><span class="n">txt</span><span class="w"> </span><span class="n">b</span><span class="o">/</span><span class="n">CMakeLists</span><span class="p">.</span><span class="n">txt</span>
+<span class="n">new</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="n">mode</span><span class="w"> </span><span class="mi">100644</span>
+<span class="n">index</span><span class="w"> </span><span class="mf">0000000..754</span><span class="n">a6a2</span>
+<span class="o">---</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">null</span>
+<span class="o">+++</span><span class="w"> </span><span class="n">b</span><span class="o">/</span><span class="n">CMakeLists</span><span class="p">.</span><span class="n">txt</span>
+<span class="err">@@</span><span class="w"> </span><span class="mi">-0</span><span class="p">,</span><span class="mi">0</span><span class="w"> </span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="mi">24</span><span class="w"> </span><span class="err">@@</span>
+<span class="o">+</span><span class="n">cmake_minimum_required</span><span class="p">(</span><span class="n">VERSION</span><span class="w"> </span><span class="mf">3.10</span><span class="p">)</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="n">project</span><span class="p">(</span><span class="n">CoreMQTT</span><span class="p">)</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="n">include</span><span class="p">(</span><span class="n">$</span><span class="p">{</span><span class="n">CMAKE_CURRENT_LIST_DIR</span><span class="p">}</span><span class="o">/</span><span class="n">mqttFilePaths</span><span class="p">.</span><span class="n">cmake</span><span class="p">)</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="n">add_definitions</span><span class="p">(</span><span class="s">"-DMQTT_DO_NOT_USE_CUSTOM_CONFIG"</span><span class="p">)</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="n">include_directories</span><span class="w"> </span><span class="p">(</span>
+<span class="o">+</span><span class="w">       </span><span class="n">$</span><span class="p">{</span><span class="n">MQTT_INCLUDE_PUBLIC_DIRS</span><span class="p">}</span>
+<span class="o">+</span><span class="p">)</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="n">add_library</span><span class="p">(</span><span class="n">coreMQTT</span><span class="w"> </span><span class="n">SHARED</span><span class="w"> </span><span class="n">$</span><span class="p">{</span><span class="n">MQTT_SOURCES</span><span class="p">}</span><span class="w"> </span><span class="n">$</span><span class="p">{</span><span class="n">MQTT_SERIALIZER_SOURCES</span><span class="p">})</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="n">install</span><span class="p">(</span><span class="n">TARGETS</span><span class="w"> </span><span class="n">coreMQTT</span>
+<span class="o">+</span><span class="w">    </span><span class="n">LIBRARY</span><span class="w"> </span><span class="n">DESTINATION</span><span class="w"> </span><span class="n">$</span><span class="p">{</span><span class="n">CMAKE_INSTALL_LIBDIR</span><span class="p">}</span>
+<span class="o">+</span><span class="w">    </span><span class="n">ARCHIVE</span><span class="w"> </span><span class="n">DESTINATION</span><span class="w"> </span><span class="n">$</span><span class="p">{</span><span class="n">CMAKE_INSTALL_LIBDIR</span><span class="p">}</span>
+<span class="o">+</span><span class="w">    </span><span class="n">RUNTIME</span><span class="w"> </span><span class="n">DESTINATION</span><span class="w"> </span><span class="n">$</span><span class="p">{</span><span class="n">CMAKE_INSTALL_BINDIR</span><span class="p">}</span>
+<span class="o">+</span><span class="p">)</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="n">install</span><span class="p">(</span><span class="n">DIRECTORY</span><span class="w"> </span><span class="n">$</span><span class="p">{</span><span class="n">MQTT_INCLUDE_PUBLIC_DIRS</span><span class="p">}</span><span class="o">/</span>
+<span class="o">+</span><span class="w">       </span><span class="n">DESTINATION</span><span class="w"> </span><span class="n">$</span><span class="p">{</span><span class="n">CMAKE_INSTALL_INCLUDEDIR</span><span class="p">}</span><span class="o">/</span>
+<span class="o">+</span><span class="w">    </span><span class="n">FILES_MATCHING</span><span class="w"> </span><span class="n">PATTERN</span><span class="w"> </span><span class="s">"*.h"</span>
+<span class="o">+</span><span class="p">)</span>
+<span class="o">--</span>
+<span class="mf">2.25.1</span>
+</code></pre></div>
+<p>以上是通过打patches生成主CMakelist.txt，可以看到包含了mqttFilePaths.cmake文件。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/其他/快速搭建一个可访问的网页.html">← 快速搭建一个可访问的网页</a>
+    <a class="next" href="/laumy.github.io/posts/调试/cmake构建模版.html">Cmake构建模版 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

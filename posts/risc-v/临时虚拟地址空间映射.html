@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>临时虚拟地址空间映射 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">概述</a><ul></ul></li><li><a href="#_2">页表填充</a><ul><li><a href="#_3">根目录页表填充</a></li><li><a href="#pmd">PMD页表填充</a></li><li><a href="#pte">PTE页表填充</a></li></ul></li><li><a href="#fixmap">Fixmap映射</a><ul><li><a href="#fixmap_1">fixmap初始化</a></li><li><a href="#dtb">DTB的映射</a></li><li><a href="#pmdpte">PMD与PTE页表映射</a></li></ul></li><li><a href="#_4">粗粒度内核映射</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>临时虚拟地址空间映射</h1>
+  <div class="meta">2024-07-07 · risc-v</div>
+  <div class="post-content"><h2 id="_1">概述</h2>
+<p>为什么要做临时虚拟地址空间映射？ 一旦开启MMU，PC的下一条指令地址会经过MMU转化，未开启MMU之前地址的翻译是不需要经过MMU转化直接访问。对应开启MMU之后，应该要使用虚拟地址，才能访问到正确的指令内存。 前面描述了虚拟地址转换为物理地址是通过MMU自动转换，但是需要给MMU创建好页表，这样MMU才能自动查询到物理地址。页表也是对应的物理内存，也是需要分配的，在正常系统运行时，页表的分配可以通过系统的内存管理接口获取到，但是在系统刚运行时，内存管理并没有初始化好，无法调用接口分配到页表，这样即使使能MMU但是找不到页表，也无法翻译出物理地址。 而临时虚拟地址空间映射就是要解决这样的问题，对于页表可以提前定义一个静态的全局数组来代替，填充好页表，使能MMU时，可以从物理地址访问过度到虚拟地址访问，等后期的内存初始化好后，可以分配页表了，再重新映射一遍。 在使能MMU后，要访问内核代码，又要访问设备树？要解决这个问题，内核会先做那些临时虚拟地址空间映射？ （1）固定虚拟地址映射(fixmap)：Linux内核分配了一段固定的虚拟地址范围，这段地址范围称为fixmap，专门用于映射到设备树，early console寄存器等使用，用于在使能MMU时，在未完成内存初始化时可以通过fixmap访问到设备树。 （2） 内核代码的映射(kernel)：开启MMU后，内核代码的指令访问都是虚拟地址，所以需要马上进行映射。内核代码的映射了，虚拟地址范围在编译时就确定了，需要处理的是分配到页表进行填充，而各级页表使用的是事先先分配的全局数组，填充好各级页表即可。 <a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_b4dc7dc2cd99e6cdaffbe6a5bba2bd34.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/四、临时虚拟地址空间映射/images/wp_editor_md_b4dc7dc2cd99e6cdaffbe6a5bba2bd34.jpg"/></a></p>
+<p>（1）内核vmlinux被加载到内存的0x80200000的位置，DTB被加载到0x82200000的位置。 （2）fixmap这段地址编译时由FIXADDR_START和FIXADDR_TOP确定，这段虚拟地址是固定的，如上图例子在0xffffffcefee00000~0xffffffceff000000范围。 （3）kernel地址范围编译的时候确定，从PAGE_OFFSET开始，如上图是0xffffffe000000000开始，与readelf -h工具链查看的入口地址一致。 （4）两段虚拟地址共用了一个根目录页表early_pg_dir[512]，因为对应3级页表根目录页表每个表项寻址范围1G，512个表项共计512G范围，是完全足够的。 （5）kernel虚拟地址使用的粗粒度映射，二级页目录为early_pmd[512]，每个页表项2M寻址访问，10M的空间占用了5个页表项。 （6）fixmap虚拟地址目前主要用于映射到DTB，本身的映射范围有2M的空间，预留了1M的空间用于DTB，DTB使用的细粒度映射，二级页表使用的是fixmap_pmd[512]，三级页表使用的是fixmap_pte[512]。 （7）上述涉及的4个页表都是定义的全局数组，位于vmlinux中被事先加载到物理内存中。 （8）fixmap的地址在PAGE_OFFSET下面，与kernel之间还有vmalloc和pci_io的地址空间。即FIXADDR_TOP= PCI_IO_START，PCI_IO_END=VMEMMAP_START，VMALLOC_END=PAGE_OFFSET - 1。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">asmlinkage</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">setup_vm</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">dtb_pa</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">end_va</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">load_pa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">_start</span><span class="p">);</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">load_sz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">_end</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">load_pa</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">map_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">best_map_size</span><span class="p">(</span><span class="n">load_pa</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_EARLY_MAPPING_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">①_start和_end分别为内核加载到的物理地址起始和结束位置</span><span class="err">。</span>
+<span class="w">    </span><span class="n">va_pa_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">load_pa</span><span class="p">;</span>
+<span class="w">    </span><span class="n">pfn_base</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">load_pa</span><span class="p">);</span>
+<span class="w">    </span><span class="n">②va_pa_offset内核虚拟地址相对物理地址的偏移量</span><span class="err">，</span><span class="n">pfn_base是内核开始地址对应的pfn</span><span class="err">，</span>
+<span class="n">即叶帧号</span><span class="err">。</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Enforce boot alignment requirements of RV32 and</span>
+<span class="cm">     * RV64 by only allowing PMD or PGD mappings.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">map_size</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* Sanity check alignment and size */</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">((</span><span class="n">PAGE_OFFSET</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">PGDIR_SIZE</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">((</span><span class="n">load_pa</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">map_size</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">load_sz</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">MAX_EARLY_MAPPING_SIZE</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* Setup early PGD for fixmap */</span>
+<span class="w">    </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">early_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="n">FIXADDR_START</span><span class="p">,</span>
+<span class="w">               </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">fixmap_pgd_next</span><span class="p">,</span><span class="w"> </span><span class="n">PGDIR_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="n">③填充FIXADDR_START虚拟地址根目录页表项</span><span class="err">，</span><span class="n">因为映射大小PGDIR_SIZE</span><span class="err">，</span><span class="n">所以只填充根目录页表项</span><span class="err">。</span><span class="n">页表项PFN指向下一级页表的物理地址</span><span class="err">，</span><span class="n">为fixmap_pgd_next</span><span class="err">，</span><span class="n">本章实验是3级页表</span><span class="err">，</span><span class="n">所以为fixmap_pmd</span><span class="p">[</span><span class="mi">512</span><span class="p">]</span><span class="err">，</span><span class="n">页表项的属性为PAGE_TABLE</span><span class="p">(</span><span class="mh">0x1</span><span class="p">)</span><span class="err">。</span><span class="n">最终的填充内容就是上图</span>
+<span class="n">early_pg_dir</span><span class="p">[</span><span class="mi">315</span><span class="p">]</span><span class="o">=</span><span class="p">(</span><span class="mh">0x80a83000</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">12</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="mh">0x01</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x202a0c01</span><span class="err">，</span><span class="n">格式见3</span><span class="mf">.3.2</span><span class="n">章节实际的物理地址需要右移12转化为PPN</span><span class="err">，</span><span class="n">然后再左移10</span>
+
+<span class="cp">#ifndef __PAGETABLE_PMD_FOLDED</span>
+<span class="w">    </span><span class="cm">/* Setup fixmap PMD */</span>
+<span class="w">    </span><span class="n">create_pmd_mapping</span><span class="p">(</span><span class="n">fixmap_pmd</span><span class="p">,</span><span class="w"> </span><span class="n">FIXADDR_START</span><span class="p">,</span>
+<span class="w">               </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">fixmap_pte</span><span class="p">,</span><span class="w"> </span><span class="n">PMD_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="n">④填充FIXADDR_START二级页表所在页表项</span><span class="err">，</span><span class="n">因为映射的地址大小时PMD_SIZE</span><span class="p">,</span><span class="n">所以只填充二级页表</span><span class="err">。</span><span class="n">页表项中指向的下一级页表为fixmap_pte</span><span class="p">[</span><span class="mi">512</span><span class="p">],</span><span class="n">页表项属性为PAGE_TABLE</span><span class="err">。</span><span class="n">最终的填充内容就是上图</span>
+<span class="n">fixmap_pmd</span><span class="p">[</span><span class="mi">503</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="mh">0x80a85000</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">12</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="mh">0x01</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x202a1401</span><span class="err">。</span>
+<span class="n">经过③和④步骤</span><span class="err">，</span><span class="n">就将FIXADDR_START</span><span class="o">~</span><span class="n">FIXADDR_TOP这段虚拟地址空间的PGD</span><span class="o">/</span><span class="n">PMD页表填充好了</span><span class="err">，</span><span class="n">但是这段虚拟地址空间最终映射到那块物理地址了</span><span class="err">？</span><span class="n">最终会映射到DBT存在的那段物理地址</span><span class="err">，</span><span class="n">而DBT会在接下来再进行映射</span><span class="err">，</span><span class="n">所以了PTE页表项暂时先不填充</span><span class="err">，</span><span class="n">待到后续再进行填充</span><span class="err">。</span>
+<span class="w">    </span><span class="cm">/* Setup trampoline PGD and PMD */</span>
+<span class="w">    </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">trampoline_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="p">,</span>
+<span class="w">               </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">trampoline_pmd</span><span class="p">,</span><span class="w"> </span><span class="n">PGDIR_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">create_pmd_mapping</span><span class="p">(</span><span class="n">trampoline_pmd</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="p">,</span>
+<span class="w">               </span><span class="n">load_pa</span><span class="p">,</span><span class="w"> </span><span class="n">PMD_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL_EXEC</span><span class="p">);</span>
+<span class="w">    </span><span class="n">⑤</span><span class="w"> </span><span class="n">这里还对PAGE_OFFSET</span><span class="o">~</span><span class="n">PAGE_OFFSET</span><span class="o">+</span><span class="mi">2</span><span class="n">M的空间做了一个临时粗粒度映射</span><span class="err">，</span><span class="n">主要的目的是用于后续使能MMU时</span><span class="err">，</span><span class="n">能够无缝从物理地址切换到虚拟地址</span><span class="err">，</span><span class="n">以至于不要让访问的地址查找不到页表而进入异常</span><span class="err">。</span><span class="n">用到的根页表是trampoline_pg_dir</span><span class="p">[</span><span class="mi">512</span><span class="p">]</span><span class="n">和PMD页表是trampoline_pmd</span><span class="p">[</span><span class="mi">512</span><span class="p">]</span><span class="err">。</span><span class="n">trampoline_pg_dir看起来有点多余</span><span class="err">，</span><span class="n">因为接下来会对内核做映射</span><span class="err">，</span><span class="n">页表使用early_pg_dir和early_pmd_dir</span><span class="err">。</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="cm">/* Setup trampoline PGD */</span>
+<span class="w">    </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">trampoline_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="p">,</span>
+<span class="w">               </span><span class="n">load_pa</span><span class="p">,</span><span class="w"> </span><span class="n">PGDIR_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL_EXEC</span><span class="p">);</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Setup early PGD covering entire kernel which will allows</span>
+<span class="cm">     * us to reach paging_init(). We map all memory banks later</span>
+<span class="cm">     * in setup_vm_final() below.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">end_va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">load_sz</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="p">;</span><span class="w"> </span><span class="n">va</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end_va</span><span class="p">;</span><span class="w"> </span><span class="n">va</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">map_size</span><span class="p">)</span>
+<span class="w">        </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">early_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="n">va</span><span class="p">,</span>
+<span class="w">                   </span><span class="n">load_pa</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">va</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="p">),</span>
+<span class="w">                   </span><span class="n">map_size</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL_EXEC</span><span class="p">);</span>
+<span class="n">⑥对虚拟地址PAGE_OFFSET</span><span class="o">~</span><span class="n">end_va范围进行映射</span><span class="err">，</span><span class="n">使用early_pg_dir</span><span class="p">[</span><span class="mi">512</span><span class="p">]</span><span class="n">作为根目录页表</span><span class="err">，</span><span class="n">由于映射的大小时map_size</span><span class="o">=</span><span class="mh">0x200000</span><span class="p">;</span><span class="n">所以在填充根目录页表后</span><span class="err">，</span><span class="n">会继续向下遍历下一级PMD页表</span><span class="err">，</span><span class="n">填充到PMD页表时map_size</span><span class="o">=</span><span class="n">PMD_SIZE</span><span class="p">,</span><span class="n">页表项属性为PAGE_KERNEL_EXEC就不再往下遍历填充PTE页表了</span><span class="err">，</span><span class="n">这样就完成一个PGD</span><span class="o">/</span><span class="n">PMD页表的填充</span><span class="err">，</span><span class="n">达成一个PAGE_OFFSET</span><span class="o">~</span><span class="n">end_va地址范围的粗粒度映射</span><span class="err">，</span><span class="n">对应上图的10M空间</span><span class="err">。</span>
+
+<span class="w"> </span><span class="cm">/* Create fixed mapping for early FDT parsing */</span>
+<span class="w">    </span><span class="n">end_va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">FIX_FDT_SIZE</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">);</span><span class="w"> </span><span class="n">va</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end_va</span><span class="p">;</span><span class="w"> </span><span class="n">va</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">)</span>
+<span class="w">        </span><span class="n">create_pte_mapping</span><span class="p">(</span><span class="n">fixmap_pte</span><span class="p">,</span><span class="w"> </span><span class="n">va</span><span class="p">,</span>
+<span class="w">                   </span><span class="n">dtb_pa</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">va</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">)),</span>
+<span class="w">                   </span><span class="n">PAGE_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL</span><span class="p">);</span>
+<span class="n">⑦__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">)</span><span class="o">~</span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">FIX_FDT_SIZE这段虚拟地址空间映射到DBT物理空间</span><span class="err">，</span><span class="n">这段虚拟地址空间在FIXMAP范围内</span><span class="err">，</span><span class="n">由于FIXMAP的虚拟地址空间已经填充好了PGD</span><span class="o">/</span><span class="n">PMD页表项</span><span class="err">，</span><span class="n">要映射到DTB只需要填充PTE页表项目即可</span><span class="err">，</span><span class="n">所以这里调用的是create_pte_mapping填充PTE页表</span><span class="err">。</span>
+
+<span class="w">    </span><span class="cm">/* Save pointer to DTB for early FDT parsing */</span>
+<span class="n">dtb_early_va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">dtb_pa</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="o">~</span><span class="n">PAGE_MASK</span><span class="p">);</span>
+<span class="w">    </span><span class="cm">/* Save physical address for memblock reservation */</span>
+<span class="n">dtb_early_pa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dtb_pa</span><span class="p">;</span>
+<span class="n">⑧dtb_early_va保存的就是dtb起始的虚拟地址</span><span class="err">，</span><span class="n">dtb_early_pa是dtb的其实物理地址</span><span class="err">。</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="_2">页表填充</h2>
+<p>所谓映射，实际上分配页表，然后填充页表项。那么页表的填充涉及到3个函数，分别对应的就是PGD/PMD/PTE页表项目的填充。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">pgd_t</span><span class="w"> </span><span class="o">*</span><span class="n">pgdp</span><span class="p">,</span>
+<span class="w">                      </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">pa</span><span class="p">,</span>
+<span class="w">                      </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">sz</span><span class="p">,</span><span class="w"> </span><span class="n">pgprot_t</span><span class="w"> </span><span class="n">prot</span><span class="p">)</span>
+<span class="o">-</span><span class="n">pgd</span><span class="o">:</span><span class="n">页表的地址</span>
+<span class="o">-</span><span class="n">va</span><span class="o">:</span><span class="n">映射的虚拟地址</span>
+<span class="o">-</span><span class="n">pa</span><span class="o">:</span><span class="n">当sz等于PGDIR_SIZE</span><span class="o">/</span><span class="n">PMD_SIZE时</span><span class="err">，</span><span class="n">pa就是下一级页表的物理地址</span><span class="err">。</span><span class="n">否则就是实际的物理地址</span><span class="err">。</span><span class="n">PGD页表项的映射地址范围</span><span class="err">，</span><span class="mi">3</span><span class="n">级页表是1G</span><span class="err">，</span><span class="n">PMD页表项的映射地址范围</span><span class="err">，</span><span class="mi">3</span><span class="n">级页表是2M</span><span class="err">。</span>
+<span class="o">-</span><span class="n">sz</span><span class="o">:</span><span class="n">映射的大小</span>
+<span class="o">-</span><span class="n">prot</span><span class="o">:</span><span class="n">页表项的属性</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">create_pmd_mapping</span><span class="p">(</span><span class="n">pmd_t</span><span class="w"> </span><span class="o">*</span><span class="n">pmdp</span><span class="p">,</span>
+<span class="w">                      </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">pa</span><span class="p">,</span>
+<span class="w">                      </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">sz</span><span class="p">,</span><span class="w"> </span><span class="n">pgprot_t</span><span class="w"> </span><span class="n">prot</span><span class="p">)</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">create_pte_mapping</span><span class="p">(</span><span class="n">pte_t</span><span class="w"> </span><span class="o">*</span><span class="n">ptep</span><span class="p">,</span>
+<span class="w">                      </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">pa</span><span class="p">,</span>
+<span class="w">                      </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">sz</span><span class="p">,</span><span class="w"> </span><span class="n">pgprot_t</span><span class="w"> </span><span class="n">prot</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="_3">根目录页表填充</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">create_pgd_mapping</span><span class="p">(</span><span class="n">pgd_t</span><span class="w"> </span><span class="o">*</span><span class="n">pgdp</span><span class="p">,</span>
+<span class="w">                      </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">pa</span><span class="p">,</span>
+<span class="w">                      </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">sz</span><span class="p">,</span><span class="w"> </span><span class="n">pgprot_t</span><span class="w"> </span><span class="n">prot</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">pgd_next_t</span><span class="w"> </span><span class="o">*</span><span class="n">nextp</span><span class="p">;</span>
+<span class="w">    </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">next_phys</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">pgd_index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pgd_index</span><span class="p">(</span><span class="n">va</span><span class="p">);</span>
+<span class="w">    </span><span class="n">①</span><span class="w"> </span><span class="n">将虚拟地址转化为页表的index</span><span class="err">，</span><span class="p">((</span><span class="n">addr</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">PGDIR_SHIFT</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">PTRS_PER_PGD</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sz</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">PGDIR_SIZE</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pgd_val</span><span class="p">(</span><span class="n">pgdp</span><span class="p">[</span><span class="n">pgd_index</span><span class="p">])</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">            </span><span class="n">pgdp</span><span class="p">[</span><span class="n">pgd_index</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pfn_pgd</span><span class="p">(</span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">pa</span><span class="p">),</span><span class="w"> </span><span class="n">prot</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="n">②</span><span class="w"> </span><span class="n">如果sz为PGDIR_SIZE</span><span class="err">，</span><span class="n">pa代表的就是下一级页表基地址</span><span class="err">，</span><span class="n">就仅填充PGD页表项</span><span class="err">，</span><span class="n">不再向下遍历填充下一级页表</span><span class="err">。</span><span class="n">先判断pgd_val</span><span class="p">(</span><span class="n">pgdp</span><span class="p">[</span><span class="n">pgd_index</span><span class="p">])</span><span class="n">对应页表项是否填充过</span><span class="err">，</span><span class="n">如果已经填充过就直接返回</span><span class="err">。</span><span class="n">未填充过就把</span><span class="p">(</span><span class="n">pa</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">12</span><span class="p">)</span><span class="w">  </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">prot写到表项中</span><span class="err">，</span><span class="n">见3</span><span class="mf">.3.2</span><span class="n">章节页表项格式</span><span class="err">，</span><span class="n">其中pa</span><span class="o">&gt;&gt;</span><span class="mi">12</span><span class="n">是计算ppn</span><span class="err">。</span>
+<span class="n">③</span><span class="w"> </span><span class="n">如果sz不等于PGDIR_SIZE</span><span class="err">，</span><span class="n">那么除了要填充PGD页表项外</span><span class="err">，</span><span class="n">还有向下遍历填充下一级页表</span><span class="err">。</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pgd_val</span><span class="p">(</span><span class="n">pgdp</span><span class="p">[</span><span class="n">pgd_index</span><span class="p">])</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">next_phys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_pgd_next</span><span class="p">(</span><span class="n">va</span><span class="p">);</span>
+<span class="w">        </span><span class="n">pgdp</span><span class="p">[</span><span class="n">pgd_index</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pfn_pgd</span><span class="p">(</span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">next_phys</span><span class="p">),</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="w">        </span><span class="n">nextp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_pgd_next_virt</span><span class="p">(</span><span class="n">next_phys</span><span class="p">);</span>
+<span class="w">        </span><span class="n">memset</span><span class="p">(</span><span class="n">nextp</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+<span class="n">④</span><span class="w"> </span><span class="n">对应的页表项</span><span class="o">==</span><span class="mi">0</span><span class="err">，</span><span class="n">表示未填充过</span><span class="err">。</span><span class="n">先使用alloc_pgd_next分配下一级页表</span><span class="err">，</span><span class="n">因为要得到下一级页表的物理地址才能填充</span><span class="err">。</span><span class="n">如果是3级页表alloc_pgd_next</span><span class="o">=</span><span class="n">alloc_pmd</span><span class="err">，</span><span class="n">如果是2级页表alloc_pdg_next</span><span class="o">=</span><span class="n">alloc_pte</span><span class="err">。</span><span class="n">这里是alloc_pmd</span><span class="err">，</span><span class="n">由于memblcok也还未初始化</span><span class="err">，</span><span class="n">这里直接就使用的是early_pmd</span><span class="p">[]</span><span class="n">数组</span><span class="err">。</span>
+<span class="n">分配到下一级页表后</span><span class="err">，</span><span class="n">就将下一级页表的地址转化为PPN再与页表属性相或赋值到pgdp</span><span class="p">[]</span><span class="n">中就完成了页表项的填充</span><span class="err">。</span><span class="n">这里的页表属性为PAGE_TABLE</span><span class="p">,</span><span class="n">其值为V位为1</span><span class="err">，</span><span class="n">其他都为0</span><span class="err">，</span><span class="n">表示非子叶页表</span><span class="err">。</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">next_phys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PFN_PHYS</span><span class="p">(</span><span class="n">_pgd_pfn</span><span class="p">(</span><span class="n">pgdp</span><span class="p">[</span><span class="n">pgd_index</span><span class="p">]));</span>
+<span class="w">        </span><span class="n">nextp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_pgd_next_virt</span><span class="p">(</span><span class="n">next_phys</span><span class="p">);</span>
+<span class="n">⑤如果已经填充了页表项</span><span class="err">，</span><span class="n">那么从页表项中获取到下一级页表的物理地址</span><span class="err">。</span><span class="n">获取到下一级页表的物理地址后</span><span class="err">，</span><span class="n">需要调用get_pgd_next_virt将其转化为虚拟地址</span><span class="err">。</span><span class="n">因为若是开了MMU之后</span><span class="err">，</span><span class="n">使用的是虚拟地址</span><span class="err">，</span><span class="n">否则访问不到页表的内存</span><span class="err">。</span><span class="n">见下描述</span><span class="err">。</span>
+<span class="p">}</span>
+
+<span class="n">create_pgd_next_mapping</span><span class="p">(</span><span class="n">nextp</span><span class="p">,</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">pa</span><span class="p">,</span><span class="w"> </span><span class="n">sz</span><span class="p">,</span><span class="w"> </span><span class="n">prot</span><span class="p">);</span>
+<span class="n">⑥填充完PGD页表项后</span><span class="err">，</span><span class="n">需要接着再往下填充下一级页表</span><span class="err">。</span><span class="n">其中nextp为下一级页表的地址</span><span class="err">，</span><span class="n">可能是物理地址也有可能是虚拟地址</span><span class="err">。</span>
+<span class="p">}</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">alloc_pmd</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">va</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">pmd_num</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">mmu_enabled</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">memblock_phys_alloc</span><span class="p">(</span><span class="n">PAGE_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">①</span><span class="w"> </span><span class="n">如果使能mmu</span><span class="err">，</span><span class="n">就调用memblock_phys_alloc分配内存</span><span class="err">。</span>
+
+<span class="w">    </span><span class="n">pmd_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">va</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">PGDIR_SHIFT</span><span class="p">;</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">pmd_num</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">NUM_EARLY_PMDS</span><span class="p">);</span>
+<span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="o">&amp;</span><span class="n">early_pmd</span><span class="p">[</span><span class="n">pmd_num</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">PTRS_PER_PMD</span><span class="p">];</span>
+<span class="n">②</span><span class="w"> </span><span class="n">如果未使能mmu</span><span class="err">，</span><span class="n">页表就是使用静态的early_pmd</span><span class="p">[</span><span class="n">xxx</span><span class="p">]</span><span class="err">。</span>
+<span class="p">}</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="n">pmd_t</span><span class="w"> </span><span class="o">*</span><span class="n">__init</span><span class="w"> </span><span class="n">get_pmd_virt</span><span class="p">(</span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">pa</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">mmu_enabled</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">clear_fixmap</span><span class="p">(</span><span class="n">FIX_PMD</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="n">pmd_t</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">set_fixmap_offset</span><span class="p">(</span><span class="n">FIX_PMD</span><span class="p">,</span><span class="w"> </span><span class="n">pa</span><span class="p">);</span>
+<span class="w">    </span><span class="n">①</span><span class="w"> </span><span class="n">如果使能了mmu</span><span class="err">，</span><span class="n">将物理地址反向映射到fixmap的空间</span><span class="err">，</span><span class="n">也就是FIX_PMD这个虚拟地址再使能mmu后访问到pa</span><span class="err">，</span><span class="n">即FIX_PMD与pa做了虚拟地址到物理地址的映射</span><span class="err">。</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="n">pmd_t</span><span class="w"> </span><span class="o">*</span><span class="p">)((</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">pa</span><span class="p">);</span>
+<span class="w">    </span><span class="n">②</span><span class="w"> </span><span class="n">如果没有使能mmu</span><span class="err">，</span><span class="n">直接返回物理地址即可</span><span class="err">。</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="pmd">PMD页表填充</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">create_pmd_mapping</span><span class="p">(</span><span class="n">pmd_t</span><span class="w"> </span><span class="o">*</span><span class="n">pmdp</span><span class="p">,</span>
+<span class="w">                      </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">pa</span><span class="p">,</span>
+<span class="w">                      </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">sz</span><span class="p">,</span><span class="w"> </span><span class="n">pgprot_t</span><span class="w"> </span><span class="n">prot</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">pte_t</span><span class="w"> </span><span class="o">*</span><span class="n">ptep</span><span class="p">;</span>
+<span class="w">    </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">pte_phys</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">pmd_index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmd_index</span><span class="p">(</span><span class="n">va</span><span class="p">);</span>
+<span class="w">    </span><span class="n">如果sz</span><span class="o">=</span><span class="n">PMD_SIZE</span><span class="err">，</span><span class="n">不再填充PTE页表</span><span class="err">，</span><span class="n">可能是粗粒度映射</span><span class="err">，</span><span class="n">也有可能是fixmap的填充</span><span class="err">。</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sz</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">PMD_SIZE</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pmd_none</span><span class="p">(</span><span class="n">pmdp</span><span class="p">[</span><span class="n">pmd_index</span><span class="p">]))</span>
+<span class="w">            </span><span class="n">pmdp</span><span class="p">[</span><span class="n">pmd_index</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pfn_pmd</span><span class="p">(</span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">pa</span><span class="p">),</span><span class="w"> </span><span class="n">prot</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pmd_none</span><span class="p">(</span><span class="n">pmdp</span><span class="p">[</span><span class="n">pmd_index</span><span class="p">]))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pte_phys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_pte</span><span class="p">(</span><span class="n">va</span><span class="p">);</span><span class="c1">//分配下一级页表PTE</span>
+<span class="w">        </span><span class="n">pmdp</span><span class="p">[</span><span class="n">pmd_index</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pfn_pmd</span><span class="p">(</span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">pte_phys</span><span class="p">),</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span><span class="c1">//填充pmd页表项</span>
+<span class="w">        </span><span class="n">ptep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_pte_virt</span><span class="p">(</span><span class="n">pte_phys</span><span class="p">);</span>
+<span class="c1">//将下一级页表的物理地址转化为虚拟地址，当使能MMU时，使用的是虚拟地址。</span>
+<span class="w">        </span><span class="n">memset</span><span class="p">(</span><span class="n">ptep</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">);</span><span class="w"> </span><span class="c1">//将下一级页表的PTE清空。</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pte_phys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PFN_PHYS</span><span class="p">(</span><span class="n">_pmd_pfn</span><span class="p">(</span><span class="n">pmdp</span><span class="p">[</span><span class="n">pmd_index</span><span class="p">]));</span>
+<span class="w">        </span><span class="n">ptep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_pte_virt</span><span class="p">(</span><span class="n">pte_phys</span><span class="p">);</span>
+<span class="w">        </span><span class="c1">//获取下一级页表的虚拟地址。</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">create_pte_mapping</span><span class="p">(</span><span class="n">ptep</span><span class="p">,</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">pa</span><span class="p">,</span><span class="w"> </span><span class="n">sz</span><span class="p">,</span><span class="w"> </span><span class="n">prot</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>pmd页表项的填充与PGD页表项的填充逻辑类似，当sz为PMD_SIZE时，传进来的pa就是下一级页表或者就是映射的物理地址（粗粒度映射的时候）。 是否是粗粒度映射主要看PMD页表项的属性值，当属性值XRW权限为可读可写可执行，那么该页表项指向的就是实际的物理地址而不是PTE页表的基地址。</p>
+<h3 id="pte">PTE页表填充</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">create_pte_mapping</span><span class="p">(</span><span class="n">pte_t</span><span class="w"> </span><span class="o">*</span><span class="n">ptep</span><span class="p">,</span>
+<span class="w">                      </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">pa</span><span class="p">,</span>
+<span class="w">                      </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">sz</span><span class="p">,</span><span class="w"> </span><span class="n">pgprot_t</span><span class="w"> </span><span class="n">prot</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="kt">uintptr_t</span><span class="w"> </span><span class="n">pte_index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pte_index</span><span class="p">(</span><span class="n">va</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">sz</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pte_none</span><span class="p">(</span><span class="n">ptep</span><span class="p">[</span><span class="n">pte_index</span><span class="p">]))</span>
+<span class="w">        </span><span class="n">ptep</span><span class="p">[</span><span class="n">pte_index</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pfn_pte</span><span class="p">(</span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">pa</span><span class="p">),</span><span class="w"> </span><span class="n">prot</span><span class="p">);</span>
+<span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>PTE页表是最后一级页表，因此填充的逻辑就比较简单了，计算pa所在的PPN，再左移动10位或上prot，赋值到对应的表项即可。</p>
+<h2 id="fixmap">Fixmap映射</h2>
+<p>Fixmap是一段固定的虚拟地址空间，使能MMU后通过这段虚拟空间先访问到物理空间，具体有那些模块可以看看下面数据结构。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">enum</span><span class="w"> </span><span class="n">fixed_addresses</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">FIX_HOLE</span><span class="p">,</span>
+<span class="cp">#define FIX_FDT_SIZE    SZ_1M</span>
+<span class="w">    </span><span class="n">FIX_FDT_END</span><span class="p">,</span>
+<span class="w">    </span><span class="n">FIX_FDT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FIX_FDT_END</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">FIX_FDT_SIZE</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="n">FIX_PTE</span><span class="p">,</span>
+<span class="w">    </span><span class="n">FIX_PMD</span><span class="p">,</span>
+<span class="w">    </span><span class="n">FIX_EARLYCON_MEM_BASE</span><span class="p">,</span>
+<span class="w">    </span><span class="n">__end_of_fixed_addresses</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>从上可知，fixmap的地址空间主要分类有4种 - FIX_FDT: 用于映射到DBT的，范围为FIX_FDT~FIX_END，通过这段地址访问到设备树。 - FIX_PTE: 用于映射pte页表，范围为FIX_PTE~FIX_PTE+4K，即一个页大小。场景是当使能了MMU后，对于页表的访问也先需要通过虚拟地址访问，因此FIX_PTE就是对应页表所在物理内存的虚拟地址。 - FIX_PMD: 用于映射pmd页表，范围为FIX_PMD~FIX_PMD+4K，即一个页大小。用于读写pmd页表的物理内存。 - FIX_EARLYCON_MEM_BASE: 用于映射到earlycon。 几个地址如何保证落在FIXADDR_START~FIXADDR_TOP了，先来看看在映射DBT时的实现：</p>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="cm">/* Create fixed mapping for early FDT parsing */</span>
+<span class="n">end_va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">FIX_FDT_SIZE</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">);</span><span class="w"> </span><span class="n">va</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end_va</span><span class="p">;</span><span class="w"> </span><span class="n">va</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">)</span>
+<span class="w">        </span><span class="n">create_pte_mapping</span><span class="p">(</span><span class="n">fixmap_pte</span><span class="p">,</span><span class="w"> </span><span class="n">va</span><span class="p">,</span>
+<span class="w">                   </span><span class="n">dtb_pa</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">va</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">)),</span>
+<span class="w">                   </span><span class="n">PAGE_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL</span><span class="p">);</span>
+</code></pre></div>
+<p>可以看在映射对FIX_FDT~FIX_FDT+ FIX_FDT_SIZE的范围调用__fix_to_virt函数进行了转化，转化的地址是由FIXADDR_TOP向下相减，因此FIX_FDT转化的地址一定会落在FIXADDR_START~FIXADDR_TOP范围。</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">#define __fix_to_virt(x)    (FIXADDR_TOP - ((x) &lt;&lt; PAGE_SHIFT))</span>
+<span class="cp">#define __virt_to_fix(x)    ((FIXADDR_TOP - ((x)&amp;PAGE_MASK)) &gt;&gt; PAGE_SHIFT)</span>
+</code></pre></div>
+<p>Fixmap映射过程主要调用了create_pgd_mapping/create_pmd_mapping/create_pte_mapping 3个函数填充对应的PGD/PMD/PTE页表，由于内存管理还没有准备好，所以页表使用的是全局的静态数组，如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">pmd_t</span><span class="w"> </span><span class="n">early_pmd</span><span class="p">[</span><span class="n">PTRS_PER_PMD</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">NUM_EARLY_PMDS</span><span class="p">]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">__aligned</span><span class="p">(</span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+<span class="n">pmd_t</span><span class="w"> </span><span class="n">fixmap_pmd</span><span class="p">[</span><span class="n">PTRS_PER_PMD</span><span class="p">]</span><span class="w"> </span><span class="n">__page_aligned_bss</span><span class="p">;</span>
+<span class="n">pte_t</span><span class="w"> </span><span class="n">fixmap_pte</span><span class="p">[</span><span class="n">PTRS_PER_PTE</span><span class="p">]</span><span class="w"> </span><span class="n">__page_aligned_bss</span><span class="p">;</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_a00c61b497142f9df8142772c118635f.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/四、临时虚拟地址空间映射/images/wp_editor_md_a00c61b497142f9df8142772c118635f.jpg"/></a></p>
+<p>上述除了FIX_FDT的范围由FIX_FDT_SIZE决定外，其他的FIX_PTE、FIX_PMD、EARLYCON都是4K范围。</p>
+<h3 id="fixmap_1">fixmap初始化</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">asmlinkage</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">setup_vm</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">dtb_pa</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">     </span><span class="cm">/* Setup early PGD for fixmap */</span>
+<span class="w">    </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">early_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="n">FIXADDR_START</span><span class="p">,</span>
+<span class="w">               </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">fixmap_pgd_next</span><span class="p">,</span><span class="w"> </span><span class="n">PGDIR_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="n">③填充FIXADDR_START虚拟地址根目录页表项</span><span class="err">，</span><span class="n">因为映射大小PGDIR_SIZE</span><span class="err">，</span><span class="n">所以只填充根目录页表项</span><span class="err">。</span><span class="n">页表项PFN指向下一级页表的物理地址</span><span class="err">，</span><span class="n">为fixmap_pgd_next</span><span class="err">，</span><span class="n">本章实验是3级页表</span><span class="err">，</span><span class="n">所以为fixmap_pmd</span><span class="p">[</span><span class="mi">512</span><span class="p">]</span><span class="err">，</span><span class="n">页表项的属性为PAGE_TABLE</span><span class="p">(</span><span class="mh">0x1</span><span class="p">)</span><span class="err">。</span><span class="n">最终的填充内容就是上图</span>
+<span class="n">early_pg_dir</span><span class="p">[</span><span class="mi">315</span><span class="p">]</span><span class="o">=</span><span class="p">(</span><span class="mh">0x80a83000</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">12</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="mh">0x01</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x202a0c01</span><span class="err">，</span><span class="n">格式见3</span><span class="mf">.3.2</span><span class="n">章节实际的物理地址需要右移12转化为PPN</span><span class="err">，</span><span class="n">然后再左移10</span>
+
+<span class="w">    </span><span class="cm">/* Setup fixmap PMD */</span>
+<span class="w">    </span><span class="n">create_pmd_mapping</span><span class="p">(</span><span class="n">fixmap_pmd</span><span class="p">,</span><span class="w"> </span><span class="n">FIXADDR_START</span><span class="p">,</span>
+<span class="w">               </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">fixmap_pte</span><span class="p">,</span><span class="w"> </span><span class="n">PMD_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="n">④填充FIXADDR_START二级页表所在页表项</span><span class="err">，</span><span class="n">因为映射的地址大小时PMD_SIZE</span><span class="p">,</span><span class="n">所以只填充二级页表</span><span class="err">。</span><span class="n">页表项中指向的下一级页表为fixmap_pte</span><span class="p">[</span><span class="mi">512</span><span class="p">],</span><span class="n">页表项属性为PAGE_TABLE</span><span class="err">。</span><span class="n">最终的填充内容就是上图</span>
+<span class="n">fixmap_pmd</span><span class="p">[</span><span class="mi">503</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="mh">0x80a85000</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">12</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="mh">0x01</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x202a1401</span><span class="err">。</span>
+<span class="n">经过③和④步骤</span><span class="err">，</span><span class="n">就将FIXADDR_START</span><span class="o">~</span><span class="n">FIXADDR_TOP这段虚拟地址空间的PGD</span><span class="o">/</span><span class="n">PMD页表填充好了</span><span class="err">，</span><span class="n">但是这段虚拟地址空间最终映射到那块物理地址了</span><span class="err">？</span><span class="n">最终会映射到DBT存在的那段物理地址</span><span class="err">，</span><span class="n">而DBT会在接下来再进行映射</span><span class="err">，</span><span class="n">所以了PTE页表项暂时先不填充</span><span class="err">，</span><span class="n">待到后续再进行填充</span><span class="err">。</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>fixmap的映射是对3个全局数组的填充，事先会填充好PGD/PMD，而PTE页表根据是那个模块使用再进行填充，具体的填充过程在上一章节已经描述，这里就不再赘述。</p>
+<h3 id="dtb">DTB的映射</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">asmlinkage</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">setup_vm</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">dtb_pa</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w"> </span><span class="p">........</span>
+<span class="w"> </span><span class="cm">/* Create fixed mapping for early FDT parsing */</span>
+<span class="w">    </span><span class="n">end_va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">FIX_FDT_SIZE</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">);</span><span class="w"> </span><span class="n">va</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end_va</span><span class="p">;</span><span class="w"> </span><span class="n">va</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">)</span>
+<span class="w">        </span><span class="n">create_pte_mapping</span><span class="p">(</span><span class="n">fixmap_pte</span><span class="p">,</span><span class="w"> </span><span class="n">va</span><span class="p">,</span>
+<span class="w">                   </span><span class="n">dtb_pa</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">va</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">)),</span>
+<span class="w">                   </span><span class="n">PAGE_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL</span><span class="p">);</span>
+<span class="n">⑦__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">)</span><span class="o">~</span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">FIX_FDT_SIZE这段虚拟地址空间映射到DBT物理空间</span><span class="err">，</span><span class="n">这段虚拟地址空间在FIXMAP范围内</span><span class="err">，</span><span class="n">由于FIXMAP的虚拟地址空间已经填充好了PGD</span><span class="o">/</span><span class="n">PMD页表项</span><span class="err">，</span><span class="n">要映射到DTB只需要填充PTE页表项目即可</span><span class="err">，</span><span class="n">所以这里调用的是create_pte_mapping填充PTE页表</span><span class="err">。</span>
+
+<span class="w">    </span><span class="cm">/* Save pointer to DTB for early FDT parsing */</span>
+<span class="n">dtb_early_va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">fix_to_virt</span><span class="p">(</span><span class="n">FIX_FDT</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">dtb_pa</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="o">~</span><span class="n">PAGE_MASK</span><span class="p">);</span>
+<span class="w">    </span><span class="cm">/* Save physical address for memblock reservation */</span>
+<span class="n">dtb_early_pa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dtb_pa</span><span class="p">;</span>
+<span class="n">⑧dtb_early_va保存的就是dtb起始的虚拟地址</span><span class="err">，</span><span class="n">dtb_early_pa是dtb的其实物理地址</span><span class="err">。</span>
+<span class="p">........</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="pmdpte">PMD与PTE页表映射</h3>
+<p>页表也是存储在物理内存中的，分配页表可以是静态的全局数组也也可使用内存分配接口获取到。分配到页表的物理内存后需要进行填充，而使能mmu后访问物理内存必现要使用虚拟地址，填充页表是为了做虚拟地址转化，访问页表又要虚拟地址，那如何解决这个问题了？Fixmap的fix_pte和fix_pmd就排上用场了，在fixmap固定的虚拟地址空间访问，前面已经填充了PGD/PMD，剩下再填充好PTE就可以转化到相应物理地址，因此当新分配的页表要访问时，先将其物理地址填充到fixmap对应的pte表项中，这样就可以通过fixmap访问到页表了。 如上图所示，其中fix_pte和fix_pmd就是专门用来访问页表的，fix_pte专门用于访问pte类型页表，fix_pmd专门用于访问pmd类型页表，页表分配到空间后。 下面来看看实际的应用场景，以create_pmd_mapping示例说明。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">create_pmd_mapping</span><span class="p">(</span><span class="n">pmd_t</span><span class="w"> </span><span class="o">*</span><span class="n">pmdp</span><span class="p">,</span>
+<span class="w">                      </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">pa</span><span class="p">,</span>
+<span class="w">                      </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">sz</span><span class="p">,</span><span class="w"> </span><span class="n">pgprot_t</span><span class="w"> </span><span class="n">prot</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">pte_t</span><span class="w"> </span><span class="o">*</span><span class="n">ptep</span><span class="p">;</span>
+<span class="w">    </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">pte_phys</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">pmd_index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmd_index</span><span class="p">(</span><span class="n">va</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sz</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">PMD_SIZE</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pmd_none</span><span class="p">(</span><span class="n">pmdp</span><span class="p">[</span><span class="n">pmd_index</span><span class="p">]))</span>
+<span class="w">            </span><span class="n">pmdp</span><span class="p">[</span><span class="n">pmd_index</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pfn_pmd</span><span class="p">(</span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">pa</span><span class="p">),</span><span class="w"> </span><span class="n">prot</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pmd_none</span><span class="p">(</span><span class="n">pmdp</span><span class="p">[</span><span class="n">pmd_index</span><span class="p">]))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pte_phys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_pte</span><span class="p">(</span><span class="n">va</span><span class="p">);</span>
+<span class="w">        </span><span class="n">①</span><span class="w"> </span><span class="n">分配pte页表</span><span class="err">，</span><span class="n">这时候使用能mmu</span><span class="err">，</span><span class="n">分配pte页表调用memblock_phys_alloc进行分配</span><span class="err">，</span><span class="n">返回的是页表的物理地址</span><span class="err">。</span>
+<span class="w">        </span><span class="n">pmdp</span><span class="p">[</span><span class="n">pmd_index</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pfn_pmd</span><span class="p">(</span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">pte_phys</span><span class="p">),</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="w">        </span><span class="n">ptep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_pte_virt</span><span class="p">(</span><span class="n">pte_phys</span><span class="p">);</span>
+<span class="w">        </span><span class="n">②因为接下来要调用create_pte_mapping填充pte页表</span><span class="err">，</span><span class="n">即①分配的页表</span><span class="err">，</span><span class="n">但是此时已经使能了mmu</span><span class="err">，</span><span class="n">如果传递的页表基地址是物理内存</span><span class="err">，</span><span class="n">将无法访问到PTE页表</span><span class="err">，</span><span class="n">所以要对其转化给虚拟地址</span><span class="err">。</span>
+<span class="w">        </span><span class="n">memset</span><span class="p">(</span><span class="n">ptep</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pte_phys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PFN_PHYS</span><span class="p">(</span><span class="n">_pmd_pfn</span><span class="p">(</span><span class="n">pmdp</span><span class="p">[</span><span class="n">pmd_index</span><span class="p">]));</span>
+<span class="w">        </span><span class="n">ptep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_pte_virt</span><span class="p">(</span><span class="n">pte_phys</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">create_pte_mapping</span><span class="p">(</span><span class="n">ptep</span><span class="p">,</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">pa</span><span class="p">,</span><span class="w"> </span><span class="n">sz</span><span class="p">,</span><span class="w"> </span><span class="n">prot</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>接下来就看看get_pte_virt的实现。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="n">pte_t</span><span class="w"> </span><span class="o">*</span><span class="n">__init</span><span class="w"> </span><span class="n">get_pte_virt</span><span class="p">(</span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">pa</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">mmu_enabled</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">clear_fixmap</span><span class="p">(</span><span class="n">FIX_PTE</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="n">pte_t</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">set_fixmap_offset</span><span class="p">(</span><span class="n">FIX_PTE</span><span class="p">,</span><span class="w"> </span><span class="n">pa</span><span class="p">);</span>
+<span class="w">    </span><span class="n">①使能了MMU</span><span class="err">，</span><span class="n">先调用clear_fixmap将对应的FIX_PTE的页表项都清除掉</span><span class="err">。</span><span class="n">接着调用set_fixmap_offset获取虚拟地址</span><span class="err">。</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="n">pte_t</span><span class="w"> </span><span class="o">*</span><span class="p">)((</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">pa</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="cm">/* Return a pointer with offset calculated */</span>
+<span class="cp">#define __set_fixmap_offset(idx, phys, flags)               \\\\</span>
+<span class="cp">({                                  \\\\</span>
+<span class="cp">    unsigned long ________addr;                 \\\\</span>
+<span class="cp">    __set_fixmap(idx, phys, flags);                 \\\\</span>
+<span class="cp">    ________addr = fix_to_virt(idx) + ((phys) &amp; (PAGE_SIZE - 1));   \\\\</span>
+<span class="cp">    ________addr;                           \\\\</span>
+<span class="cp">})</span>
+
+<span class="cp">#define set_fixmap_offset(idx, phys) \\\\</span>
+<span class="cp">    __set_fixmap_offset(idx, phys, FIXMAP_PAGE_NORMAL)</span>
+<span class="n">②</span><span class="w"> </span><span class="n">调用__set_fixmap将物理地址填充到FIX_PTE对应的PTE页表项目</span><span class="err">，</span><span class="n">最终的目的是要让FIX_PTE虚拟地址与当前新分配的页表pa映射起来</span><span class="err">。</span><span class="n">对于本章实验示例填充的4</span><span class="mf">.3</span><span class="n">节图中PTE表项的fixmap_pte</span><span class="p">[</span><span class="mh">0xff</span><span class="p">]</span><span class="err">。</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="n">__set_fixmap</span><span class="p">(</span><span class="k">enum</span><span class="w"> </span><span class="n">fixed_addresses</span><span class="w"> </span><span class="n">idx</span><span class="p">,</span><span class="w"> </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">phys</span><span class="p">,</span><span class="w"> </span><span class="n">pgprot_t</span><span class="w"> </span><span class="n">prot</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">idx</span><span class="p">);</span>
+<span class="n">③</span><span class="w"> </span><span class="n">__fix_to_virt</span><span class="w"> </span><span class="n">是获取FIX_PTE的虚拟地址</span><span class="err">，</span><span class="n">使其落在fixmap的范围内</span><span class="err">。</span>
+<span class="w">    </span><span class="n">pte_t</span><span class="w"> </span><span class="o">*</span><span class="n">ptep</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">idx</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">FIX_HOLE</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">idx</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">__end_of_fixed_addresses</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">ptep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">fixmap_pte</span><span class="p">[</span><span class="n">pte_index</span><span class="p">(</span><span class="n">addr</span><span class="p">)];</span>
+<span class="w">    </span><span class="n">④</span><span class="w"> </span><span class="nf">pte_index</span><span class="p">(</span><span class="n">addr</span><span class="p">)</span><span class="n">计算的是FIX_PTE在fixmap_pte</span><span class="p">[]</span><span class="n">数组的偏移</span><span class="err">，</span><span class="n">也就是页表项的位置</span><span class="err">。</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pgprot_val</span><span class="p">(</span><span class="n">prot</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">set_pte</span><span class="p">(</span><span class="n">ptep</span><span class="p">,</span><span class="w"> </span><span class="n">pfn_pte</span><span class="p">(</span><span class="n">phys</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">PAGE_SHIFT</span><span class="p">,</span><span class="w"> </span><span class="n">prot</span><span class="p">));</span>
+<span class="w">    </span><span class="n">⑤</span><span class="w"> </span><span class="n">将新分配的页表物理地址phys与prot计算设置到表项中</span><span class="err">。</span><span class="n">这样访问FIX_PTE就可以访问到新分配的页表了</span><span class="err">，</span><span class="n">就可以进行填充操作了</span><span class="err">。</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pte_clear</span><span class="p">(</span><span class="o">&amp;</span><span class="n">init_mm</span><span class="p">,</span><span class="w"> </span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">ptep</span><span class="p">);</span>
+<span class="w">        </span><span class="n">local_flush_tlb_page</span><span class="p">(</span><span class="n">addr</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="_4">粗粒度内核映射</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">asmlinkage</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">setup_vm</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">dtb_pa</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">va</span><span class="p">,</span><span class="w"> </span><span class="n">end_va</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">load_pa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">_start</span><span class="p">);</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">load_sz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">_end</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">load_pa</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">map_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">best_map_size</span><span class="p">(</span><span class="n">load_pa</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_EARLY_MAPPING_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">①_start和_end分别为内核加载到的物理地址起始和结束位置</span><span class="err">。</span>
+<span class="w">    </span><span class="n">va_pa_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">load_pa</span><span class="p">;</span>
+<span class="w">    </span><span class="n">pfn_base</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">load_pa</span><span class="p">);</span>
+<span class="w">    </span><span class="n">②va_pa_offset内核虚拟地址相对物理地址的偏移量</span><span class="err">，</span><span class="n">pfn_base是内核开始地址对应的pfn</span><span class="err">，</span>
+<span class="n">即叶帧号</span><span class="err">。</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Enforce boot alignment requirements of RV32 and</span>
+<span class="cm">     * RV64 by only allowing PMD or PGD mappings.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">map_size</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* Sanity check alignment and size */</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">((</span><span class="n">PAGE_OFFSET</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">PGDIR_SIZE</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">((</span><span class="n">load_pa</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">map_size</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">load_sz</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">MAX_EARLY_MAPPING_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="p">......</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Setup early PGD covering entire kernel which will allows</span>
+<span class="cm">     * us to reach paging_init(). We map all memory banks later</span>
+<span class="cm">     * in setup_vm_final() below.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">end_va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">load_sz</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">va</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="p">;</span><span class="w"> </span><span class="n">va</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end_va</span><span class="p">;</span><span class="w"> </span><span class="n">va</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">map_size</span><span class="p">)</span>
+<span class="w">        </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">early_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="n">va</span><span class="p">,</span>
+<span class="w">                   </span><span class="n">load_pa</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">va</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="p">),</span>
+<span class="w">                   </span><span class="n">map_size</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL_EXEC</span><span class="p">);</span>
+<span class="n">⑥对虚拟地址PAGE_OFFSET</span><span class="o">~</span><span class="n">end_va范围进行映射</span><span class="err">，</span><span class="n">使用early_pg_dir</span><span class="p">[</span><span class="mi">512</span><span class="p">]</span><span class="n">作为根目录页表</span><span class="err">，</span><span class="n">由于映射的大小时map_size</span><span class="o">=</span><span class="mh">0x200000</span><span class="p">;</span><span class="n">所以在填充根目录页表后</span><span class="err">，</span><span class="n">会继续向下遍历下一级PMD页表</span><span class="err">，</span><span class="n">填充到PMD页表时map_size</span><span class="o">=</span><span class="n">PMD_SIZE</span><span class="p">,</span><span class="n">页表项属性为PAGE_KERNEL_EXEC就不再往下遍历填充PTE页表了</span><span class="err">，</span><span class="n">这样就完成一个PGD</span><span class="o">/</span><span class="n">PMD页表的填充</span><span class="err">，</span><span class="n">达成一个PAGE_OFFSET</span><span class="o">~</span><span class="n">end_va地址范围的粗粒度映射</span><span class="err">，</span><span class="n">对应上图的10M空间</span><span class="err">。</span>
+<span class="p">}</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/risc-v/arch初始化.html">← arch初始化</a>
+    <a class="next" href="/laumy.github.io/posts/risc-v/使能mmu.html">使能MMU →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

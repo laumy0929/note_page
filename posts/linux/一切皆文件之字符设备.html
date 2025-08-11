@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>一切皆文件之字符设备 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">注册字符设备驱动</a><ul></ul></li><li><a href="#_2">创建设备节点</a><ul></ul></li><li><a href="#_3">驱动系统调用</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>一切皆文件之字符设备</h1>
+  <div class="meta">2023-05-28 · linux</div>
+  <div class="post-content"><div class="codehilite"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/module.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/fs.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/uaccess.h&gt;</span>
+
+<span class="cp">#define DEVICE_NAME "mychardev"</span>
+<span class="cp">#define BUFFER_SIZE 1024</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">device_buffer</span><span class="p">[</span><span class="n">BUFFER_SIZE</span><span class="p">];</span>
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">open_count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">device_open</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">inode</span><span class="w"> </span><span class="o">*</span><span class="n">inode</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">file</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">open_count</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EBUSY</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">open_count</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">device_release</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">inode</span><span class="w"> </span><span class="o">*</span><span class="n">inode</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">file</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">open_count</span><span class="o">--</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">ssize_t</span><span class="w"> </span><span class="nf">device_read</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">file</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="n">buffer</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">length</span><span class="p">,</span><span class="w"> </span><span class="n">loff_t</span><span class="w"> </span><span class="o">*</span><span class="n">offset</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">bytes_to_read</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">offset</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">BUFFER_SIZE</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">bytes_to_read</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">min</span><span class="p">(</span><span class="n">length</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="kt">size_t</span><span class="p">)(</span><span class="n">BUFFER_SIZE</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="o">*</span><span class="n">offset</span><span class="p">));</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">copy_to_user</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span><span class="w"> </span><span class="n">device_buffer</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="o">*</span><span class="n">offset</span><span class="p">,</span><span class="w"> </span><span class="n">bytes_to_read</span><span class="p">))</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EFAULT</span><span class="p">;</span>
+
+<span class="w">    </span><span class="o">*</span><span class="n">offset</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">bytes_to_read</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">bytes_to_read</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">ssize_t</span><span class="w"> </span><span class="nf">device_write</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">file</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="n">buffer</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">length</span><span class="p">,</span><span class="w"> </span><span class="n">loff_t</span><span class="w"> </span><span class="o">*</span><span class="n">offset</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">bytes_to_write</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">offset</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">BUFFER_SIZE</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">bytes_to_write</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">min</span><span class="p">(</span><span class="n">length</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="kt">size_t</span><span class="p">)(</span><span class="n">BUFFER_SIZE</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="o">*</span><span class="n">offset</span><span class="p">));</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">copy_from_user</span><span class="p">(</span><span class="n">device_buffer</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="o">*</span><span class="n">offset</span><span class="p">,</span><span class="w"> </span><span class="n">buffer</span><span class="p">,</span><span class="w"> </span><span class="n">bytes_to_write</span><span class="p">))</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EFAULT</span><span class="p">;</span>
+
+<span class="w">    </span><span class="o">*</span><span class="n">offset</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">bytes_to_write</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">bytes_to_write</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">file_operations</span><span class="w"> </span><span class="n">fops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">open</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device_open</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">release</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device_release</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">read</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device_read</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">write</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device_write</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">chardev_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">register_chrdev</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">DEVICE_NAME</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">fops</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">printk</span><span class="p">(</span><span class="n">KERN_ALERT</span><span class="w"> </span><span class="s">"Failed to register char device</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="n">KERN_INFO</span><span class="w"> </span><span class="s">"Char device driver registered,major:%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">ret</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__exit</span><span class="w"> </span><span class="nf">chardev_exit</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">unregister_chrdev</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">DEVICE_NAME</span><span class="p">);</span>
+<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="n">KERN_INFO</span><span class="w"> </span><span class="s">"Char device driver unregistered</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">module_init</span><span class="p">(</span><span class="n">chardev_init</span><span class="p">);</span>
+<span class="n">module_exit</span><span class="p">(</span><span class="n">chardev_exit</span><span class="p">);</span>
+
+<span class="n">MODULE_LICENSE</span><span class="p">(</span><span class="s">"GPL"</span><span class="p">);</span>
+<span class="n">MODULE_AUTHOR</span><span class="p">(</span><span class="s">"Your Name"</span><span class="p">);</span>
+<span class="n">MODULE_DESCRIPTION</span><span class="p">(</span><span class="s">"A simple character device driver"</span><span class="p">);</span>
+</code></pre></div>
+<p>下面是一个加载字符设备驱动后的测试示例。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">mknod</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">mychardev</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="n">MAJOR_NUMBER</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="err">#</span><span class="n">MAJOR_NUMER为注册字符设备时获得的主设备号</span>
+<span class="n">echo</span><span class="w"> </span><span class="s">"Hello, world!"</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">mychardev</span><span class="w">   </span><span class="err">#</span><span class="w"> </span><span class="n">写入数据到设备</span>
+<span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">mychardev</span><span class="w">                  </span><span class="err">#</span><span class="w"> </span><span class="n">从设备读取数据</span>
+</code></pre></div>
+<h2 id="_1">注册字符设备驱动</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_85ad14b1958abe5e4e1bdba751564b82.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之字符设备/images/wp_editor_md_85ad14b1958abe5e4e1bdba751564b82.jpg"/></a></p>
+<p>（1）先调用__register_chrdev_region分配一个strcut char_device_strcut的实例，这个实例表示一个字符设备驱动，在函数中会填充cd数据结构。系统为了管理设备，为每个设备编了号，每个设备又分为主设备号和次设备号，主设备号用来区分不同类似的设备，而次设备号用来区分同一类型的多个设备，如IIC驱动的主设备号是100，IIC有3个设备IIC-0，IIC-1，IIC-2，这3个设备共用一套驱动。可以通过cat /proc/devices 查看已加载的驱动设备主设备号。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">char_device_struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">char_device_struct</span><span class="w"> </span><span class="o">*</span><span class="n">next</span><span class="p">;</span><span class="w">  </span><span class="c1">//指向下一个字符设备</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">major</span><span class="p">;</span><span class="w">            </span><span class="c1">//主设备号</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">baseminor</span><span class="p">;</span><span class="w">        </span><span class="c1">//次设备起始值</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">minorct</span><span class="p">;</span><span class="w">                  </span><span class="c1">//次设备数量</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">name</span><span class="p">[</span><span class="mi">64</span><span class="p">];</span><span class="w">               </span><span class="c1">//设备或驱动的名称</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">cdev</span><span class="w"> </span><span class="o">*</span><span class="n">cdev</span><span class="p">;</span><span class="w">      </span><span class="cm">/* will die */</span>
+<span class="p">}</span><span class="w"> </span><span class="o">*</span><span class="n">chrdevs</span><span class="p">[</span><span class="n">CHRDEV_MAJOR_HASH_SIZE</span><span class="p">];</span>
+</code></pre></div>
+<p>（2）调用cdev_alloc分配设备一个cdev实例，cdev描述了一个字符设备。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">cdev</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">kobject</span><span class="w"> </span><span class="n">kobj</span><span class="p">;</span><span class="w"> </span><span class="c1">//内核对象，通过他将设备统一加到设备驱动模型中管理</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">module</span><span class="w"> </span><span class="o">*</span><span class="n">owner</span><span class="p">;</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">file_operations</span><span class="w"> </span><span class="o">*</span><span class="n">ops</span><span class="p">;</span><span class="w"> </span><span class="c1">//文件系统与设备直接的操作函数集合</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w"> </span><span class="n">list</span><span class="p">;</span><span class="c1">//所有的字符设备驱动形成链表</span>
+<span class="w">    </span><span class="kt">dev_t</span><span class="w"> </span><span class="n">dev</span><span class="p">;</span><span class="w"> </span><span class="c1">//字符设备的设备号，由主设备和次设备构成</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">count</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">__randomize_layout</span><span class="p">;</span>
+</code></pre></div>
+<p>（3）填充用户注册的驱动函数操作集合，用户注册的open/read/write等函数，这是文件系统与设备的沟通桥梁。 （4）将cdev添加到strutct kobj_map *cdev_map全局列表中，kobj_map中有255个probe，每个probe对应一个主设备，相当于字符设备的数量不能超过255。每个主设备下可以由多个次设备。</p>
+<h2 id="_2">创建设备节点</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4737273667b8d77e4ff73ea9d77da032.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之字符设备/images/wp_editor_md_4737273667b8d77e4ff73ea9d77da032.jpg"/></a></p>
+<p>insmod加载完成驱动后，通常需要使用mknod创建一个设备节点，这样用户就可以通过文件系统节点的方式访问设备，下面是mknod的使用示例。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">mknod</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">xxx</span><span class="w"> </span><span class="n">设备类型</span><span class="w"> </span><span class="n">主设备号</span><span class="w"> </span><span class="n">从设备号</span>
+</code></pre></div>
+<p>从上图的流程图可知，/dev是挂载了tmpfs类型的文件系统。在系统启动初始化的时候会调用shmem_init注册一个tmpfs类型的文件系统。 在使用mknode在/dev下创建设备驱动节点，与前面文件系统创建一个新文件类似，关键点就是为文件创建一个dentry和inode，然后填充inode对应的数据，我们需要重点关注的是inode填充的i_fop的操作函数集合是def_chr_fops，这个file_operations对应的open是chardev_open，因此后续在用户打开文件时将会调用到该函数。</p>
+<h2 id="_3">驱动系统调用</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a3bf16fee47bf7a033418479e049b2af.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之字符设备/images/wp_editor_md_a3bf16fee47bf7a033418479e049b2af.jpg"/></a></p>
+<p>上一小节中，使用mknod创建设备节点时，inode-&gt;i_fop填充的是def_char_fops，在文件系统打开时就会调用到chrdev_open函数，打开的流程与前面分析的流程一致，这里就不再分析了，我们这里重点关注跟设备驱动相关的差异。chrdev_open函数如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">chrdev_open</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">inode</span><span class="w"> </span><span class="o">*</span><span class="n">inode</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">filp</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">file_operations</span><span class="w"> </span><span class="o">*</span><span class="n">fops</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">cdev</span><span class="w"> </span><span class="o">*</span><span class="n">p</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">cdev</span><span class="w"> </span><span class="o">*</span><span class="n">new</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">spin_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cdev_lock</span><span class="p">);</span>
+<span class="w">    </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_cdev</span><span class="p">;</span><span class="w"> </span><span class="c1">//获取文件对应的cdev，如果为空则需要进行查找。</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">p</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">kobject</span><span class="w"> </span><span class="o">*</span><span class="n">kobj</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">idx</span><span class="p">;</span>
+<span class="w">        </span><span class="n">spin_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cdev_lock</span><span class="p">);</span>
+<span class="w">        </span><span class="n">kobj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kobj_lookup</span><span class="p">(</span><span class="n">cdev_map</span><span class="p">,</span><span class="w"> </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_rdev</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">idx</span><span class="p">);</span><span class="w"> </span><span class="c1">//从cdev_map中查找kobj</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">kobj</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ENXIO</span><span class="p">;</span>
+<span class="w">        </span><span class="n">new</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">container_of</span><span class="p">(</span><span class="n">kobj</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">cdev</span><span class="p">,</span><span class="w"> </span><span class="n">kobj</span><span class="p">);</span><span class="c1">//获取到cdev</span>
+<span class="w">        </span><span class="n">spin_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cdev_lock</span><span class="p">);</span>
+<span class="w">        </span><span class="cm">/* Check i_cdev again in case somebody beat us to it while</span>
+<span class="cm">           we dropped the lock. */</span>
+<span class="w">        </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_cdev</span><span class="p">;</span><span class="w"> </span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">p</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_cdev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new</span><span class="p">;</span><span class="w"> </span><span class="c1">//将cdev赋值给inode</span>
+<span class="w">            </span><span class="n">list_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_devices</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">p</span><span class="o">-&gt;</span><span class="n">list</span><span class="p">);</span><span class="c1">//将inode添加到设备列表中</span>
+<span class="w">            </span><span class="n">new</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">cdev_get</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+<span class="w">            </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">ENXIO</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">cdev_get</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">ENXIO</span><span class="p">;</span>
+<span class="w">    </span><span class="n">spin_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cdev_lock</span><span class="p">);</span>
+<span class="w">    </span><span class="n">cdev_put</span><span class="p">(</span><span class="n">new</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">ENXIO</span><span class="p">;</span>
+<span class="w">    </span><span class="n">fops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fops_get</span><span class="p">(</span><span class="n">p</span><span class="o">-&gt;</span><span class="n">ops</span><span class="p">);</span><span class="w"> </span><span class="c1">//获取驱动注册的file_operations</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">fops</span><span class="p">)</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">out_cdev_put</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">replace_fops</span><span class="p">(</span><span class="n">filp</span><span class="p">,</span><span class="w"> </span><span class="n">fops</span><span class="p">);</span><span class="w"> </span><span class="c1">//将struct file中的f_op更新跟驱动的注册的file_operations</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">filp</span><span class="o">-&gt;</span><span class="n">f_op</span><span class="o">-&gt;</span><span class="n">open</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">filp</span><span class="o">-&gt;</span><span class="n">f_op</span><span class="o">-&gt;</span><span class="n">open</span><span class="p">(</span><span class="n">inode</span><span class="p">,</span><span class="w"> </span><span class="n">filp</span><span class="p">);</span><span class="w"> </span><span class="c1">//调用驱动注册的open函数</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+<span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">out_cdev_put</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w"> </span><span class="nl">out_cdev_put</span><span class="p">:</span>
+<span class="w">    </span><span class="n">cdev_put</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>chrdev_open函数关键的作用先从cdev_map中找到设备的cdev，然后填充到inode中，这样下次操作设备文件节点时就不用再查找了，接下来非常关键的作用是将strcut file中的f_op由原来inode-&gt;i_fop指向的file_operations(def_chr_fops)替换为驱动注册的file_operations，这样后续用户在进程中再操作该文件节点时，对文件的open/read/write等操作经过VFS后就直接调用到驱动注册的file_opearations操作集合了，不会再经过def_chr_fops。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f3806964978c66e9e0d500a5c0fe0e36.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之字符设备/images/wp_editor_md_f3806964978c66e9e0d500a5c0fe0e36.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_6a645d1ff38afff207ce60e4602f88e6.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之字符设备/images/wp_editor_md_6a645d1ff38afff207ce60e4602f88e6.jpg"/></a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/linux/一切皆文件之块设备驱动-一.html">← 一切皆文件之块设备驱动（一）</a>
+    <a class="next" href="/laumy.github.io/posts/linux/文件系统常见系统调用.html">文件系统常见系统调用 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

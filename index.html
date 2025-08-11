@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>首页 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout no-right">
+      <aside class="left-nav">
+        
+        <div class="card profile">
+          <img class="avatar" src="/laumy.github.io/assets/avatar.jpg" alt="avatar" />
+          <div class="author">laumy</div>
+          <div class="bio">为学日益，为道日损</div>
+          <div class="stats">
+            <div><div class="num">160</div><div class="label">文章数</div></div>
+            <div><div class="num">10</div><div class="label">分类</div></div>
+          </div>
+        </div>
+                    
+            <div class="card">
+              <div class="card-title">分类专栏</div>
+              <ul class="category-list">
+                
+                <li class="category-item has-subcategories">
+                  <a href="/laumy.github.io/categories/linux.html" class="category-main">
+                    <span class="category-name">linux</span>
+                    <span class="subcategory-count">(48篇)</span>
+                  </a>
+                  
+                  <ul class="subcategory-list">
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/性能工具.html">
+                        <span class="subcategory-name">性能工具</span>
+                        <span class="subcategory-count">(6篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/设备驱动.html">
+                        <span class="subcategory-name">设备驱动</span>
+                        <span class="subcategory-count">(5篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/内存管理.html">
+                        <span class="subcategory-name">内存管理</span>
+                        <span class="subcategory-count">(10篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/文件系统.html">
+                        <span class="subcategory-name">文件系统</span>
+                        <span class="subcategory-count">(12篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/进程调度.html">
+                        <span class="subcategory-name">进程调度</span>
+                        <span class="subcategory-count">(9篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/linux/中断管理.html">
+                        <span class="subcategory-name">中断管理</span>
+                        <span class="subcategory-count">(6篇)</span>
+                      </a>
+                    </li>
+                    
+                  </ul>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/risc-v.html" class="category-main">
+                    <span class="category-name">risc-v</span>
+                    <span class="subcategory-count">(25篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/rtos.html" class="category-main">
+                    <span class="category-name">rtos</span>
+                    <span class="subcategory-count">(4篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item has-subcategories">
+                  <a href="/laumy.github.io/categories/ai.html" class="category-main">
+                    <span class="category-name">ai</span>
+                    <span class="subcategory-count">(41篇)</span>
+                  </a>
+                  
+                  <ul class="subcategory-list">
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/ai应用.html">
+                        <span class="subcategory-name">ai应用</span>
+                        <span class="subcategory-count">(12篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/算法.html">
+                        <span class="subcategory-name">算法</span>
+                        <span class="subcategory-count">(5篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/lerobot.html">
+                        <span class="subcategory-name">lerobot</span>
+                        <span class="subcategory-count">(10篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/深度学习.html">
+                        <span class="subcategory-name">深度学习</span>
+                        <span class="subcategory-count">(11篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="/laumy.github.io/categories/ai/opencv.html">
+                        <span class="subcategory-name">opencv</span>
+                        <span class="subcategory-count">(3篇)</span>
+                      </a>
+                    </li>
+                    
+                  </ul>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/外设.html" class="category-main">
+                    <span class="category-name">外设</span>
+                    <span class="subcategory-count">(2篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/语言.html" class="category-main">
+                    <span class="category-name">语言</span>
+                    <span class="subcategory-count">(4篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/调试.html" class="category-main">
+                    <span class="category-name">调试</span>
+                    <span class="subcategory-count">(7篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/网络.html" class="category-main">
+                    <span class="category-name">网络</span>
+                    <span class="subcategory-count">(5篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/阅读.html" class="category-main">
+                    <span class="category-name">阅读</span>
+                    <span class="subcategory-count">(6篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="/laumy.github.io/categories/其他.html" class="category-main">
+                    <span class="category-name">其他</span>
+                    <span class="subcategory-count">(18篇)</span>
+                  </a>
+                  
+                </li>
+                
+              </ul>
+            </div>
+            
+        
+      </aside>
+
+      <section class="content">
+        
+<div class="card">
+  <div class="card-title">最新文章</div>
+  <div class="post-list">
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4509-scaled.jpg" alt="dataset和DataLoader" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/dataset和dataloader.html">dataset和DataLoader</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-08-08
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">简介 Dataset和DataLoader在pytorch中主要用于数据的组织。这两个类通常一起搭配处理深度学习中的数据流。 Dataset 用于产出“单个样本”：定义怎么按索引取到一个样本，以及总共有多少个样本。 DataLoader 负责“成批取样”：决定批大小、是否打乱、多</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_d0c4f96a650d1ae2cbdd23a44a51cdab.jpg" alt="数据维度" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/数据维度.html">数据维度</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-08-08
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">维度是什么 维度=数据需要“几个”索引才能定位到一个元素，也叫做轴数(axis)或阶(rank)。 可以看成&#34;套盒子&#34;的层数，盒子里面装盒子，再装数字。每多一层外括号/分类，就多一维。 0维=一个数；1维=一排数；2维=表格；3维=一摞表格；更高维=外面再套一层一层分类； 判断有</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_520233b55d11c3774c5bfa49cbaf041f.jpg" alt="再论transformer原理" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/再论transformer原理.html">再论transformer原理</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-08-07
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">概述 框架 以翻译作为例子，从宏观角度理解大模型，可以把大模型视为一个黑匣子，它可以输入一种语言然后输出另外一种翻译语言，如下图所示。 如果将模型稍微展开一下，模型分为encoders和decoders两部分。为什么要分为编码器和解码器了？主要是从以下动机考量。 条件生成需求：在</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4633_1.jpeg" alt="lerobot ACT实现分析" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/lerobot-act实现分析.html">lerobot ACT实现分析</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-08-04
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">配置类ACTConfig @PreTrainedConfig.register_subclass(&#34;act&#34;) @dataclass class ACTConfig(PreTrainedConfig): # 输入/输出结构 chunk_size: int = 100 # 动作块长</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_d952b61aa30ccd3ad3870e5e43ddf3d9.jpg" alt="具身智能ACT算法" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/具身智能act算法.html">具身智能ACT算法</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-08-03
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">基本原理 简单总结一下什么是ACT算法。传统的机器算法过程是观测关节位置J1经过模型预测动作A2然后执行，观测到J2预测数A3，观测到J3遇到A4依次类推，这样就有一个问题，假设预测出的A2跟实际相比偏差就比较大那么对应的观测到的J2就偏离比较大。如果要连续预测K步，就要连续采集</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4633_1.jpeg" alt="lerobot策略优化器" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/lerobot策略优化器.html">lerobot策略优化器</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-08-02
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">torch.optim简介 在学校lerobot的策略优化器前，我们先再复习一下什么是优化器。 什么优化器 优化器官方解释就是在深度学习中让损失函数通过梯度下降思想逐步调整参数以达到最小损失。 简单理解优化器的就是更新计算参数的，根据损失函数的梯度方向调整模型权重和偏置值，公式为</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4633_1.jpeg" alt="lerobot学习率调度器" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/lerobot学习率调度器.html">lerobot学习率调度器</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-08-02
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">学习率调度器简介 是什么 学习率调度器（Learning Rate Scheduler）是深度学习训练中动态调整优化器学习率的工具（注意是在优化器的基础上动态调整学习率），通过优化收敛过程提升模型性能。 学习率（η）控制梯度更新步长，参数更新量 = -η × 梯度。过大步长导致震</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_7077df4feaf6c6704d392f459123e847.jpg" alt="lerobot训练" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/lerobot训练.html">lerobot训练</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-07-30
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">初始化 @parser.wrap() def train(cfg: TrainPipelineConfig): cfg.validate() # 验证配置合法性（如路径、超参数范围） init_logging() # 初始化日志系统（本地文件+控制台输出） if cfg.seed</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_643928e8d5da2fdf1d721700de6bbb9e.jpg" alt="lerobot录制" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/lerobot录制.html">lerobot录制</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-07-29
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">简介 lerobot record是关键核心流程，其包括了数据的采集和模型推理两部分。 如果是数据采集模式，命令启动如下 python -m lerobot.record \ --robot.disable_torque_on_disconnect=true \ --robot.</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4509-scaled.jpg" alt="python补习" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/语言/python补习.html">python补习</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-07-29
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      语言
+                    </span>
+                  </div>
+                  <p class="summary">装饰器 函数装饰器 什么是装饰器 装饰器是python的一种高级语法，本质上是函数包装器，可以在不修改函数代码的前提下为函数添加额外功能如日志记录、性能计时、权限校验，也可以修改函数的输入和输出。装饰器通过@装饰器名语法应用与函数，也是一种语法糖，简化包装的代码。 基本语法与原理</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4633_1.jpeg" alt="lerobot示教" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/lerobot示教.html">lerobot示教</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-07-28
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">启动 示教的功能主要是主臂控制，从臂跟随，在数据采集是非常的一环。下面是模块启动的执行命令： python -m lerobot.teleoperate \ --robot.type=so101_follower \ --robot.port=/dev/ttyACM0 \ --r</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4509-scaled.jpg" alt="lerobot设备标定" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/lerobot设备标定.html">lerobot设备标定</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-07-25
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">why calibrate 先来看看标定后的数据 { &#34;shoulder_pan&#34;: { #肩部旋转关节 &#34;id&#34;: 1, &#34;drive_mode&#34;: 0, &#34;homing_offset&#34;: -1620, &#34;range_min&#34;: 1142, &#34;range_max&#34;: 2931 </p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_ce4bd0b2e1d4e571995f70dcbd8b7f39.jpg" alt="模型训练GPU跑飞" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/模型训练gpu跑飞.html">模型训练GPU跑飞</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-07-25
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">问题 当前使用的是魔改版的NVIDIA 2080 Ti 22G显卡，发现在模型训练过程中，跑着跑着就报错了，具体如下： raceback (most recent call last): File &#34;/home/laumy/lerobot/./src/lerobot/script</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_b3c9255adecc944bbf210d8b0d05c023.jpg" alt="手机给电脑配置代理" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/其他/手机给电脑配置代理.html">手机给电脑配置代理</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-07-25
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      其他
+                    </span>
+                  </div>
+                  <p class="summary">手机设置 打开设置 设置IP地址，启用共享，注意这个ip地址设置跟电脑同一个局域网。 通过上面的步骤，手机的就启动的代理设置了代理服务为：192.168.0.29:1082。 电脑设置 以ubuntu为例，打开设置界面，打开代理。 将代理配置为手动模式，然后将所有的服务都代理到1</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_2014ae74246369b85301ae6cfe53f502.jpg" alt="安装unbuntu双系统" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/其他/安装unbuntu双系统.html">安装unbuntu双系统</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-07-24
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      其他
+                    </span>
+                  </div>
+                  <p class="summary">准备 本文只作为个人安装简单记录，不做详细过程，如果是新手，可不必花时间再往下阅读。 准备一个16G以上的U盘，安装过程中跟实际的笔记本硬件会差异比较大。 下载ubuntu镜像 先下载ubuntu镜像：https://cn.ubuntu.com/download/desktop，</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_2944f77882efd633b66bbfa1c53a4df5.jpg" alt="lerobot搭建" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/lerobot搭建.html">lerobot搭建</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-07-23
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">设备查询 本文是记录ubuntu系统lerobot试验的快捷命令，方便开始负责执行设备，不会介绍为什么？ python -m lerobot.find_port python -m lerobot.find_cameras 机器标定 从臂标定 python -m lerobot.</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_4633_1.jpeg" alt="pip install" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/pip-install.html">pip install</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-07-22
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">是什么 pip install 是python包管理器，用于python软件包的下载、安装、卸载等功能。 怎么用 在线安装 pip install 软件包名 pip install 软件包名==版本号 例如pip install requests，或pip install req</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/IMG_2390.png" alt="ONNX Runtime C++端侧模型部署YOLOv5" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/onnx-runtime-c-端侧模型部署yolov5.html">ONNX Runtime C++端侧模型部署YOLOv5</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-06-19
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">加载准备 初始化ONNXRuntime环境 Ort::Env env(ORT_LOGGING_LEVEL_WARNING, &#34;YOLOv5Inference&#34;); Ort::Env 是 ONNX Runtime C++ API 中用于初始化运行环境的类，有多个重载的构造函数，下面</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_a085673644d5a2a3b34c1e9635b98c0e.jpg" alt="ONNX Runtime Python端侧模型部署YOLOv5" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/ai/onnx-runtime-python端侧模型部署yolov5.html">ONNX Runtime Python端侧模型部署YOLOv5</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-06-18
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      ai
+                    </span>
+                  </div>
+                  <p class="summary">ONNX Runtime介绍 ONNX Runtime不依赖于Pytorch、tensorflow等机器学习训练模型框架。他提供了一种简单的方法，可以在CPU、GPU、NPU上运行模型。通常ONNX Runtime用于端侧设备模型的运行推理。要使用ONNX Runtime运行模型</p>
+                </div>
+              </div>
+            </article>
+    
+                <article class="post-item">
+              <div class="latest-post-content">
+                
+                <div class="post-image">
+                  <img src="/laumy.github.io/assets/thumbs/wp_editor_md_ff11ff9dc08bfc27af966d685f60d429.jpg" alt="端侧vscode AI开发环境搭建" />
+                </div>
+                
+                <div class="post-text">
+                  <h2 class="post-title"><a href="/laumy.github.io/posts/risc-v/端侧vscode-ai开发环境搭建.html">端侧vscode AI开发环境搭建</a></h2>
+                  <div class="meta">
+                    <span class="meta-item">
+                      <i class="icon">🕒</i>
+                      2025-06-18
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">📂</i>
+                      risc-v
+                    </span>
+                  </div>
+                  <p class="summary">PC上安装vscodium 下载安装vscodium，https://vscodium.com/ 安装Open Remote - SSH插件。 可能要等等比较久，跟网络有关系，如果还是安装不了，可以参考一下这个办法使用离线的方式，https://zhuanlan.zhihu.co</p>
+                </div>
+              </div>
+            </article>
+    
+  </div>
+  
+  <!-- 分页导航 -->
+  
+  <div class="pagination">
+    
+    
+    
+      
+        <span class="page-link current">1</span>
+      
+    
+      
+        <a href="/laumy.github.io/page-2.html" class="page-link">2</a>
+      
+    
+      
+        <a href="/laumy.github.io/page-3.html" class="page-link">3</a>
+      
+    
+      
+        <a href="/laumy.github.io/page-4.html" class="page-link">4</a>
+      
+    
+      
+        <a href="/laumy.github.io/page-5.html" class="page-link">5</a>
+      
+    
+      
+        <a href="/laumy.github.io/page-6.html" class="page-link">6</a>
+      
+    
+      
+        <a href="/laumy.github.io/page-7.html" class="page-link">7</a>
+      
+    
+      
+        <a href="/laumy.github.io/page-8.html" class="page-link">8</a>
+      
+    
+    
+    
+      <a href="/laumy.github.io/page-2.html" class="page-link">下一页 &raquo;</a>
+    
+  </div>
+  
+</div>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

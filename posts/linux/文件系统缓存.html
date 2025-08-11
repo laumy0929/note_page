@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>文件系统缓存 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#dentry-cache">dentry cache</a><ul></ul></li><li><a href="#inode-cache">inode cache</a><ul></ul></li><li><a href="#page-cache">page cache</a><ul><li><a href="#_1">通过文件系统的方式</a></li><li><a href="#_2">通过磁盘的方式操作</a></li><li><a href="#direct-io">Direct IO写</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>文件系统缓存</h1>
+  <div class="meta">2023-06-05 · linux</div>
+  <div class="post-content"><div class="codehilite"><pre><span></span><code><span class="cp">#To free pagecache</span>
+<span class="n">echo</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+
+<span class="cp">#To free dentry and inode cache</span>
+<span class="n">echo</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+
+<span class="cp">#To free pagecache,dentry cache,inode cache</span>
+<span class="n">echo</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+</code></pre></div>
+<h2 id="dentry-cache">dentry cache</h2>
+<p>struct dentry反映的是文件系统对象（包括目录、文件）在内核中所在文件系统树的位置，在文件系统对文件的操作中inode是对应文件处理的核心对象，而要找到inode就需要先找到dentry，dentry对象内容指向了inode。因此在文件系统做dentry的搜索效率也一定程度上决定着文件系统操作效率，在linux系统中为了提高dentry的处理效率，实现了dentry高速缓存，dentry cache简称dcache。 在3.1.3章节中我们列出了dentry的数据结构组成，其中对于搜索的提升有两个关键数据结构。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">dentry</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">hlist_bl_node</span><span class="w"> </span><span class="n">d_hash</span><span class="p">;</span>
+<span class="w">    </span><span class="n">strcut</span><span class="w"> </span><span class="n">list_head</span><span class="w"> </span><span class="n">d_lru</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>在文件系统初始化时，调用vfs_caches_init-&gt;dcache_init为对dcache进行初始化，先创建一个dentry的slab，用于后续dentry对象的分配，同时还分配了一个dentry_hashtable用于管理dentry的全局hash表。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">dcache_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * A constructor could be added for stable state like the lists,</span>
+<span class="cm">     * but it is probably not worth it because of the cache nature</span>
+<span class="cm">     * of the dcache.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">dentry_cache</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KMEM_CACHE_USERCOPY</span><span class="p">(</span><span class="n">dentry</span><span class="p">,</span>
+<span class="w">        </span><span class="n">SLAB_RECLAIM_ACCOUNT</span><span class="o">|</span><span class="n">SLAB_PANIC</span><span class="o">|</span><span class="n">SLAB_MEM_SPREAD</span><span class="o">|</span><span class="n">SLAB_ACCOUNT</span><span class="p">,</span>
+<span class="w">        </span><span class="n">d_iname</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* Hash may have been set up in dcache_init_early */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">hashdist</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">dentry_hashtable</span><span class="w"> </span><span class="o">=</span>
+<span class="w">        </span><span class="n">alloc_large_system_hash</span><span class="p">(</span><span class="s">"Dentry cache"</span><span class="p">,</span>
+<span class="w">                    </span><span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">hlist_bl_head</span><span class="p">),</span>
+<span class="w">                    </span><span class="n">dhash_entries</span><span class="p">,</span>
+<span class="w">                    </span><span class="mi">13</span><span class="p">,</span>
+<span class="w">                    </span><span class="n">HASH_ZERO</span><span class="p">,</span>
+<span class="w">                    </span><span class="o">&amp;</span><span class="n">d_hash_shift</span><span class="p">,</span>
+<span class="w">                    </span><span class="nb">NULL</span><span class="p">,</span>
+<span class="w">                    </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                    </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">d_hash_shift</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">d_hash_shift</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>可以cat /proc/slabinfo | grep dentry查看dentry的情况。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4563d1adba322baf728d76cc5d1408c9.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_4563d1adba322baf728d76cc5d1408c9.jpg"/></a></p>
+<p>dcache在kmem_cache_alloc的基础上定义了两个高层分配接口：d_alloc和d_alloc_root函数，用来从dentry_cache slab中分配dentry对象。d_alloc_root时用来为文件系统跟目录分配dentry对象的。 dentry释放后并不会马上清除掉，而是不缓存起来，所以通常有3种状态，而其中unused和negative是可以在主动触发释放是可以进行回收的。</p>
+<ul>
+<li>inuse：正在被使用，引用技术d_lockref&gt;0。</li>
+<li>unused：未被内核使用，引用技术d_lockref为0，d_inode为空。</li>
+<li>negative:相应的磁盘inode已经被删除，d_inode为空。</li>
+<li>dentry结构通常在路径查找被创建，常用的有以下2种管理方式</li>
+<li>哈希链表：static struct hlist_bl_head *dentry_hashtable __read_mostly，以dentry-&gt;name作为索引在dentry全局hash表中管理，用于提高路径查找效率。</li>
+<li>LRU链表：处于unused和negative状态不再使用的dentry都通过其dentry-&gt;d_lru指针链接到super_block-&gt;s_dentry_lru中，当需要内存回收时，由prune_dcache_sb回收使用较少的dentry。</li>
+</ul>
+<p>在linux系统中定义了dentry_stat_t数据结构来统计dcache信息。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">dentry_stat_t</span><span class="w"> </span><span class="p">{</span>
+<span class="w">       </span><span class="kt">int</span><span class="w"> </span><span class="n">nr_dentry</span><span class="p">;</span><span class="w">       </span><span class="n">dentry的数量</span>
+<span class="w">       </span><span class="kt">int</span><span class="w"> </span><span class="n">nr_unused</span><span class="p">;</span><span class="w">       </span><span class="n">dentry为使用的数量</span>
+<span class="w">       </span><span class="kt">int</span><span class="w"> </span><span class="n">age_limit</span><span class="p">;</span><span class="cm">/* age in seconds */</span>
+<span class="w">       </span><span class="kt">int</span><span class="w"> </span><span class="n">want_pages</span><span class="p">;</span><span class="cm">/* pages requested by system */</span>
+<span class="w">       </span><span class="kt">int</span><span class="w"> </span><span class="n">dummy</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+<span class="p">};</span>
+<span class="k">extern</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">dentry_stat_t</span><span class="w"> </span><span class="n">dentry_stat</span><span class="p">;</span>
+</code></pre></div>
+<p>可以通过节点/proc/sys/fs/dentry-state来获取，可以发现dentry-state的nr_dentry:15227与slab info中已经分配出去的对象15229差不多，16957表示当前dentry cache中一共还有多少个对象包括使用和为使用的，528表示每个对象的大小，单位是字节，可以看出一个对象是528字节，对应struct dentry数据结构的大小。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_03895bace38c740c412d3f8445ef370d.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_03895bace38c740c412d3f8445ef370d.jpg"/></a></p>
+<p>当系统使用echo 2 &gt; /proc/sys/vm/drop_caches可以释放dentry和inode的缓存。</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">#To free dentry and inode cache</span>
+<span class="n">echo</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+</code></pre></div>
+<p>执行上面的命令后，可以查看节点/proc/sys/fs/dentry-state或cat /proc/slabinfo | grep dentry可以看出dentry的数量变少了，系统回收了。</p>
+<h2 id="inode-cache">inode cache</h2>
+<p>Inode是用于描述一个文件的，通常有一个或多个dentry与之对应，dentry已经描述了系统的目录树，提供了路径查找的方法，所以inode就不需要在搜索查询上处理复杂关系，管理方式也相对简单不少。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">inode</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">    </span><span class="cm">/* Stat data, not accessed from path walking */</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w">       </span><span class="n">i_ino</span><span class="p">;</span><span class="w">    </span><span class="c1">//与其i_sb一起计算hash作为在inode_hashtable中的索引</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">hlist_node</span><span class="w">   </span><span class="n">i_hash</span><span class="p">;</span><span class="w">    </span><span class="c1">//inode_hashtable全局hash表中的节点</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w">    </span><span class="n">i_lru</span><span class="p">;</span><span class="w">      </span><span class="cm">/* inode LRU list */</span><span class="w">    </span><span class="c1">//其i_sb-&gt;s_inode_lru中的节点</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>与dentry类似，在内核初始化阶段，会调用inode_init初始化一个inode_cache的slab对象，用于inode的分配。同时还创建了一个用于管理inode的全局哈希表inode_hashtable。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">inode_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="cm">/* inode slab cache */</span>
+<span class="w">    </span><span class="n">inode_cachep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kmem_cache_create</span><span class="p">(</span><span class="s">"inode_cache"</span><span class="p">,</span>
+<span class="w">                     </span><span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">inode</span><span class="p">),</span>
+<span class="w">                     </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                     </span><span class="p">(</span><span class="n">SLAB_RECLAIM_ACCOUNT</span><span class="o">|</span><span class="n">SLAB_PANIC</span><span class="o">|</span>
+<span class="w">                     </span><span class="n">SLAB_MEM_SPREAD</span><span class="o">|</span><span class="n">SLAB_ACCOUNT</span><span class="p">),</span>
+<span class="w">                     </span><span class="n">init_once</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* Hash may have been set up in inode_init_early */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">hashdist</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">inode_hashtable</span><span class="w"> </span><span class="o">=</span>
+<span class="w">        </span><span class="n">alloc_large_system_hash</span><span class="p">(</span><span class="s">"Inode-cache"</span><span class="p">,</span>
+<span class="w">                    </span><span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">hlist_head</span><span class="p">),</span>
+<span class="w">                    </span><span class="n">ihash_entries</span><span class="p">,</span>
+<span class="w">                    </span><span class="mi">14</span><span class="p">,</span>
+<span class="w">                    </span><span class="n">HASH_ZERO</span><span class="p">,</span>
+<span class="w">                    </span><span class="o">&amp;</span><span class="n">i_hash_shift</span><span class="p">,</span>
+<span class="w">                    </span><span class="o">&amp;</span><span class="n">i_hash_mask</span><span class="p">,</span>
+<span class="w">                    </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                    </span><span class="mi">0</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Inode结构主要涉及两种管理方式</p>
+<ul>
+<li>inode哈希表：inode_hashtable， super_block和i_ino作为索引在inode在全局inode_hashtable中管理，主要通过i_ino查找到inode。</li>
+<li>LRU链表：通过inode-&gt;i_lru链接到super_block-&gt;s_inode_lru上，表示不再使用的空闲inode，当需要内存回收是，从中选取最少使用的inode进行回收。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">inodes_stat_t</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">long</span><span class="w"> </span><span class="n">nr_inodes</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">long</span><span class="w"> </span><span class="n">nr_unused</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">long</span><span class="w"> </span><span class="n">dummy</span><span class="p">[</span><span class="mi">5</span><span class="p">];</span><span class="w">      </span><span class="cm">/* padding for sysctl ABI compatibility */</span>
+<span class="p">};</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">inodes_stat_t</span><span class="w"> </span><span class="n">inodes_stat</span><span class="p">;</span>
+</code></pre></div>
+<p>与dentry类似，inode也定义了一个inodes_stat用于统计inode信息，可以通过cat /proc/sys/fs/inode-state来查询。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ee267a6f349bf5300cf59e781783111a.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_ee267a6f349bf5300cf59e781783111a.jpg"/></a></p>
+<h2 id="page-cache">page cache</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_2191c43017604b7715dc53f66fa53585.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_2191c43017604b7715dc53f66fa53585.jpg"/></a></p>
+<p>free显示中的buff和cache怎么理解，使用free -w会将buff和cache分开，字面上buffer缓冲，而cache是缓存。 free的数据来源与/proc/meminfo之间的关系。</p>
+<ul>
+<li>buffers：内核缓冲区的内存，对应的是/proc/meminfo中的Buffers</li>
+<li>cache:是内核页缓存和slab用到的内存，对应的是/proc/meminfo中cached+SReclainmable之和。</li>
+<li>buff/cache:则是buffers和cache之和。</li>
+</ul>
+<p>所以要理解free中buff/cache的关键是要理解buffers、cached、SReclaimable三个的概念，下面是man proc的意思。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">Buffers</span><span class="w"> </span><span class="o">%</span><span class="n">lu</span>
+<span class="n">Relatively</span><span class="w"> </span><span class="n">temporary</span><span class="w"> </span><span class="n">storage</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">raw</span><span class="w"> </span><span class="n">disk</span><span class="w"> </span><span class="n">blocks</span><span class="w"> </span><span class="n">that</span><span class="w"> </span><span class="n">shouldn</span><span class="err">'</span><span class="n">t</span><span class="w"> </span><span class="n">get</span><span class="w"> </span><span class="n">tremendously</span><span class="w"> </span><span class="n">large</span><span class="w"> </span><span class="p">(</span><span class="mi">20</span><span class="n">MB</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">so</span><span class="p">).</span>
+
+<span class="n">Cached</span><span class="w"> </span><span class="o">%</span><span class="n">lu</span>
+<span class="n">In</span><span class="o">-</span><span class="n">memory</span><span class="w"> </span><span class="n">cache</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">files</span><span class="w"> </span><span class="n">read</span><span class="w"> </span><span class="n">from</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">disk</span><span class="w"> </span><span class="p">(</span><span class="n">the</span><span class="w"> </span><span class="n">page</span><span class="w"> </span><span class="n">cache</span><span class="p">).</span><span class="w">  </span><span class="n">Doesn</span><span class="err">'</span><span class="n">t</span><span class="w"> </span><span class="n">include</span><span class="w"> </span><span class="n">SwapCached</span><span class="p">.</span>
+
+<span class="n">SReclaimable</span><span class="w"> </span><span class="o">%</span><span class="n">lu</span><span class="w"> </span><span class="p">(</span><span class="n">since</span><span class="w"> </span><span class="n">Linux</span><span class="w"> </span><span class="mf">2.6.19</span><span class="p">)</span>
+<span class="n">Part</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">Slab</span><span class="p">,</span><span class="w"> </span><span class="n">that</span><span class="w"> </span><span class="n">might</span><span class="w"> </span><span class="n">be</span><span class="w"> </span><span class="n">reclaimed</span><span class="p">,</span><span class="w"> </span><span class="n">such</span><span class="w"> </span><span class="n">as</span><span class="w"> </span><span class="n">caches</span><span class="p">.</span>
+</code></pre></div>
+<ul>
+<li>Buffers:是对原始磁盘块的零时存储，用于缓存磁盘的数据，通常不会特别大（20MB左右），因为对应用户来说读写数据可能是几个字节，但是对应磁盘来说是按block来操作的，这样内核就可以把分散写集中起来，如把多次小的写集合并成单次大的写。</li>
+<li>Cached：是磁盘读取文件的页缓存，也就是用来缓存从文件读取的数据，这样下次访问这些文件数据时，旧可以直接从内存快速获取，而不需要再次访问缓慢的磁盘，但是不包括交互到swap分区的。</li>
+<li>SReclaimable:是slab的一部分。Slab包含可回收和不可回收两部分，可回收的用SReclaimable记录（dentry cache、inode cache属于slab的一部分），不可回收的用SUnrecalaim记录。</li>
+</ul>
+<p>从上面buffers和cached的来看，buffer是对磁盘的，而cache是针对文件页缓存读的，看起来是分开的，但实际上buffers和cached并没有分开，都是page cache，下面将来进行阐述。 CPU的读写速度与磁盘的读写速度是有很大差距的，因此文件系统在访问磁盘时，并不会直接与磁盘进行交互，而是在具体的文件系统与磁盘之间申请一段缓冲buffer，这段缓冲buffer实际就是申请了一块内存，将磁盘的数据缓存到这块内存中，具体的文件系统对磁盘的读写就转换为对缓冲buffer的读写这样就可以提高处理的速度，系统负责定期的将缓冲buff与磁盘进行数据同步，当然也可以手动sync的方式进行同步。 早期linux0.11阶段，buffer cache在linux中对应的数据结构是struct buffer_head，简称bh，顾名思义，表示缓冲区头部，这个缓冲区缓冲的是磁盘块设备数据，早期阶段为了提高磁盘的读写消息，在磁盘之上增加了一个缓冲，磁盘的读写单位是block，一般block的大小是1KB，每个block就对应一个bh，而bh的内存申请是以原始的内存分配方式，还没有基于page来分配内存。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">strcut</span><span class="w"> </span><span class="n">buffer_head</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">b_data</span><span class="p">;</span><span class="w">         </span><span class="cm">/* pointer to data block (1024 bytes) */</span><span class="c1">//指针。</span>
+<span class="w">  </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">b_blocknr</span><span class="p">;</span><span class="w">  </span><span class="cm">/* block number */</span><span class="c1">// 块号。</span>
+<span class="w">  </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">short</span><span class="w"> </span><span class="n">b_dev</span><span class="p">;</span><span class="w">     </span><span class="cm">/* device (0 = free) */</span><span class="c1">// 数据源的设备号。</span>
+<span class="w">  </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">b_uptodate</span><span class="p">;</span><span class="w"> </span><span class="c1">// 更新标志：表示数据是否已更新。</span>
+<span class="w">  </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">b_dirt</span><span class="p">;</span><span class="w">     </span><span class="cm">/* 0-clean,1-dirty */</span><span class="c1">//修改标志:0 未修改,1 已修改.</span>
+<span class="w">  </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">b_count</span><span class="p">;</span><span class="w">    </span><span class="cm">/* users using this block */</span><span class="c1">// 使用的用户数。</span>
+<span class="w">  </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">b_lock</span><span class="p">;</span><span class="w">     </span><span class="cm">/* 0 - ok, 1 -locked */</span><span class="c1">// 缓冲区是否被锁定。</span>
+<span class="w">  </span><span class="k">struct</span><span class="w"> </span><span class="nc">task_struct</span><span class="w"> </span><span class="o">*</span><span class="n">b_wait</span><span class="p">;</span><span class="w">   </span><span class="c1">// 指向等待该缓冲区解锁的任务。</span>
+<span class="w">  </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="n">b_prev</span><span class="p">;</span><span class="w">   </span><span class="c1">// hash 队列上前一块（这四个指针用于缓冲区的管理）。</span>
+<span class="w">  </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="n">b_next</span><span class="p">;</span><span class="w">   </span><span class="c1">// hash 队列上下一块。</span>
+<span class="w">  </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="n">b_prev_free</span><span class="p">;</span><span class="w">  </span><span class="c1">// 空闲表上前一块。</span>
+<span class="w">  </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="n">b_next_free</span><span class="p">;</span><span class="w">  </span><span class="c1">// 空闲表上下一块。</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>发展到中间阶段时linux2.2版本，buffer 就基于page来分配内存，但是page cache和buffer没有什么直接连续，是各自独立的作用，page cache只用于负责mmap的部分处理，buffer 依旧负责对磁盘IO的访问缓冲，如下图。但这样就会出现一个问题，由于read/write是绕过了page cache，就会导致mmap和read/write操作同步问题，磁盘的同一份数据在page cache中有一份，在buffer中也有一份，这样分离的设计还会导致浪费内存。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/* First cache line: */</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b_next</span><span class="p">;</span><span class="w">    </span><span class="cm">/* Hash queue list */</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">b_blocknr</span><span class="p">;</span><span class="w">    </span><span class="cm">/* block number */</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">b_size</span><span class="p">;</span><span class="w">       </span><span class="cm">/* block size */</span>
+<span class="w">    </span><span class="n">kdev_t</span><span class="w"> </span><span class="n">b_dev</span><span class="p">;</span><span class="w">           </span><span class="cm">/* device (B_FREE = free) */</span>
+<span class="w">    </span><span class="n">kdev_t</span><span class="w"> </span><span class="n">b_rdev</span><span class="p">;</span><span class="w">          </span><span class="cm">/* Real device */</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">b_rsector</span><span class="p">;</span><span class="w">    </span><span class="cm">/* Real buffer location on disk */</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b_this_page</span><span class="p">;</span><span class="w">   </span><span class="cm">/* circular list of buffers in one page */</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">b_state</span><span class="p">;</span><span class="w">      </span><span class="cm">/* buffer state bitmap (see above) */</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b_next_free</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b_count</span><span class="p">;</span><span class="w">       </span><span class="cm">/* users using this block */</span>
+
+<span class="w">    </span><span class="cm">/* Non-performance-critical data follows. */</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b_data</span><span class="p">;</span><span class="w">          </span><span class="cm">/* pointer to data block (1024 bytes) */</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b_list</span><span class="p">;</span><span class="w">        </span><span class="cm">/* List that this buffer appears */</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">b_flushtime</span><span class="p">;</span><span class="w">      </span><span class="cm">/* Time when this (dirty) buffer</span>
+<span class="cm">                     * should be written */</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">wait_queue</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b_wait</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">**</span><span class="w"> </span><span class="n">b_pprev</span><span class="p">;</span><span class="w">      </span><span class="cm">/* doubly linked list of hash-queue */</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b_prev_free</span><span class="p">;</span><span class="w">   </span><span class="cm">/* doubly linked list of buffers */</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b_reqnext</span><span class="p">;</span><span class="w">     </span><span class="cm">/* request queue */</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * I/O completion</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">b_end_io</span><span class="p">)(</span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="n">bh</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">uptodate</span><span class="p">);</span>
+<span class="w">    </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">b_dev_id</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c03e7f7e9acca067687f6a673f3f3571.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_c03e7f7e9acca067687f6a673f3f3571.jpg"/></a></p>
+<p>发展到第三阶段linux 2.4版本，对cache和buffer进行了融合，因为buffer的申请也是基于page的，那这两个为什么不融合在一起了，融合后buffer cache就直接存储在page cache中，但是依旧保留了buffer cache的描述。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">b_state</span><span class="p">;</span><span class="w">      </span><span class="cm">/* buffer state bitmap (see above) */</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="n">b_this_page</span><span class="p">;</span><span class="cm">/* circular list of page's buffers */</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">page</span><span class="w"> </span><span class="o">*</span><span class="n">b_page</span><span class="p">;</span><span class="w">        </span><span class="cm">/* the page this bh is mapped to */</span>
+
+<span class="w">    </span><span class="n">sector_t</span><span class="w"> </span><span class="n">b_blocknr</span><span class="p">;</span><span class="w">     </span><span class="cm">/* start block number */</span>
+<span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">b_size</span><span class="p">;</span><span class="w">          </span><span class="cm">/* size of mapping */</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">b_data</span><span class="p">;</span><span class="w">           </span><span class="cm">/* pointer to data within the page */</span>
+
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">block_device</span><span class="w"> </span><span class="o">*</span><span class="n">b_bdev</span><span class="p">;</span>
+<span class="w">    </span><span class="n">bh_end_io_t</span><span class="w"> </span><span class="o">*</span><span class="n">b_end_io</span><span class="p">;</span><span class="w">      </span><span class="cm">/* I/O completion */</span>
+<span class="w">    </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">b_private</span><span class="p">;</span><span class="w">        </span><span class="cm">/* reserved for b_end_io */</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w"> </span><span class="n">b_assoc_buffers</span><span class="p">;</span><span class="w"> </span><span class="cm">/* associated with another mapping */</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">address_space</span><span class="w"> </span><span class="o">*</span><span class="n">b_assoc_map</span><span class="p">;</span><span class="w">  </span><span class="cm">/* mapping this buffer is</span>
+<span class="cm">                           associated with */</span>
+<span class="w">    </span><span class="n">atomic_t</span><span class="w"> </span><span class="n">b_count</span><span class="p">;</span><span class="w">       </span><span class="cm">/* users using this buffer_head */</span>
+<span class="w">    </span><span class="n">spinlock_t</span><span class="w"> </span><span class="n">b_uptodate_lock</span><span class="p">;</span><span class="w"> </span><span class="cm">/* Used by the first bh in a page, to</span>
+<span class="cm">                     * serialise IO completion of other</span>
+<span class="cm">                     * buffers in the page */</span>
+<span class="p">};</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_939e0244c4a8a5c6156fae1672142e9c.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_939e0244c4a8a5c6156fae1672142e9c.jpg"/></a></p>
+<p>至此page cache和buffer 两者的关系融合了。磁盘的读写是按block为单位操作，一个block对应一个buffer_head缓冲，如块单位是1KB，那么1个page cache就有4个buffer_head。 对于文件系统的操作来说，buffer和cache都是page cache，对应的是进程打开文件内存的缓存，缓存在address_space::i_pages的xarray上，缓存的数量为address_space::nrpages。</p>
+<p>Buffer_head的原义是与block对应，按照磁盘的布局分为元数据区和数据区域，元数据是用于管理磁盘的如supper_block、inode等，数据区域才是正在的对应文件系统操作的数据。所以的对于cache和buffer的区别，buffer还存储了对磁盘管理的元数据缓存，这部分 再后来在linux2.4版本之后，新的文件系统开始引入了bio结构来替换buffer_head，但是原有的一些文件系统并没有完全替换使用bio，所以了就需要做bio兼容buffer_head，在磁盘操作前会调用到submit_bh_wbc函数，该函数会将buffer_head组装成bio，因此最终对磁盘的操作都会转为bio的方式，新的文件系统就直接使用bio。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">submit_bh_wbc</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">op</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">op_flags</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="n">bh</span><span class="p">,</span>
+<span class="w">             </span><span class="k">enum</span><span class="w"> </span><span class="n">rw_hint</span><span class="w"> </span><span class="n">write_hint</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">writeback_control</span><span class="w"> </span><span class="o">*</span><span class="n">wbc</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">bio</span><span class="w"> </span><span class="o">*</span><span class="n">bio</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="o">!</span><span class="n">buffer_locked</span><span class="p">(</span><span class="n">bh</span><span class="p">));</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="o">!</span><span class="n">buffer_mapped</span><span class="p">(</span><span class="n">bh</span><span class="p">));</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="o">!</span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_end_io</span><span class="p">);</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">buffer_delay</span><span class="p">(</span><span class="n">bh</span><span class="p">));</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">buffer_unwritten</span><span class="p">(</span><span class="n">bh</span><span class="p">));</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Only clear out a write error when rewriting</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">test_set_buffer_req</span><span class="p">(</span><span class="n">bh</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">op</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">REQ_OP_WRITE</span><span class="p">))</span>
+<span class="w">        </span><span class="n">clear_buffer_write_io_error</span><span class="p">(</span><span class="n">bh</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">bio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bio_alloc</span><span class="p">(</span><span class="n">GFP_NOIO</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">fscrypt_set_bio_crypt_ctx_bh</span><span class="p">(</span><span class="n">bio</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="p">,</span><span class="w"> </span><span class="n">GFP_NOIO</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_iter</span><span class="p">.</span><span class="n">bi_sector</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_blocknr</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_size</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">9</span><span class="p">);</span>
+<span class="w">    </span><span class="n">bio_set_dev</span><span class="p">(</span><span class="n">bio</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_bdev</span><span class="p">);</span>
+<span class="w">    </span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_write_hint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">write_hint</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">bio_add_page</span><span class="p">(</span><span class="n">bio</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_page</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_size</span><span class="p">,</span><span class="w"> </span><span class="n">bh_offset</span><span class="p">(</span><span class="n">bh</span><span class="p">));</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_iter</span><span class="p">.</span><span class="n">bi_size</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_size</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_end_io</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">end_bio_bh_io_sync</span><span class="p">;</span>
+<span class="w">    </span><span class="n">bio</span><span class="o">-&gt;</span><span class="n">bi_private</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bh</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">buffer_meta</span><span class="p">(</span><span class="n">bh</span><span class="p">))</span>
+<span class="w">        </span><span class="n">op_flags</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">REQ_META</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">buffer_prio</span><span class="p">(</span><span class="n">bh</span><span class="p">))</span>
+<span class="w">        </span><span class="n">op_flags</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">REQ_PRIO</span><span class="p">;</span>
+<span class="w">    </span><span class="n">bio_set_op_attrs</span><span class="p">(</span><span class="n">bio</span><span class="p">,</span><span class="w"> </span><span class="n">op</span><span class="p">,</span><span class="w"> </span><span class="n">op_flags</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* Take care of bh's that straddle the end of the device */</span>
+<span class="w">    </span><span class="n">guard_bio_eod</span><span class="p">(</span><span class="n">bio</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">wbc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">wbc_init_bio</span><span class="p">(</span><span class="n">wbc</span><span class="p">,</span><span class="w"> </span><span class="n">bio</span><span class="p">);</span>
+<span class="w">        </span><span class="n">wbc_account_cgroup_owner</span><span class="p">(</span><span class="n">wbc</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_page</span><span class="p">,</span><span class="w"> </span><span class="n">bh</span><span class="o">-&gt;</span><span class="n">b_size</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">submit_bio</span><span class="p">(</span><span class="n">bio</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_9af7de69a4945a6d4443dfa9eab81f60.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_9af7de69a4945a6d4443dfa9eab81f60.jpg"/></a></p>
+<p>以上的page cache和buffer cache的融合是针对使用文件系统的方式访问块设备的场景。但是如果以下的两个方式访问磁盘①使用文件②使用块设备节点，这两种方式对应的page cache是不同的，文件的方式是buff/cache，而块设备节点是buff（实际也是page cache分配），这种情况下一个物理磁盘的block数据仍然对应linux内核的两份page，一个是通过通用文件层访问的文件page cache（page cache），另一个是通过块设备节点访问的page cache（buffer cache）。另外需要注意的是，如果通过块设备节点访问声明了O_DIRECT，将会直接访问磁盘不会经过buff。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1d1e2bf632800324458f3d5dc461d846.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_1d1e2bf632800324458f3d5dc461d846.jpg"/></a></p>
+<p>上图如果分别使用文件系统方式/mnt/test的方式或者裸设备/dev/sda的方式去写磁盘，即使是一个位置，但是将会有两份page cache，前者的page cache对应的就是free中的cache，而后边的page cache对应的是free中的buff。 可以从/proc/meminfo的实现来研究一下buff和cache的区别。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">meminfo_proc_show</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">seq_file</span><span class="w"> </span><span class="o">*</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">v</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sysinfo</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">committed</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">long</span><span class="w"> </span><span class="n">cached</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">long</span><span class="w"> </span><span class="n">available</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">pages</span><span class="p">[</span><span class="n">NR_LRU_LISTS</span><span class="p">];</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">sreclaimable</span><span class="p">,</span><span class="w"> </span><span class="n">sunreclaim</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">lru</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">si_meminfo</span><span class="p">(</span><span class="o">&amp;</span><span class="n">i</span><span class="p">);</span>
+<span class="w">    </span><span class="n">si_swapinfo</span><span class="p">(</span><span class="o">&amp;</span><span class="n">i</span><span class="p">);</span>
+<span class="w">    </span><span class="n">committed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vm_memory_committed</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">cached</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">global_node_page_state</span><span class="p">(</span><span class="n">NR_FILE_PAGES</span><span class="p">)</span><span class="w"> </span><span class="o">-</span>
+<span class="w">            </span><span class="n">total_swapcache_pages</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="p">.</span><span class="n">bufferram</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cached</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">        </span><span class="n">cached</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">lru</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LRU_BASE</span><span class="p">;</span><span class="w"> </span><span class="n">lru</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">NR_LRU_LISTS</span><span class="p">;</span><span class="w"> </span><span class="n">lru</span><span class="o">++</span><span class="p">)</span>
+<span class="w">        </span><span class="n">pages</span><span class="p">[</span><span class="n">lru</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">global_node_page_state</span><span class="p">(</span><span class="n">NR_LRU_BASE</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">lru</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">available</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">si_mem_available</span><span class="p">();</span>
+<span class="w">    </span><span class="n">sreclaimable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">global_node_page_state_pages</span><span class="p">(</span><span class="n">NR_SLAB_RECLAIMABLE_B</span><span class="p">);</span>
+<span class="w">    </span><span class="n">sunreclaim</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">global_node_page_state_pages</span><span class="p">(</span><span class="n">NR_SLAB_UNRECLAIMABLE_B</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">show_val_kb</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="s">"MemTotal:       "</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">.</span><span class="n">totalram</span><span class="p">);</span>
+<span class="w">    </span><span class="n">show_val_kb</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="s">"MemFree:        "</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">.</span><span class="n">freeram</span><span class="p">);</span>
+<span class="w">    </span><span class="n">show_val_kb</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="s">"MemAvailable:   "</span><span class="p">,</span><span class="w"> </span><span class="n">available</span><span class="p">);</span>
+<span class="w">    </span><span class="n">show_val_kb</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="s">"Buffers:        "</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">.</span><span class="n">bufferram</span><span class="p">);</span><span class="w"> </span><span class="c1">//show_val_kb会将page数量转化为kb。</span>
+<span class="w">    </span><span class="n">show_val_kb</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="s">"Cached:         "</span><span class="p">,</span><span class="w"> </span><span class="n">cached</span><span class="p">);</span>
+<span class="n">show_val_kb</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="s">"SwapCached:     "</span><span class="p">,</span><span class="w"> </span><span class="n">total_swapcache_pages</span><span class="p">());</span>
+<span class="p">......</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>先来看看buff，buffers为i.bufferram，而该值在si_meminfo(&amp;i)中计算而来，在该函数中调用nr_blockdev_pages计算而来。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">si_meminfo</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">sysinfo</span><span class="w"> </span><span class="o">*</span><span class="n">val</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">val</span><span class="o">-&gt;</span><span class="n">totalram</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">totalram_pages</span><span class="p">();</span>
+<span class="w">    </span><span class="n">val</span><span class="o">-&gt;</span><span class="n">sharedram</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">global_node_page_state</span><span class="p">(</span><span class="n">NR_SHMEM</span><span class="p">);</span>
+<span class="w">    </span><span class="n">val</span><span class="o">-&gt;</span><span class="n">freeram</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">global_zone_page_state</span><span class="p">(</span><span class="n">NR_FREE_PAGES</span><span class="p">);</span>
+<span class="w">    </span><span class="n">val</span><span class="o">-&gt;</span><span class="n">bufferram</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">nr_blockdev_pages</span><span class="p">();</span>
+<span class="w">    </span><span class="n">val</span><span class="o">-&gt;</span><span class="n">totalhigh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">totalhigh_pages</span><span class="p">();</span>
+<span class="w">    </span><span class="n">val</span><span class="o">-&gt;</span><span class="n">freehigh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">nr_free_highpages</span><span class="p">();</span>
+<span class="w">    </span><span class="n">val</span><span class="o">-&gt;</span><span class="n">mem_unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>再看看下面的函数调用，buffers是遍历所有的块设备，累加address-&gt;i_mapping上nrpages值，该值就是xarray树上对应的page数量，对应上图中直接操作磁盘节点读写的方式 “open /dev/sda”。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">long</span><span class="w"> </span><span class="nf">nr_blockdev_pages</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">inode</span><span class="w"> </span><span class="o">*</span><span class="n">inode</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">long</span><span class="w"> </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">spin_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">blockdev_superblock</span><span class="o">-&gt;</span><span class="n">s_inode_list_lock</span><span class="p">);</span>
+<span class="w">    </span><span class="n">list_for_each_entry</span><span class="p">(</span><span class="n">inode</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">blockdev_superblock</span><span class="o">-&gt;</span><span class="n">s_inodes</span><span class="p">,</span><span class="w"> </span><span class="n">i_sb_list</span><span class="p">)</span>
+<span class="w">        </span><span class="n">ret</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_mapping</span><span class="o">-&gt;</span><span class="n">nrpages</span><span class="p">;</span>
+<span class="w">    </span><span class="n">spin_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">blockdev_superblock</span><span class="o">-&gt;</span><span class="n">s_inode_list_lock</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>再来看看cached的计算cached = global_node_page_state(NR_FILE_PAGES) -total_swapcache_pages() - i.bufferram，其中 global_node_page_state(NR_FILE_PAGES) 为vm_node_stat[NR_FILE_PAGES]的值。内核中定义了一个全局变量atomic_long_t vm_node_stat[]，用于统计全局内存的信息，搜索内核中关于NR_FILE_PAGES的标志，主要有以下三个函数修改。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">__mod_lruvec_page_state</span><span class="p">(</span><span class="n">item</span><span class="p">,</span><span class="n">val</span><span class="p">)</span><span class="w"> </span><span class="c1">//对全局变量vm_node_stat[item]增加val</span>
+<span class="n">__dec_lruvec_page_state</span><span class="p">()</span><span class="c1">//对全局变量vm_node_stat[item]减1</span>
+<span class="n">__inc_lruvec_page_state</span><span class="p">()</span><span class="c1">//对全局变量vm_node_stat[item]加1</span>
+</code></pre></div>
+<p>示例</p>
+<div class="codehilite"><pre><span></span><code><span class="n">__mod_lruvec_page_state</span><span class="p">(</span><span class="n">page</span><span class="p">,</span><span class="w"> </span><span class="n">NR_FILE_PAGES</span><span class="p">,</span><span class="w"> </span><span class="o">-</span><span class="n">nr</span><span class="p">)</span>
+<span class="w">    </span><span class="n">__mod_node_page_state</span><span class="p">(</span><span class="n">page_pgdat</span><span class="p">(</span><span class="n">page</span><span class="p">),</span><span class="w"> </span><span class="n">idx</span><span class="p">,</span><span class="w"> </span><span class="n">val</span><span class="p">)</span>
+<span class="w">        </span><span class="n">node_page_state_add</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span><span class="w"> </span><span class="n">pgdat</span><span class="p">,</span><span class="w"> </span><span class="n">item</span><span class="p">)</span><span class="w"> </span><span class="c1">//delta=-nr</span>
+<span class="w">            </span><span class="n">atomic_long_add</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pgdat</span><span class="o">-&gt;</span><span class="n">vm_stat</span><span class="p">[</span><span class="n">item</span><span class="p">]);</span>
+<span class="w">                </span><span class="n">atomic_long_add</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">vm_node_stat</span><span class="p">[</span><span class="n">item</span><span class="p">]);</span>
+</code></pre></div>
+<p>从上面的函数调用，__mod_lruvec_page_state(struct page *page,enum node_stat_item idx, int val)的作用就是根据item类型（这里是NR_FILE_PAGES）对全局变量vm_node_stat[item]增加val。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f3b8752cc008370caa6d04d54648ab8d.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_f3b8752cc008370caa6d04d54648ab8d.jpg"/></a></p>
+<p>从上的函数调用流程可知，无论是文件系统的写还是读，当分配新的page时，会调用add_to_page_cache_lru将page添加到xarray树上，并调用__inc_lruvec_page_state增加page计数，同时会添加到LRU链表用于后续回收。除了调用generic_file_read/write读写文件系统会修改vm_node_stat[NR_FILE_PAGES]外，还有不少操作也会让vm_node_stat[NR_FILE_PAGES]会增加，如通过dev节点直接对磁盘的操作（buffers），以及匿名页交换到swap分区的也会修改。因此vm_node_stat[NR_FILE_PAGES]是一个总的值，实际在计算cached的时候会把交换到swap分区、以及buffers的值减去。cached = global_node_page_state(NR_FILE_PAGES) -total_swapcache_pages() - i.bufferram。 总结下：</p>
+<ul>
+<li>对于文件系统的操作方式来说(如/mnt/UDISK/test)，大部分是cached（buffers和cached以及合并了），会占用少部分的buffer，主要是存储一些元数据的存储是划到buffer中。</li>
+<li>对于磁盘的操作方式来说(如/dev/sda)，只有buffers。</li>
+</ul>
+<p>可以使用测试使用vmstat观察buff和cache的变化情况。</p>
+<h3 id="_1">通过文件系统的方式</h3>
+<p>写入到文件系统中</p>
+<div class="codehilite"><pre><span></span><code><span class="n">echo</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+<span class="n">dd</span><span class="w"> </span><span class="k">if</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">urandom</span><span class="w"> </span><span class="n">of</span><span class="o">=/</span><span class="n">mnt</span><span class="o">/</span><span class="n">UDISK</span><span class="o">/</span><span class="n">test</span><span class="w"> </span><span class="n">bs</span><span class="o">=</span><span class="mi">1</span><span class="n">M</span><span class="w"> </span><span class="n">count</span><span class="o">=</span><span class="mi">5</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_827ef7011e8e2b4aa8365a4b7697f41d.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_827ef7011e8e2b4aa8365a4b7697f41d.jpg"/></a></p>
+<p>从文件系统中读</p>
+<div class="codehilite"><pre><span></span><code><span class="n">echo</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+<span class="n">dd</span><span class="w"> </span><span class="k">if</span><span class="o">=/</span><span class="n">mnt</span><span class="o">/</span><span class="n">UDISK</span><span class="o">/</span><span class="n">test4</span><span class="w"> </span><span class="n">of</span><span class="o">=/</span><span class="n">tmp</span><span class="o">/</span><span class="n">test</span><span class="w"> </span><span class="n">bs</span><span class="o">=</span><span class="mi">1</span><span class="n">M</span><span class="w"> </span><span class="n">count</span><span class="o">=</span><span class="mi">10</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_44bc99e407b69d52a81e94d04c40071b.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_44bc99e407b69d52a81e94d04c40071b.jpg"/></a></p>
+<p>通过vmstat统计来看，写入到文件系统ext4上或从文件系统读，基本都是cache在变化。</p>
+<h3 id="_2">通过磁盘的方式操作</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">echo</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+<span class="n">dd</span><span class="w"> </span><span class="k">if</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">urandom</span><span class="w"> </span><span class="n">of</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">mmcblk0p9</span><span class="w"> </span><span class="n">bs</span><span class="o">=</span><span class="mi">1</span><span class="n">M</span><span class="w"> </span><span class="n">count</span><span class="o">=</span><span class="mi">8</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4c194f1fe83b6528d16b0e1a5b653b47.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_4c194f1fe83b6528d16b0e1a5b653b47.jpg"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="n">echo</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
+<span class="n">dd</span><span class="w"> </span><span class="k">if</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">mmcblk0p9</span><span class="w"> </span><span class="n">of</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">null</span><span class="w"> </span><span class="n">bs</span><span class="o">=</span><span class="mi">1</span><span class="n">M</span><span class="w"> </span><span class="n">count</span><span class="o">=</span><span class="mi">8</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_192c954031181ebc77218932c4a3db40.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_192c954031181ebc77218932c4a3db40.jpg"/></a></p>
+<p>通过磁盘的方式操作，可以发现buff和cache都有变化（这里的cache还包括了slab可以回收部分，如果查询/proc/meminfo下的cached变化会更少些），但是buff变化更大些，然后突然又降回去了（被系统回收了）读磁盘数据会缓存到buffer中。</p>
+<h3 id="direct-io">Direct IO写</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">dd</span><span class="w"> </span><span class="k">if</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">urandom</span><span class="w"> </span><span class="n">of</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">mmcblk0p9</span><span class="w"> </span><span class="n">bs</span><span class="o">=</span><span class="mi">1</span><span class="n">M</span><span class="w"> </span><span class="n">count</span><span class="o">=</span><span class="mi">10</span><span class="w"> </span><span class="n">oflag</span><span class="o">=</span><span class="n">direct</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a9b960b2e39d9ac78ba1ab0be66495e5.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_a9b960b2e39d9ac78ba1ab0be66495e5.jpg"/></a></p>
+<p>可以发现buff，cache基本没变化。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/linux/内存初始化基本概念.html">← 内存初始化基本概念</a>
+    <a class="next" href="/laumy.github.io/posts/linux/一切皆文件之块设备驱动-四.html">一切皆文件之块设备驱动（四） →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+

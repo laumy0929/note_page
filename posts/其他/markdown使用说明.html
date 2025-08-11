@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>markdown使用说明 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>markdown使用说明</h1>
+  <div class="meta">2023-03-18 · 其他</div>
+  <div class="post-content"><h1 id="_1">首行缩进</h1>
+<div class="codehilite"><pre><span></span><code><span class="err">`</span><span class="o">&amp;</span><span class="n">ensp</span><span class="err">`</span><span class="p">;</span><span class="w">  </span><span class="c1">//半角的空格</span>
+
+<span class="err">`</span><span class="o">&amp;</span><span class="n">emsp</span><span class="err">`</span><span class="p">;</span><span class="w">  </span><span class="c1">//全角的空格（中文的话，一般就直接用两个 即可）</span>
+</code></pre></div>
+<h1 id="_2">着色</h1>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">span</span><span class="w"> </span><span class="n">style</span><span class="o">=</span><span class="s">"color:red;"</span><span class="o">&gt;</span><span class="n">红色文字</span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">span</span><span class="w"> </span><span class="n">style</span><span class="o">=</span><span class="s">"color:blue;"</span><span class="o">&gt;</span><span class="n">蓝色文字</span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">span</span><span class="w"> </span><span class="n">style</span><span class="o">=</span><span class="s">"color:green;"</span><span class="o">&gt;</span><span class="n">绿色文字</span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">span</span><span class="w"> </span><span class="n">style</span><span class="o">=</span><span class="s">"color:yellow;"</span><span class="o">&gt;</span><span class="n">黄色文字</span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">span</span><span class="w"> </span><span class="n">style</span><span class="o">=</span><span class="s">"color:orange;"</span><span class="o">&gt;</span><span class="n">橙色文字</span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">span</span><span class="w"> </span><span class="n">style</span><span class="o">=</span><span class="s">"color:purple;"</span><span class="o">&gt;</span><span class="n">紫色文字</span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span>
+</code></pre></div>
+<h1 id="_3">粗体与斜体</h1>
+<div class="codehilite"><pre><span></span><code><span class="n">粗体与斜体</span><span class="err">：</span><span class="n">使用</span><span class="w"> </span><span class="o">**</span><span class="n">粗体</span><span class="o">**</span><span class="w"> </span><span class="n">表示粗体</span><span class="err">，</span><span class="n">使用</span><span class="w"> </span><span class="o">*</span><span class="n">斜体</span><span class="o">*</span><span class="w"> </span><span class="n">表示斜体</span><span class="err">。</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/laumy.github.io/posts/linux/进程创建.html">← 进程创建</a>
+    <a class="next" href="/laumy.github.io/posts/linux/进程基本概念.html">进程基本概念 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/laumy.github.io/assets/site.js"></script>
+  </body>
+  </html>
+
