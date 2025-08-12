@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>全连接层与卷积层参数计算 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -57,16 +57,16 @@
 <p>在深度学习中，层（Layer)是神经网络的基本构建模块，负责对输入数据进行特定变换（如线性加权、非线性激活、特征提取等）。每一层接收输入数据，通过内部参数和计算规则生成输出，传递给下一层。常见的层有全连接层、激活函数层、卷积层、池化层、归一化层（Normalization Layer）、正则化（dropout）。当然层还可以自己定义。</p>
 <h2 id="_2">全连接层</h2>
 <p>全连接层（Fully Connected Layer）是指当前层每个神经元均与前一层的所有神经元相，通过权重矩阵和偏置向量实现全局特征整合。全连接层计算公式为y=wx+b。其作用是将局部特征（如卷积层提取的边缘、纹理）映射为全局语义信息（如物体类别），常用于分类或回归任务的输出层。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_c6bd61395d65c213ab8bb7875a42da46.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/全连接层与卷积层参数计算。/images/wp_editor_md_c6bd61395d65c213ab8bb7875a42da46.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_c6bd61395d65c213ab8bb7875a42da46.jpg"><img alt="" src="../assets/doc/04-ai/深度学习/全连接层与卷积层参数计算。/images/wp_editor_md_c6bd61395d65c213ab8bb7875a42da46.jpg"/></a></p>
 <p>下面是一个全连接层的结构。从上面的结构可以总结一下全连接层的参数计算公式，<strong>Params=(输入节点+1）×输出节点数</strong>,公式中的+1代表的是偏置项（bias）。</p>
 <p>因此上图中的总参数量为：（4+1）*5 + (5+1)*3 = 25 + 18 = 43。</p>
 <h2 id="_3">卷积层</h2>
 <p>卷积核是在输入数据上滑动，计算局部区域的加权和（如3×3窗口），其作用可以捕边缘、纹理、形态等基础特征。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_7f46c5132bb1f852c2694f41591500e7.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/全连接层与卷积层参数计算。/images/wp_editor_md_7f46c5132bb1f852c2694f41591500e7.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_7f46c5132bb1f852c2694f41591500e7.jpg"><img alt="" src="../assets/doc/04-ai/深度学习/全连接层与卷积层参数计算。/images/wp_editor_md_7f46c5132bb1f852c2694f41591500e7.jpg"/></a></p>
 <p>卷积核的参数计算公式为，<strong>参数量=(卷积核高×卷积核宽×输入通道数+1)×输出通道数</strong>。上图示例中，输入2通道，输出1通道，所以参数量为2*2*2*1 = 8,这里没有考虑偏置bias。从这里可以看出，相对卷积层比全连接层参数很少很多。</p></div>
   <div class="post-nav">
-    <a class="prev" href="/yolov1目标检测原理.html">← YOLOv1目标检测原理</a>
-    <a class="next" href="/opencv图像处理.html">opencv图像处理 →</a>
+    <a class="prev" href="../yolov1目标检测原理.html">← YOLOv1目标检测原理</a>
+    <a class="next" href="../opencv图像处理.html">opencv图像处理 →</a>
   </div>
 </article>
 
@@ -81,7 +81,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

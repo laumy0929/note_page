@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>RISC-V动态链接实验 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -206,8 +206,8 @@
 </code></pre></div>
 <p>从上面分析可知，swap函数地址存储在.got表0x12028处，而该值初值是_PROCEDURE_LINKAGE_TABLE_，这是因为在编译完还没有运行前，swap在动态库中地址并没有确定，实际的地址需要程序运行加载才会确定，所以了默认先填_PROCEDURE_LINKAGE_TABLE_，而该标签中的代码，正好就是处理寻址swap地址的功能。</p>
 <p>下面是gdb单步调试的信息，下面的跳转跟我们分析的一致。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_37f368d5fce10c18a29432289ae7c530.jpg"><img alt="" src="/assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_37f368d5fce10c18a29432289ae7c530.jpg"/></a></p>
-<p>也可以通过x命令查询.got表的信息 <a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_26aefb61cc01ad30e21489a341dce805.jpg"><img alt="" src="/assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_26aefb61cc01ad30e21489a341dce805.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_37f368d5fce10c18a29432289ae7c530.jpg"><img alt="" src="../assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_37f368d5fce10c18a29432289ae7c530.jpg"/></a></p>
+<p>也可以通过x命令查询.got表的信息 <a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_26aefb61cc01ad30e21489a341dce805.jpg"><img alt="" src="../assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_26aefb61cc01ad30e21489a341dce805.jpg"/></a></p>
 <p>小结：跳转到.plt表，第一次执行对应的.got表中没有存储swap的地址，将先跳转到_PROCEDURE_LINKAGE_TABLE_，即.plt的第一表项。</p>
 <h2 id="procedure-linkage-table">procedure linkage table</h2>
 <p>.plt的地址一表项存储的是链接器表。</p>
@@ -223,18 +223,18 @@
 <span class="w">   </span><span class="mi">104</span><span class="n">b8</span><span class="o">:</span><span class="w">   </span><span class="mo">00</span><span class="mi">82</span><span class="n">b283</span><span class="w">            </span><span class="n">ld</span><span class="w">  </span><span class="n">t0</span><span class="p">,</span><span class="mi">8</span><span class="p">(</span><span class="n">t0</span><span class="p">)</span>
 <span class="w">   </span><span class="mi">104</span><span class="n">bc</span><span class="o">:</span><span class="w">   </span><span class="mf">000e0067</span><span class="w">            </span><span class="n">jr</span><span class="w">  </span><span class="n">t3</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mi">1</span><span class="n">a000</span><span class="w"> </span><span class="o">&lt;</span><span class="n">__global_pointer$</span><span class="o">+</span><span class="mh">0x7800</span><span class="o">&gt;</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_0e265ddce2c26dd3b9dc7c7485c872db.jpg"><img alt="" src="/assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_0e265ddce2c26dd3b9dc7c7485c872db.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_0e265ddce2c26dd3b9dc7c7485c872db.jpg"><img alt="" src="../assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_0e265ddce2c26dd3b9dc7c7485c872db.jpg"/></a></p>
 <p>上面的汇编最终会跳转到链接器里面，所做的工作就是通过链接器查询swap的地址，然后填充到.got中，然后进行跳转swap，这里就不再分析，直接看最后的结果。当执行完链接器的处理后，会更新.got表。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_20bfcc0baef3046a41cb61db33b1ba68.jpg"><img alt="" src="/assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_20bfcc0baef3046a41cb61db33b1ba68.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_20bfcc0baef3046a41cb61db33b1ba68.jpg"><img alt="" src="../assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_20bfcc0baef3046a41cb61db33b1ba68.jpg"/></a></p>
 <p>从上面可知swap函数在got表中，地址被更新为0x3f9a69f4c2。</p>
 <h2 id="swap">再次调用swap函数</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_e06e8b04edb2d3c652b2138483b7bed3.jpg"><img alt="" src="/assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_e06e8b04edb2d3c652b2138483b7bed3.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_e06e8b04edb2d3c652b2138483b7bed3.jpg"><img alt="" src="../assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_e06e8b04edb2d3c652b2138483b7bed3.jpg"/></a></p>
 <p>当再次调用swap函数的时候，ld t3,-1208(t3)，这里的t3就变成了0x3f9a69f4c2，这样就不会再执行_PROCEDURE_LINKAGE_TABLE_，直接跳转到swap的地址。</p>
 <p>还可以使用cat /proc/xx/maps确定so落在的范围，下面的地址不一定匹配了， 重新运行了一次a.out,只是给个示例。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_ca610d8932d06d8923344a1c46ab0239.jpg"><img alt="" src="/assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_ca610d8932d06d8923344a1c46ab0239.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_ca610d8932d06d8923344a1c46ab0239.jpg"><img alt="" src="../assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_ca610d8932d06d8923344a1c46ab0239.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="/risc-v-backtrace实现原理.html">← RISC-V backtrace实现原理</a>
-    <a class="next" href="/opensbi分析-二.html">opensbi分析（二） →</a>
+    <a class="prev" href="../risc-v-backtrace实现原理.html">← RISC-V backtrace实现原理</a>
+    <a class="next" href="../opensbi分析-二.html">opensbi分析（二） →</a>
   </div>
 </article>
 
@@ -249,7 +249,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

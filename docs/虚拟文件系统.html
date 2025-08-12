@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>虚拟文件系统 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -52,7 +52,7 @@
 <article class="card post">
   <h1>虚拟文件系统</h1>
   <div class="meta">2023-05-20 · linux</div>
-  <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8268464056e615fff2c2c6028c3bf923.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/虚拟文件系统/images/wp_editor_md_8268464056e615fff2c2c6028c3bf923.jpg"/></a></p>
+  <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8268464056e615fff2c2c6028c3bf923.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/虚拟文件系统/images/wp_editor_md_8268464056e615fff2c2c6028c3bf923.jpg"/></a></p>
 <p>Linux系统中支持多种不同的文件系统，为了是用户可以通过一个文件系统操作界面，对各种不同的文件系统进行操作，在具体的文件系统（ext2/ext4等）之上增加了一层抽象一个统一的虚拟文件系统界面，向上提供归一化的文件操作，这个抽象层就称为虚拟文件系统。 为了实现抽象层，Linux内核定义了4个重要的数据结构对象。</p>
 <ul>
 <li>supper block: 管理文件系统的相关描述信息。</li>
@@ -210,7 +210,7 @@
 <span class="p">}</span><span class="w"> </span><span class="n">____cacheline_aligned</span><span class="p">;</span>
 </code></pre></div>
 <p>在VFS层定义了通用的struct inode，在具体的文件系统中可能还会定义属于具体文件系统的inode，如struct ext2_inode、struct ext4_inode，这些xxx_inode是对具体文件的描述如元数据相关信息即具体文件系统磁盘信息的描述，在分配struct inode时，会将xxx_inode的值赋值到struct inode中。其他像超级块，目录等对象也类似。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_2f3638dedfafce8236f188ca95fc1076.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/虚拟文件系统/images/wp_editor_md_2f3638dedfafce8236f188ca95fc1076.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_2f3638dedfafce8236f188ca95fc1076.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/虚拟文件系统/images/wp_editor_md_2f3638dedfafce8236f188ca95fc1076.jpg"/></a></p>
 <h3 id="_4">目录项对象</h3>
 <p>dentry虽翻译为目录项，但和文件系统中的目录并不是同一个概念，dentry属于文件系统的对象，包括目录、文件等，反映的是文件系统对象在内核中所在文件系统树的位置。每个文件除了有inode，同时也会有一个dentry结构，记录了文件的名称，父目录，子目录等信息，形成我们看到的层级树状结构。与inode不同时，dentry只存在于内存，磁盘上并没有对应的实体文件，因此目录项目不会涉及回写磁盘的操作。   dentry其中重要的是对文件搜索找出对应的文件的inode。遍历目录时比较耗时的，为了加快遍历和查找，内核中使用hash表来缓存dentry。   一个路径的各个组成部分，不管目录还是普通的文件，都是一个dentry对象，如/home/test.c，/，home,test.c都是一个目录项。为了增加搜索效率，这些目录项目缓存到hash表中。</p>
 <p>struct dentry</p>
@@ -376,7 +376,7 @@
 <span class="p">}</span><span class="w"> </span><span class="n">__randomize_layout</span><span class="p">;</span>
 </code></pre></div>
 <p>下面描述进程与文件操作联系</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_6a9e7e989e90e2de4e489a3195122885.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/虚拟文件系统/images/wp_editor_md_6a9e7e989e90e2de4e489a3195122885.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_6a9e7e989e90e2de4e489a3195122885.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/虚拟文件系统/images/wp_editor_md_6a9e7e989e90e2de4e489a3195122885.jpg"/></a></p>
 <p>每个进程打开一个文件后，都有一个文件描述符fd。struct file *fd_array存储的就是这个进程打开的所有文件，称为文件描述符表，文件描述表的每一项都是一个指针，指向一个用于描述打开的struct file对象，struct file对象描述了文件的打开模式，当进程打开一个文件是，内核就会创建一个file对象，但是需要注意的是file对象不是专属某个进程，fd才是专属于某个进程，不同的文件描述符指针可以指向相同的file对象，表示共享打开的文件，struct file中有一个引用计数，描述了被多个进程引用的次数，只有引入计数为0时，内核才会销毁file对象。</p>
 <h2 id="_6">其他数据结构</h2>
 <h3 id="_7">文件系统类型</h3>
@@ -432,8 +432,8 @@
 <span class="p">}</span><span class="w"> </span><span class="n">__randomize_layout</span><span class="p">;</span>
 </code></pre></div></div>
   <div class="post-nav">
-    <a class="prev" href="/实现简单文件系统.html">← 实现简单文件系统</a>
-    <a class="next" href="/文件系统磁盘管理.html">文件系统磁盘管理 →</a>
+    <a class="prev" href="../实现简单文件系统.html">← 实现简单文件系统</a>
+    <a class="next" href="../文件系统磁盘管理.html">文件系统磁盘管理 →</a>
   </div>
 </article>
 
@@ -448,7 +448,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

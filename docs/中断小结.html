@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>中断小结 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -89,18 +89,18 @@
 <li>threaded_irq：底半部，处理函数可以睡眠，也可以执行比较长的应用，支持IRQ_ONESHOT。</li>
 </ul>
 <h2 id="_1">中断处理过程</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ab2e4fe23e14c02bb29a7f1f4c2374bf.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_ab2e4fe23e14c02bb29a7f1f4c2374bf.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ab2e4fe23e14c02bb29a7f1f4c2374bf.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_ab2e4fe23e14c02bb29a7f1f4c2374bf.jpg"/></a></p>
 <h2 id="_2">为什么软中断中不能睡眠</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ba9a74ba8d4913ce34c4b7d4e1bb13ec.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_ba9a74ba8d4913ce34c4b7d4e1bb13ec.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ba9a74ba8d4913ce34c4b7d4e1bb13ec.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_ba9a74ba8d4913ce34c4b7d4e1bb13ec.jpg"/></a></p>
 <p>软中断的触发是在中断执行irq_exit的时候，软中断可以线程化和非线程化处理，当软中断是非线程化时，还是处于中断上下文的，尽管进入软中断会打开本地cpu中断响应，但是但是其他寄存器的值是没有恢复的，如果此时进入睡眠将会触发调度，那么上一个任务就无法返回。</p>
 <h2 id="_3">中断是否会丢失</h2>
 <p>会，使用边沿触发时容易丢失。因为CPU响应一个中断时会屏蔽掉CPU的本地响应，无法进行再响应其他中断，但是中断控制器只会pengding一个信号，没法叠加信号，即在CPU响应处理A中断时，B中断要是触发了1次以上，那么等A中断处理完后再响应B中断时也只会处理1次，本质上还是中断控制器没法叠加信号。因此在驱动编写时，如果不想丢中断，建议使用电平触发，因为电平触发如果没有与外设进行同步清除触发源时，电平会一直触发中断响应。</p>
 <h2 id="_4">如何解决电平触发中断洪泛</h2>
 <p>可使用request_thread_irq(irq,irq_default_primary_handler,xx_isr,IRQF_ONESHOT)。对于电平触发的外设，如果需要使用睡眠的API接口操作外设写相关寄存器才能清除中断就可使用request_thread_irq。如下图的场景，当点击触摸屏LCD触发高电平中断时，当CPU收到高电平触发时需要通过I2C接口写触摸屏的寄存器清除中断，高电平才会拉低进入下一流程。此时就会面临一个问题，当CPU响应中断处理时，在顶半部是无法调用I2C的接口写寄存器清除的，因为I2C的接口可能是睡眠，在中断上下文中是无法进行睡眠，那么处理写I2C的操作需要移到底半部去处理，但是一进入底半部就会开中断，因为是高电平，那么就又会触发中断，因此就引入IRQF_ONESHOT，当注册中断是声明了该参数，中断响应从顶半部退出，直到底半步结束才会打开中断控制器对该外设的中断响应，这就解决了中断洪泛的问题。irq_default_primary_handler是默认的顶半部处理函数，不做任何处理，直接返回IRQ_WAKE_THREAD进入底半部，当然用户也可以自定义声明函数，但是返回值要使用IRQ_WAKE_THREAD，如果自定义声明的顶半部为NULL，那么系统会默认设定irq_default_primary_handler。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3df01711f554140df676b84b5c5a8997.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_3df01711f554140df676b84b5c5a8997.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3df01711f554140df676b84b5c5a8997.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_3df01711f554140df676b84b5c5a8997.jpg"/></a></p>
 <h2 id="linux">为什么linux不是实时操作系统</h2>
 <p>进入中断处理时，CPU就关闭了本地中断响应，没法再响应其他中断，即linux的中断时没法嵌套的，即使有再高优先级的中断也是没法处理。另外软中断的处理要比任何进程优先级高，因为软中断是可以在中断上下文中运行。 除了中断，软中断外，spinlock在处理过程中是关闭抢占调度的，所以在spinlock期间也是也没法调度的。看下下面的场景：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_42a4f6290b4abb1857117be9b36db77d.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_42a4f6290b4abb1857117be9b36db77d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_42a4f6290b4abb1857117be9b36db77d.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_42a4f6290b4abb1857117be9b36db77d.jpg"/></a></p>
 <ul>
 <li>T0时刻normal task执行系统调用进入到内核。</li>
 <li>T1时刻获取到了spin lock，进入临界区保护阶段。</li>
@@ -117,7 +117,7 @@
 <h2 id="_5">如何调试？</h2>
 <div class="codehilite"><pre><span></span><code>cat<span class="w"> </span>/proc/interrupts
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_eeace6a2ee5cf8bbccea572a4897d8ad.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_eeace6a2ee5cf8bbccea572a4897d8ad.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_eeace6a2ee5cf8bbccea572a4897d8ad.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_eeace6a2ee5cf8bbccea572a4897d8ad.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code>/proc/irq/xx/smp_affinity
 </code></pre></div>
 <div class="codehilite"><pre><span></span><code>root@TinaLinux:/#<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/sys/kernel/debug/tracing/
@@ -126,15 +126,15 @@ root@TinaLinux:/sys/kernel/debug/tracing#<span class="w"> </span><span class="nb
 root@TinaLinux:/sys/kernel/debug/tracing#<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>&gt;<span class="w"> </span>tracing_on<span class="w"> </span>
 root@TinaLinux:/sys/kernel/debug/tracing#<span class="w"> </span>cat<span class="w"> </span>trace
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_853d5e37eb40283d47384a77d64cdc96.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_853d5e37eb40283d47384a77d64cdc96.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_853d5e37eb40283d47384a77d64cdc96.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_853d5e37eb40283d47384a77d64cdc96.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code>pinctrl/*/pins
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_5b7a8188725e194656c7f95e458901f1.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_5b7a8188725e194656c7f95e458901f1.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_5b7a8188725e194656c7f95e458901f1.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/workqueue之线程池动态管理/images/wp_editor_md_5b7a8188725e194656c7f95e458901f1.jpg"/></a></p>
 <h2 id="_6">参考文献</h2>
 <p>1.GICv3_Software_Overview_Official_Release_B.pdf 2.aarch64_exception_and_interrupt_handling_100933_0100_en.pdf 3.ARM64体系结构编程与实践 4.奔跑吧 Linux内核：基于Linux 4.x内核源代码问题分析 5.http://www.wowotech.net/ 6.https://www.cnblogs.com/LoyenWang/</p></div>
   <div class="post-nav">
-    <a class="prev" href="/进程基本概念.html">← 进程基本概念</a>
-    <a class="next" href="/workqueue.html">workqueue →</a>
+    <a class="prev" href="../进程基本概念.html">← 进程基本概念</a>
+    <a class="next" href="../workqueue.html">workqueue →</a>
   </div>
 </article>
 
@@ -149,7 +149,7 @@ root@TinaLinux:/sys/kernel/debug/tracing#<span class="w"> </span>cat<span class=
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>自注意力机制 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -54,37 +54,37 @@
   <div class="meta">2025-06-13 · ai</div>
   <div class="post-content"><h2 id="_1">运作原理</h2>
 <p>自注意力机制要解决的是让机器根据输入序列能根据上下文来理解。举个例子，输入句子为"我有一个苹果手机"，对于机器来说这里的"苹果"应该是指水果还是手机品牌了？所以要解决这个问题，就需要在上下文中去理解，那怎么在上下文中去理解了？那就是由句子中的其他词对于施加权重，让"苹果"更靠近"手机"。具体怎么做了？来看看下面的图。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_bbf1ba7eca0ef38d8529b14969f6ea17.jpg"><img alt="" src="/assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_bbf1ba7eca0ef38d8529b14969f6ea17.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_bbf1ba7eca0ef38d8529b14969f6ea17.jpg"><img alt="" src="../assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_bbf1ba7eca0ef38d8529b14969f6ea17.jpg"/></a></p>
 <p>上图中的a1~a4是输入的词，每个输入的词都需要跟句子中的其他词做运算得到一个输出b1~b4。如a1要得到b1，那么a1需要与a2、a3、a4输入的词进行相关运算得到b1，同理其他a2、a3、a4对应输出b2、b3、b4。注意这里a1到b1的输出并不是a1与其他a2~a4的简单相乘或相加，那具体是怎么个相关运算了？</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_c3e93191c7a19dc438ffb9a3deefb50b.jpg"><img alt="" src="/assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_c3e93191c7a19dc438ffb9a3deefb50b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_c3e93191c7a19dc438ffb9a3deefb50b.jpg"><img alt="" src="../assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_c3e93191c7a19dc438ffb9a3deefb50b.jpg"/></a></p>
 <p>计算向量关联程度的方法有点积和相加，目前比较常用的是点积。下面以点积来进行说明。在自注意力模型中，采样查询-键-值（Query-Key-Value）的模式。主要分为3个步骤，分别是计算QK内积、再计算V向量、最后加权得到b。</p>
 <h2 id="qk">QK内积</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_3b8985766bd0b0b5c94af306d71f4669.jpg"><img alt="" src="/assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_3b8985766bd0b0b5c94af306d71f4669.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_3b8985766bd0b0b5c94af306d71f4669.jpg"><img alt="" src="../assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_3b8985766bd0b0b5c94af306d71f4669.jpg"/></a></p>
 <ul>
 <li>q： q称为查询，就是使用搜索引擎查找相关文章的关键字。q的计算方式为输入乘上Wq矩阵得到，如把a1乘上Wq得到q1。</li>
 <li>k: k称为键值，输入乘上Wk得到向量k。如a2,a3,a4乘以Wk得到k2,k3,k4。</li>
 <li>qk：把q和k做点积就得到a12,a13,a14，即表征a1与a2,a3,a4之间的关联性了。</li>
 </ul>
 <p>通常情况下，得到最终的qk内积结果（记为axx）会进行一次归一化处理得到a'，可以使用softmax也可以使用别的激活函数，如下图所示。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_7da118a317a3db56db949eb06e105a53.jpg"><img alt="" src="/assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_7da118a317a3db56db949eb06e105a53.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_7da118a317a3db56db949eb06e105a53.jpg"><img alt="" src="../assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_7da118a317a3db56db949eb06e105a53.jpg"/></a></p>
 <p>最终处理的结果a'表示的是输入a1与其他a2~a4存在的关联性分数，也称为注意力分数，也可以说是一个权重值，上下文中其他的词对a1最终词的解释权重。</p>
 <h2 id="v">V向量</h2>
 <p>qk内积计算了注意力分数，那接下来需要根据注意力的分数提取出信息得到最终的b。那么要进行提取，那必然需要先获取到其他词的特征信息，怎么获取了，获取的方式非常简单，就是让各自输入乘以Wv矩阵得到一个向量V。比如a1乘以Wv得到V1,a2乘以Wv得到V2。</p>
 <h2 id="b">加权和b</h2>
 <p>得到了各自的注意力分数qk，也获取到了各自输入的特征信息，最后就可以计算最终的输出b了。公式为： $b^1 = \sum_{i} \alpha_{1,i}' v^i$ 。就是特征信息V和注意力分数进行相乘，然后把所有结果加起来。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_a619c50e46c338a35e9e6b21c0ba78ea.jpg"><img alt="" src="/assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_a619c50e46c338a35e9e6b21c0ba78ea.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_a619c50e46c338a35e9e6b21c0ba78ea.jpg"><img alt="" src="../assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_a619c50e46c338a35e9e6b21c0ba78ea.jpg"/></a></p>
 <p>如果a1和a2的关联性很强，那么a12'的值就大，跟V2相乘值对应也就大，这样b1的值就可能比较接近V2。所以谁的注意力分数越大，谁的V就会主导抽出的结果。</p>
 <h2 id="_2">小结</h2>
 <p>上面通过以a1进行相关运算后输出b1过程，a2、a3、a4计算过程同理，同时输入的各自计算是并行的，不需要各自依赖，这也是与RNN的本质区别。同时计算过程中出现的Wq、Wk、Wv都是要学习的参数。而在实际过程中，并行运算都是通过矩阵的方式进行的，这里就不再过多阐述了。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_15df50775d4fba976f1643e1e0f34f59.jpg"><img alt="" src="/assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_15df50775d4fba976f1643e1e0f34f59.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_15df50775d4fba976f1643e1e0f34f59.jpg"><img alt="" src="../assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_15df50775d4fba976f1643e1e0f34f59.jpg"/></a></p>
 <p><strong>多头注意力</strong>,所谓多头注意力，就是对应的qk有多个，也就是说W参数也有多个。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_5de2f7688659fdbe033396df93deae5b.jpg"><img alt="" src="/assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_5de2f7688659fdbe033396df93deae5b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_5de2f7688659fdbe033396df93deae5b.jpg"><img alt="" src="../assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_5de2f7688659fdbe033396df93deae5b.jpg"/></a></p>
 <p><strong>位置编码</strong>，在计算QKV的时候，引入位置编码，让输入的位置也占一定的权重。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_265638e2e1a5af45e0881c6a923b743f.jpg"><img alt="" src="/assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_265638e2e1a5af45e0881c6a923b743f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_265638e2e1a5af45e0881c6a923b743f.jpg"><img alt="" src="../assets/doc/04-ai/算法/注意力机制/images/wp_editor_md_265638e2e1a5af45e0881c6a923b743f.jpg"/></a></p>
 <p>参考书籍：《深度学习详解》</p></div>
   <div class="post-nav">
-    <a class="prev" href="/llama-cpp部署大模型.html">← llama.cpp部署大模型</a>
-    <a class="next" href="/transformer.html">transformer →</a>
+    <a class="prev" href="../llama-cpp部署大模型.html">← llama.cpp部署大模型</a>
+    <a class="next" href="../transformer.html">transformer →</a>
   </div>
 </article>
 
@@ -99,7 +99,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

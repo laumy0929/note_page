@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>opencv基础操作 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -267,7 +267,7 @@
 <span class="n">Mat</span><span class="w"> </span><span class="n">E</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">A</span><span class="p">(</span><span class="n">Range</span><span class="o">::</span><span class="n">all</span><span class="p">(),</span><span class="w"> </span><span class="n">Range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">));</span><span class="w"> </span><span class="c1">// using row and column boundaries</span>
 </code></pre></div>
 <p>其中Rect(10,10,100,100)前两位是坐标，后两位指定宽高，示例如下。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_f2fcbb2b2eab15e13b085cd3f38d21ff.jpg"><img alt="" src="/assets/doc/04-ai/opencv/opencv基础操作/images/wp_editor_md_f2fcbb2b2eab15e13b085cd3f38d21ff.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_f2fcbb2b2eab15e13b085cd3f38d21ff.jpg"><img alt="" src="../assets/doc/04-ai/opencv/opencv基础操作/images/wp_editor_md_f2fcbb2b2eab15e13b085cd3f38d21ff.jpg"/></a></p>
 <p>Range::all()选中所有的行，Range（1,3）选中1~3列。</p>
 <p>Mat对象作为通用矩阵类和图像容器，容器中存储的是原始的像素值。在opencv中描述这些像素值有专门的数据格式。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">Mat</span><span class="w"> </span><span class="nf">Img</span><span class="p">(</span><span class="mi">640</span><span class="p">,</span><span class="w"> </span><span class="mi">640</span><span class="p">,</span><span class="w"> </span><span class="n">CV_8UC3</span><span class="p">);</span>
@@ -338,8 +338,8 @@
 <span class="n">cv</span><span class="o">::</span><span class="n">Mat</span><span class="w"> </span><span class="n">gray</span><span class="p">;</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="n">gray</span><span class="p">,</span><span class="w"> </span><span class="n">cv</span><span class="o">::</span><span class="n">COLOR_BGR2GRAY</span><span class="p">);</span><span class="w"> </span><span class="c1">// 转换为灰度图</span>
 </code></pre></div></div>
   <div class="post-nav">
-    <a class="prev" href="/opencv视频流.html">← opencv视频流</a>
-    <a class="next" href="/perf工具使用.html">perf工具使用 →</a>
+    <a class="prev" href="../opencv视频流.html">← opencv视频流</a>
+    <a class="next" href="../perf工具使用.html">perf工具使用 →</a>
   </div>
 </article>
 
@@ -354,7 +354,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

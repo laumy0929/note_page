@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>perf工具使用 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -157,15 +157,15 @@
 <div class="codehilite"><pre><span></span><code><span class="p">..</span><span class="o">/</span><span class="n">FlameGraph</span><span class="o">-</span><span class="n">master</span><span class="o">/</span><span class="n">stackcollapse</span><span class="o">-</span><span class="n">perf</span><span class="p">.</span><span class="n">pl</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">sched</span><span class="p">.</span><span class="n">log</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">..</span><span class="o">/</span><span class="n">FlameGraph</span><span class="o">-</span><span class="n">master</span><span class="o">/</span><span class="n">flamegraph</span><span class="p">.</span><span class="n">pl</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">sched</span><span class="p">.</span><span class="n">svg</span>
 </code></pre></div>
 <p>其中sched.log是perf script转换的处理的数据，先使用stackcollapse-perf.pl处理数据，然后再使用flamegraph.pl绘制图像，即可使用网页打开。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_51abac8beee2dee0ca6db0c96bedf93c.jpg"><img alt="" src="/assets/doc/01-linux/性能工具/perf工具使用/images/wp_editor_md_51abac8beee2dee0ca6db0c96bedf93c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_51abac8beee2dee0ca6db0c96bedf93c.jpg"><img alt="" src="../assets/doc/01-linux/性能工具/perf工具使用/images/wp_editor_md_51abac8beee2dee0ca6db0c96bedf93c.jpg"/></a></p>
 <p>y轴(竖)表示调用栈，每一层都是一个函数，调用栈越深，火焰就越高，顶部就是正在执行的函数，下方都是它的父函数。</p>
 <p>x轴（横）表示抽样数，若一个函数在x轴占据的宽度越宽，就表示它被抽到的次数多，即执行的时间长。注意，x 轴不代表时间，而是所有的调用栈合并后，按字母顺序排列的。</p>
 <p>火焰图就是看顶层的哪个函数占据的宽度最大。只要有"平顶"（plateaus），就表示该函数可能存在性能问题。</p>
 <p>点击一层会水平放大，左上角会同时显示"Reset Zoom"，点击该链接，图片就会恢复原样。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_afedbfc8905518f58d0e95529e1e61a2.jpg"><img alt="" src="/assets/doc/01-linux/性能工具/perf工具使用/images/wp_editor_md_afedbfc8905518f58d0e95529e1e61a2.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_afedbfc8905518f58d0e95529e1e61a2.jpg"><img alt="" src="../assets/doc/01-linux/性能工具/perf工具使用/images/wp_editor_md_afedbfc8905518f58d0e95529e1e61a2.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="/opencv基础操作.html">← opencv基础操作</a>
-    <a class="next" href="/优化算法.html">优化算法 →</a>
+    <a class="prev" href="../opencv基础操作.html">← opencv基础操作</a>
+    <a class="next" href="../优化算法.html">优化算法 →</a>
   </div>
 </article>
 
@@ -180,7 +180,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

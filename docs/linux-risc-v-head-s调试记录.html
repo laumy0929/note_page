@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Linux risc-v head.S调试记录 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -54,7 +54,7 @@
   <div class="meta">2024-06-13 · risc-v</div>
   <div class="post-content"><h2 id="_1">调试准备</h2>
 <h3 id="gdb">gdb调试</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/06/wp_editor_md_bea9bd944eac8755afec8ce6e48abedd.jpg"><img alt="" src="/assets/doc/02-risc-v/linux-risc-v-head-s调试记录/images/wp_editor_md_bea9bd944eac8755afec8ce6e48abedd.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/06/wp_editor_md_bea9bd944eac8755afec8ce6e48abedd.jpg"><img alt="" src="../assets/doc/02-risc-v/linux-risc-v-head-s调试记录/images/wp_editor_md_bea9bd944eac8755afec8ce6e48abedd.jpg"/></a></p>
 <p>0x0000000080200000为opensbi跳转执行的物理地址，linux内核的img会加载到这个地址运行，如果要在这个地方断点，就b *(0x0000000080200000),没法对head.S中进行断点，因为linux加载后会变成虚拟地址。调试的符号需要把CONFIG_DEBUG_INFO=y打开。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">li</span><span class="w">  </span><span class="n">s4</span><span class="p">,</span><span class="mi">-13</span>
 <span class="n">j</span><span class="w">   </span><span class="n">_start_kernel</span><span class="w"> </span><span class="c1">//j 0x802010cc</span>
@@ -418,7 +418,7 @@
 <li>Sv39：3级页表</li>
 </ul>
 <p>5级页表结构</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/06/wp_editor_md_e4793cc9908bea58f59832f83851cfd2.jpg"><img alt="" src="/assets/doc/02-risc-v/linux-risc-v-head-s调试记录/images/wp_editor_md_e4793cc9908bea58f59832f83851cfd2.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/06/wp_editor_md_e4793cc9908bea58f59832f83851cfd2.jpg"><img alt="" src="../assets/doc/02-risc-v/linux-risc-v-head-s调试记录/images/wp_editor_md_e4793cc9908bea58f59832f83851cfd2.jpg"/></a></p>
 <h2 id="mmu">使能MMU</h2>
 <div class="codehilite"><pre><span></span><code><span class="nl">relocate_enable_mmu</span><span class="p">:</span>
 <span class="w">    </span><span class="cm">/* Relocate return address */</span>
@@ -655,8 +655,8 @@
 <span class="p">}</span>
 </code></pre></div></div>
   <div class="post-nav">
-    <a class="prev" href="/挂载根文件系统.html">← 挂载根文件系统</a>
-    <a class="next" href="/freertos内存管理.html">freertos内存管理 →</a>
+    <a class="prev" href="../挂载根文件系统.html">← 挂载根文件系统</a>
+    <a class="next" href="../freertos内存管理.html">freertos内存管理 →</a>
   </div>
 </article>
 
@@ -671,7 +671,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>负载均衡之均衡 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -62,17 +62,17 @@
 <li>nohz idle均衡：某个cpu任务太重，而其他cpu都进入idle，这时候任务重cpu会唤醒idle的cpu进行均衡负载。</li>
 </ul>
 <h2 id="laod-balance">laod balance</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a5dc98e9783e5cd283b2fd0214c642df.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/10-负载均衡之均衡/images/wp_editor_md_a5dc98e9783e5cd283b2fd0214c642df.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a5dc98e9783e5cd283b2fd0214c642df.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之均衡/images/wp_editor_md_a5dc98e9783e5cd283b2fd0214c642df.jpg"/></a></p>
 <p>（1）找出最繁忙的调度组 （2）在最繁忙调度组范围CPU找出最繁忙的CPU （3）从最繁忙的CPU就绪队列中出队任务 （4）将出队的任务挂到当前的cpu上。</p>
 <h2 id="_2">负载均衡总结</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8d2b14ab4c163f226ca321020ed06086.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/10-负载均衡之均衡/images/wp_editor_md_8d2b14ab4c163f226ca321020ed06086.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8d2b14ab4c163f226ca321020ed06086.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之均衡/images/wp_editor_md_8d2b14ab4c163f226ca321020ed06086.jpg"/></a></p>
 <p>图来自窝蜗科技</p>
 <p>PELT的缺陷： （1）算法迟钝，负载的变化需要一定的时间，在一些嵌入式场景如手机，在浏览网页等情况下，需要迅速识别重活来提高CPU频率或者迁移任务，保证手机流程型。 （2）对于睡眠或阻塞的进程，PELT还会继续计算其衰减负载，这些继续贡献的负载对于下一次唤醒没有实际用处，会推迟降低cpu频率的速度，导致功耗升高。</p>
 <p>参考文献</p>
 <p>1.蜗窝科技：http://www.wowotech.net/ 2.奔跑吧linux内核卷1基础架构</p></div>
   <div class="post-nav">
-    <a class="prev" href="/文件系统基本概念.html">← 文件系统基本概念</a>
-    <a class="next" href="/负载均衡之调度组和调度域.html">负载均衡之调度组和调度域 →</a>
+    <a class="prev" href="../文件系统基本概念.html">← 文件系统基本概念</a>
+    <a class="next" href="../负载均衡之调度组和调度域.html">负载均衡之调度组和调度域 →</a>
   </div>
 </article>
 
@@ -87,7 +87,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

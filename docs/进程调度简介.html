@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>进程调度简介 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -53,7 +53,7 @@
   <h1>进程调度简介</h1>
   <div class="meta">2023-03-25 · linux</div>
   <div class="post-content"><h2 id="_1">调度类别</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e03f85a17bb9caf7edeb3c67b198c1a2.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_e03f85a17bb9caf7edeb3c67b198c1a2.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e03f85a17bb9caf7edeb3c67b198c1a2.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_e03f85a17bb9caf7edeb3c67b198c1a2.jpg"/></a></p>
 <p>进程调度依赖于调度策略（schedule policy），linux内核把相同的调度策略抽象成调度类（schedule class）。不同类型的进程采用不同的调度策略，目前Linux内核中默认采用5种调度类，分别是stop、deadline、realtime、CFS和idle。</p>
 <ul>
 <li>Stop：最高优先级的进程，只在多核场景下启用，用于热插拔等场景下停止CPU。</li>
@@ -71,7 +71,7 @@
 <span class="k">return</span><span class="w"> </span><span class="n">p</span><span class="p">;</span>
 <span class="p">}</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f3ec3eb44d14aaca30f76084a27e4ba3.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_f3ec3eb44d14aaca30f76084a27e4ba3.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f3ec3eb44d14aaca30f76084a27e4ba3.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_f3ec3eb44d14aaca30f76084a27e4ba3.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="n">chrt</span><span class="w"> </span><span class="o">-</span><span class="n">p</span><span class="w"> </span><span class="mi">1234</span><span class="w">  </span><span class="err">#</span><span class="w"> </span><span class="n">可以查看</span><span class="w"> </span><span class="n">pid</span><span class="o">=</span><span class="mi">1234</span><span class="w"> </span><span class="n">的进程的</span><span class="w"> </span><span class="n">调度策略</span>
 <span class="n">chrt</span><span class="w"> </span><span class="o">-</span><span class="n">p</span><span class="w"> </span><span class="o">-</span><span class="n">f</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="mi">1234</span><span class="w">  </span><span class="err">#</span><span class="w"> </span><span class="n">修改调度策略为</span><span class="w"> </span><span class="n">SCHED_FIFO</span><span class="p">,</span><span class="w"> </span><span class="n">并且优先级为10</span>
 </code></pre></div>
@@ -87,22 +87,22 @@
 <span class="cp">#define task_rq(p)      cpu_rq(task_cpu(p))           获取进程p所在的rq</span>
 <span class="cp">#define cpu_curr(cpu)       (cpu_rq(cpu)-&gt;curr)       根据CPU编号获取正在运行的进程</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_89bb6356c35c69f50783e1692bb5e590.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_89bb6356c35c69f50783e1692bb5e590.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_89bb6356c35c69f50783e1692bb5e590.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_89bb6356c35c69f50783e1692bb5e590.jpg"/></a></p>
 <p>上  图列出了struct rq与struct task_struct之间的关系。每个CPU都对应一个struct rq实体。rq中分别对应3个调度队列（暂不考虑stop、idle类，从数据结构也可以看出stop、idle属于特殊调度类）。   cfs_rq对应的是CFS调度，CFS就绪进程通过红黑树来组织，调度优先选择vruntime最小的进行。   rt_rq对应的是RT调度，RT就绪进程通过链表来组织，每个优先级对应一条链表，相同优先级的进程挂载到同一条链表上；每个链表对应一个bitmap，系统通过查询bitmap的位0或1来判断当前链表中是否有进程就绪。系统调度是一次从高优先级开始遍历查询对应的bitmap，进而选择对应进程运行。   dl_rq对应的是DL调度，后续再阐述。</p>
 <h3 id="_4">触发调度</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_38a81c3e810465a7d5f5303b70053668.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_38a81c3e810465a7d5f5303b70053668.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_38a81c3e810465a7d5f5303b70053668.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_38a81c3e810465a7d5f5303b70053668.jpg"/></a></p>
 <p>调度顾名思义就是选择一个进程运行，包括系统启动运行的第一个进程，以及运行过程中从当前运行进行切换到另外一个进程。在Linux系统中触发调度的可以分为两类：主动让出调度与抢占式调度（与FreeRTOS的区别，就是抢占式调度这里，FreeRTOS是systick来进行调度，有时间片的概念，而Linux不在有时间片的概念）。   主动调度是CPU主动放弃CPU，包括主动Sleep，读写IO，Mutex等。   抢占调度在Linux系统中并不是立即得到调度权，而是在需要抢占调度时设置一个标志（TIF_NEED_RESCHED），Linux系统在合适时机检测到这个标志会进行调度，因此抢占调度可以分为三个阶段设置抢占调度标志、检测抢占调度标志、选择任务调度。   无论是主动调度还是抢占调度，最终调用的都是函数schedule。</p>
 <h4 id="_5">设置抢占调度标志</h4>
 <p>设置抢占调度的标志一般有以下场景： - Tick调度：Linux系统中有周期性的时钟，会周期性的检测当前的进程是否运行idle_runtime超期。 - 任务创建：新创建任务的时候，会将任务加入到就绪队列中，会根据优先级判定是否需要抢占。 - 任务唤醒：任务在获取到等待的资源从睡眠中唤醒，判定是否需要抢占。 - 任务切换：调整调度类、优先级等。 - 带宽控制：分配给当前运行的任务带宽用尽。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_057ccc8c9391553a6e398df916d587cf.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_057ccc8c9391553a6e398df916d587cf.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_057ccc8c9391553a6e398df916d587cf.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_057ccc8c9391553a6e398df916d587cf.jpg"/></a></p>
 <p>以上只是列出了部分设置抢占调度标志的代码流程，并未全部列出，并且代码流程做了简化。</p>
 <h4 id="_6">检测抢占标志</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_186c2b7154edf09422119dc7fb06dd88.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_186c2b7154edf09422119dc7fb06dd88.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_186c2b7154edf09422119dc7fb06dd88.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_186c2b7154edf09422119dc7fb06dd88.jpg"/></a></p>
 <h4 id="_7">选择任务调度</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_64c536aa9e788f6889e9284fae0ca76c.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_64c536aa9e788f6889e9284fae0ca76c.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_64c536aa9e788f6889e9284fae0ca76c.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_64c536aa9e788f6889e9284fae0ca76c.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="/cfs调度原理.html">← CFS调度原理</a>
-    <a class="next" href="/进程创建.html">进程创建 →</a>
+    <a class="prev" href="../cfs调度原理.html">← CFS调度原理</a>
+    <a class="next" href="../进程创建.html">进程创建 →</a>
   </div>
 </article>
 
@@ -117,7 +117,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

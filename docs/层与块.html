@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>层与块 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -53,7 +53,7 @@
   <h1>层与块</h1>
   <div class="meta">2025-05-03 · ai</div>
   <div class="post-content"><p>简单来说，如下图，第一个图中间5个神经元组成了一个层。第二图3个层组成了块。第三个图中3个块组成了整个模型。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_63a09ff6fb21e747545f4d7ca1343104.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/层与块/images/wp_editor_md_63a09ff6fb21e747545f4d7ca1343104.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_63a09ff6fb21e747545f4d7ca1343104.jpg"><img alt="" src="../assets/doc/04-ai/深度学习/层与块/images/wp_editor_md_63a09ff6fb21e747545f4d7ca1343104.jpg"/></a></p>
 <h2 id="_1">层</h2>
 <p>层是神经网络的基本计算单元，负责对输入数据进行特定形式的变换，如线性映射、非线性激活等。其主要的功能是接收输入数据，生成输出结果。其中包含学习参数（如全连接层的权重和偏置）或无参数操作（如激活函数），输出形状可能与输入不同，例如全连接层将维度din映射到dout。</p>
 <h3 id="_2">全连接层</h3>
@@ -375,8 +375,8 @@
 <p>上面的示例中，先调用torch.save(net.state_dirc(), 'npl.params')将参数保存起来，然后接着通过load_state_dict(torch.load('npl.params'))，将参数读取出来。通过保存参数的方法，可以将训练的实例化进行备份，从上一次保存的参数接着训练。</p>
 <p>本文来自： <a href="https://zh.d2l.ai/" title="&lt;动手学深度学习 V2&gt;">&lt;动手学深度学习 V2&gt;</a> 的学习笔记</p></div>
   <div class="post-nav">
-    <a class="prev" href="/非暴力沟通.html">← 非暴力沟通</a>
-    <a class="next" href="/梯度计算.html">梯度计算 →</a>
+    <a class="prev" href="../非暴力沟通.html">← 非暴力沟通</a>
+    <a class="next" href="../梯度计算.html">梯度计算 →</a>
   </div>
 </article>
 
@@ -391,7 +391,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

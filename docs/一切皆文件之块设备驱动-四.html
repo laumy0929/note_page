@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>一切皆文件之块设备驱动（四） - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -59,7 +59,7 @@
 </code></pre></div>
 <h2 id="_2">块设备无文件系统方式读写</h2>
 <h3 id="_3">写数据</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c69fe5fb31aa6d753d775db469da9896.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（四）/images/wp_editor_md_c69fe5fb31aa6d753d775db469da9896.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c69fe5fb31aa6d753d775db469da9896.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（四）/images/wp_editor_md_c69fe5fb31aa6d753d775db469da9896.jpg"/></a></p>
 <p>存储设备没有格式化挂载文件系统，那么对磁盘设备的操作会经过/dev/xxx tmpfs文件系统和bdev伪文件系统组合的方式读写磁盘。</p>
 <ul>
 <li>Write系统调用经过VFS调用到def_blk_fops中的blkdev_write_iter，该函数中继续调用到__generic_file_write_iter。</li>
@@ -282,7 +282,7 @@
 <span class="p">[</span><span class="w">  </span><span class="mf">917.697247</span><span class="p">]</span><span class="w">  </span><span class="n">ret_from_fork</span><span class="o">+</span><span class="mh">0x10</span><span class="o">/</span><span class="mh">0x20</span>
 </code></pre></div>
 <h3 id="_4">读数据</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_6586bfe1e6c6b770f755723b513c66dd.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（四）/images/wp_editor_md_6586bfe1e6c6b770f755723b513c66dd.jpg"/></a> <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_db5cdf13a3a45712944c6a79faefd1b4.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（四）/images/wp_editor_md_db5cdf13a3a45712944c6a79faefd1b4.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_6586bfe1e6c6b770f755723b513c66dd.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（四）/images/wp_editor_md_6586bfe1e6c6b770f755723b513c66dd.jpg"/></a> <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_db5cdf13a3a45712944c6a79faefd1b4.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（四）/images/wp_editor_md_db5cdf13a3a45712944c6a79faefd1b4.jpg"/></a></p>
 <h4 id="_5">预读</h4>
 <div class="codehilite"><pre><span></span><code><span class="n">ksys_read</span>
 <span class="w">    </span><span class="o">-&gt;</span><span class="n">vfs_read</span>
@@ -383,8 +383,8 @@
 </code></pre></div>
 <p>与预读相比，如果在缓存中命中后，将直接从缓存中获取返回，在filemap_get_pages函数中获取缓存页，如果已经存在缓存页则不需要进行预读操作，接下来从缓存中拷贝数据给应用空间即可。</p></div>
   <div class="post-nav">
-    <a class="prev" href="/文件系统缓存.html">← 文件系统缓存</a>
-    <a class="next" href="/一切皆文件之块设备驱动-五.html">一切皆文件之块设备驱动（五） →</a>
+    <a class="prev" href="../文件系统缓存.html">← 文件系统缓存</a>
+    <a class="next" href="../一切皆文件之块设备驱动-五.html">一切皆文件之块设备驱动（五） →</a>
   </div>
 </article>
 
@@ -399,7 +399,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

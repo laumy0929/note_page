@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>负载均衡之负载跟踪 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -63,7 +63,7 @@
 <div class="codehilite"><pre><span></span><code><span class="n">公式②</span><span class="err">：</span><span class="n">load</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">weight</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">t</span><span class="w"> </span><span class="o">/</span><span class="n">T</span>
 </code></pre></div>
 <p>采样一段时间T，任务处于运行状态时间为t,该任务对CPU的负载可运行时间与采样时间的比值再与权重相乘。 公式②看起来是比较合理，但是仍然存在问题，考虑一些场景，假设相同优先级A任务和B任务在某天同一时刻启动，A任务运行了半天就一直睡眠，而B任务一启动就睡眠半天，然后一直运行。按照公式②的计算A和B的负载是一样的，显然不合理，在最近的这段时间内任务B的负载要高于A，因此基于公式再进行了演化，加入历史运行情况的参数。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b725ab47056127971680f54b86cc9316.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_b725ab47056127971680f54b86cc9316.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b725ab47056127971680f54b86cc9316.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_b725ab47056127971680f54b86cc9316.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="n">公式③</span><span class="err">：</span><span class="n">load</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">weight</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="n">t0</span><span class="o">*</span><span class="n">y</span><span class="o">^</span><span class="mi">0</span><span class="o">+</span><span class="w"> </span><span class="n">t1</span><span class="o">*</span><span class="n">y</span><span class="o">^</span><span class="mi">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">t2</span><span class="o">*</span><span class="n">y</span><span class="o">^</span><span class="mi">2</span><span class="o">+</span><span class="p">...</span><span class="o">+</span><span class="n">tn</span><span class="o">*</span><span class="n">y</span><span class="o">^</span><span class="n">n</span><span class="p">)</span><span class="o">/</span><span class="n">T</span>
 </code></pre></div>
 <p>负载计算将历史运行因素考虑进去，但是历史因素的因素有一个衰减（decay）过程，也就是说离当前最近的影响最大，离当前时间越远影响程度越小，所以衰减因子y^32=0.5。为了便于系统计算对公式在进行了量化，采样周期为1ms，所以公式为</p>
@@ -91,7 +91,7 @@
 <li><em>_avg/util_avg:根据</em>_sum计算得到的负载均值。</li>
 <li>util_est:辅助计算阻塞之前load avg信息。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_d3e07f2dcf618382b3e20e3893854ec0.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_d3e07f2dcf618382b3e20e3893854ec0.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_d3e07f2dcf618382b3e20e3893854ec0.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_d3e07f2dcf618382b3e20e3893854ec0.jpg"/></a></p>
 <p>上面是struct cfs_rq/struct sched_entity 与struct sched_avg之间的关系，也就是说在计算负载时有调度实体的负载和就绪队列的负载。</p>
 <div class="codehilite"><pre><span></span><code><span class="cm">/*</span>
 <span class="cm"> * sched_entity:</span>
@@ -122,10 +122,10 @@
 <h2 id="pelt">PELT基本原理</h2>
 <div class="codehilite"><pre><span></span><code><span class="n">公式④L</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">L0</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">L1</span><span class="o">*</span><span class="n">y</span><span class="o">^</span><span class="mi">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">L2</span><span class="o">*</span><span class="n">y</span><span class="o">^</span><span class="mi">2</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">L3</span><span class="o">*</span><span class="w"> </span><span class="n">y</span><span class="o">^</span><span class="mi">3</span><span class="w"> </span><span class="o">+</span><span class="p">....</span><span class="w"> </span><span class="n">Ln</span><span class="o">*</span><span class="n">y</span><span class="o">^</span><span class="n">n</span><span class="err">。</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_04734f35001abd11014c5a2feacdeb16.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_04734f35001abd11014c5a2feacdeb16.jpg"/></a></p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3fe802816882b87025091b235c00346e.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_3fe802816882b87025091b235c00346e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_04734f35001abd11014c5a2feacdeb16.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_04734f35001abd11014c5a2feacdeb16.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3fe802816882b87025091b235c00346e.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_3fe802816882b87025091b235c00346e.jpg"/></a></p>
 <p>在计算负载时，计算时刻并不能这么精确，这次计算的时间距离上一次计算负载的时间跨越了多个周期，如上图所示，last_update_time时刻表示上一次计算负载，而这次计算的负载为now时刻。时间可以分为3段d1、d2、d3，之所以这样划分当前计算时刻与上一次计算负载的时刻并不一定落在周期点。假设last_update_time时刻的计算出来的负载为，根据划分的3段，因此系统的负载计算为：Llast，先不考虑权重，那么当前时刻负载为：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b21a9590f46ed129a4f3cfabe249adb3.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_b21a9590f46ed129a4f3cfabe249adb3.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b21a9590f46ed129a4f3cfabe249adb3.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_b21a9590f46ed129a4f3cfabe249adb3.jpg"/></a></p>
 <p>从这个公式来看，负载的计算可以分为3段。</p>
 <h3 id="valyp">val*y^p计算</h3>
 <p>先来看(d1+ Llast) * y^p 中代码的实现，由于y^p 的值是浮点，为了避免浮点运算可以转化为y^p = y^p * 2^32 &gt;&gt; 32，相当于先乘以2^32 再右移32（右移就是除），而y^p * 2^32 再系统中提前计算好了存放再数组runable_avg_yN_inv中，如下：</p>
@@ -138,7 +138,7 @@
 <span class="w">    </span><span class="mh">0x85aac367</span><span class="p">,</span><span class="w"> </span><span class="mh">0x82cd8698</span><span class="p">,</span>
 <span class="p">};</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_263a57dc80207216c76839960bc69825.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_263a57dc80207216c76839960bc69825.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_263a57dc80207216c76839960bc69825.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_263a57dc80207216c76839960bc69825.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="c1">//计算val * y^n，y^32 = 0.5。</span>
 <span class="k">static</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="nf">decay_load</span><span class="p">(</span><span class="n">u64</span><span class="w"> </span><span class="n">val</span><span class="p">,</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="n">n</span><span class="p">)</span>
 <span class="p">{</span>
@@ -170,9 +170,9 @@
 <p>得</p>
 <div class="codehilite"><pre><span></span><code><span class="n">y</span><span class="o">^</span><span class="mi">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="o">^</span><span class="mi">2</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="o">^</span><span class="mi">3</span><span class="w"> </span><span class="o">+</span><span class="p">......</span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="o">^</span><span class="n">p</span><span class="mi">-1</span><span class="w"> </span><span class="o">=</span><span class="p">(</span><span class="w"> </span><span class="n">y</span><span class="o">^</span><span class="mi">1</span><span class="o">-</span><span class="n">y</span><span class="o">^</span><span class="n">p</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="p">(</span><span class="w"> </span><span class="mi">1</span><span class="o">-</span><span class="n">y</span><span class="o">^</span><span class="n">p</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">y</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">y</span><span class="p">)</span><span class="o">=</span><span class="p">(</span><span class="w"> </span><span class="mi">1</span><span class="o">-</span><span class="n">y</span><span class="o">^</span><span class="n">p</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">y</span><span class="p">)</span><span class="mi">-1</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4c549128168cb87deb7aa84a0869dc68.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_4c549128168cb87deb7aa84a0869dc68.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4c549128168cb87deb7aa84a0869dc68.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_4c549128168cb87deb7aa84a0869dc68.jpg"/></a></p>
 <p>因为0&lt;y&lt;1，所以当趋于0（体验下什么叫做0.99^n和1.11^n），所以上面的公式再次简化为如下：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_711e3a444220a43fc18f8fec06c04b3b.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_711e3a444220a43fc18f8fec06c04b3b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_711e3a444220a43fc18f8fec06c04b3b.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_711e3a444220a43fc18f8fec06c04b3b.jpg"/></a></p>
 <h3 id="_1">代码实现</h3>
 <div class="codehilite"><pre><span></span><code><span class="n">Lnow</span><span class="w"> </span><span class="o">=</span><span class="n">d3</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1024</span><span class="o">*</span><span class="p">(</span><span class="n">y</span><span class="o">^</span><span class="mi">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="o">^</span><span class="mi">2</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="o">^</span><span class="mi">3</span><span class="w"> </span><span class="o">+</span><span class="p">......</span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="o">^</span><span class="n">p</span><span class="mi">-1</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">d1</span><span class="o">+</span><span class="w"> </span><span class="n">Llast</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">y</span><span class="o">^</span><span class="n">p</span><span class="w"> </span>
 <span class="o">=</span><span class="w"> </span><span class="n">Llast</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">y</span><span class="o">^</span><span class="n">p</span><span class="err">（</span><span class="n">step1</span><span class="err">）</span><span class="o">+</span><span class="w"> </span><span class="p">[</span><span class="n">d1</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">y</span><span class="o">^</span><span class="n">p</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">LOAD_AVG_MAX</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="o">*</span><span class="n">LOAD_AVG_MAX</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">d3</span><span class="p">]</span><span class="err">（</span><span class="n">step2</span><span class="err">）</span>
@@ -225,7 +225,7 @@
 <span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">periods</span><span class="p">;</span>
 <span class="p">}</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fab570115ff24bb938c3978344275490.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_fab570115ff24bb938c3978344275490.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fab570115ff24bb938c3978344275490.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_fab570115ff24bb938c3978344275490.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="n">u32</span><span class="w"> </span><span class="nf">__accumulate_pelt_segments</span><span class="p">(</span><span class="n">u64</span><span class="w"> </span><span class="n">periods</span><span class="p">,</span><span class="w"> </span><span class="n">u32</span><span class="w"> </span><span class="n">d1</span><span class="p">,</span><span class="w"> </span><span class="n">u32</span><span class="w"> </span><span class="n">d3</span><span class="p">)</span>
 <span class="p">{</span>
 <span class="w">    </span><span class="n">u32</span><span class="w"> </span><span class="n">c1</span><span class="p">,</span><span class="w"> </span><span class="n">c2</span><span class="p">,</span><span class="w"> </span><span class="n">c3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">d3</span><span class="p">;</span><span class="w"> </span><span class="cm">/* y^0 == 1 */</span>
@@ -239,7 +239,7 @@
 </code></pre></div>
 <h2 id="_2">负载更新</h2>
 <p>负载使用的是struct sched结构体来进行描述，负载的描述对象分为调度实体se负载（包含group se和task se）和调度实体所在的就绪队列cfs_rq负载。cfs_rq的负载可以先简单的理解为是其队列中所有调度实体se的贡献，当然不能简单是相加关系，需要考虑权重、cpu算力等因素，顶层的cfs_rq负载实际就等于CPU的负载。   追踪调度实体se的负载是基础，当调度实体se的负载变化时进而也会影响到其所在cfs_rq队列的负载变化，cfs_rq.load = f(se.load)，负载更新的核心函数使用update_load_avg来实现，因此本小结主要就是围绕该函数进行解读。 负载的更新实际是基于某个时间刻进行计算，对于一个调度实体来说其有不同的运行状态，每个状态对CPU的负载计算是不相同的。 - 当一个任务处于running（正在运行）或runnable（就绪队列中）时，那么对系统的负载计算是贡献的，因此负载需要在原来的基础上（上一个时刻的负载衰减值）加上当前新增的贡献负载，也就是说任务处于就绪队列或者正在运行对于CPU来说就是有负荷的。 - 当一个任务没有正运行或没有处于就绪队列中如处于睡眠态，那么也要考虑其任务的历史负载，睡眠的任务必然是此前运行过因为得不到某个资源而从就绪队列中移除，而该任务此前的任务负载也需要考虑进去，只不过会随着时间的增加，任务的负载会不断的衰减，最终趋于0（要是中间没有再次运行）。   如下图负载更新可以分为四部分，触发负载更新，更新task和所属cfs_rq平均负载，负载、运行负载、利用率计算，group se负载传播，本章节会按这四个部分依次展开。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_04845bd8460640853e5219ce6ca1bbd2.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_04845bd8460640853e5219ce6ca1bbd2.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_04845bd8460640853e5219ce6ca1bbd2.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_04845bd8460640853e5219ce6ca1bbd2.jpg"/></a></p>
 <h3 id="_3">触发负载更新</h3>
 <ul>
 <li>en/dequeue_task_fair：任务被唤醒/睡眠、CPU/Cgroup迁移、任务调度参数变化等会导致任务出入队变化就会触发负载更新。</li>
@@ -286,7 +286,7 @@
 <span class="p">....</span>
 <span class="p">}</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a6be6f9781f30fe48c40a71973d2ea92.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_a6be6f9781f30fe48c40a71973d2ea92.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a6be6f9781f30fe48c40a71973d2ea92.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_a6be6f9781f30fe48c40a71973d2ea92.jpg"/></a></p>
 <p>当调度实体se入队时，自然调度实体se的负载是要更新的，又因为se所属的cfs_rq是其下所有se的负载和，所以当其他se变化时，那么cfs_rq的负载也需要做对应的更新，所以可以在update_load_avg函数中可以看到会先更新se再更新se所属的cfs_rq。而在一个cpu的调度队列中，由于组调度的引入，会有多个层级的情况，因此当最底层的se变化时，对应的cfs_rq变化继而在影响上一层级gse变化，再影响ges所属cfs_rq的变化直到最顶层。简而言之，最底层的se和cfs_rq负载变化会导致上一层的se（gse）和cfs_rq负载也随之变化，直至顶层的cfs_rq。</p>
 <p>（2）任务出队dequeue_task_fair-&gt;dequeue_entity。 这是入队的逆过程，</p>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span>
@@ -371,7 +371,7 @@
 </code></pre></div>
 <h3 id="_4">负载、运行负载、利用率计算</h3>
 <p>负载计算可以分为两类，调度实体（task se、group se）和调度实体所属的cfs_rq；调度实体的计算是调用函数__update_load_avg_se实现，cfs_rq的计算是调用__update_load_avg_cfs_rq来实现，但是最终都会调用___update_load_sum来计算，只是传入的参数不一样。但两类都使用struct sched_avg结构体来进行描述，主要的核心就是需要先计算出{load|runnable|utils}_sum|avg，计算方法总结如下，后续的代码实际也是围绕这个计算公式来执行。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_aceec63d297054f3c848cccf47e5ef8f.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_aceec63d297054f3c848cccf47e5ef8f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_aceec63d297054f3c848cccf47e5ef8f.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_aceec63d297054f3c848cccf47e5ef8f.jpg"/></a></p>
 <ul>
 <li>{load|runnable|utils}_sum’：上一时刻计算的负载。</li>
 <li>contrib：上一个时刻到当前时刻负载贡献。</li>
@@ -406,7 +406,7 @@
 <h4 id="__update_load_avg_se">__update_load_avg_se</h4>
 <p>参数说明： - load：为se-&gt;on_rq，表示当前任务是否处于可运行态，包括runnable + running，对于调度实体来说load要么为0，要么为1。 - runnable：为se_runnable(se)，调度实体是task se则为se-&gt;on_rq，如果是group se，则为se-&gt;runnable_weight。对于group se来说只要其下有一个se是runnable或running，则group se为runnable或running。runnable_weigh等于处于runnable或running的任务数量。 - running：为cfs_rq-&gt;curr se，也就是说当前是否有任务正在运行。</p>
 <p>对于task se来说load,runnable,running非0即1；对于group se来说，load,running非0即1，runnable为group se其下运行的任务数量。以下是传入的参数示例：   task se： load=runnable=1,running=1   group se： load = 1, runnable = se-&gt;runnable_weight, running =1</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_42aac48fc5555ee453ed5717657f29c7.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_42aac48fc5555ee453ed5717657f29c7.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_42aac48fc5555ee453ed5717657f29c7.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_42aac48fc5555ee453ed5717657f29c7.jpg"/></a></p>
 <p>从上面看出，对于task se与group se的计算，区别主要是runnabe_sum的计算方式不同，group se新增负载贡献需要乘以runnable_weight(group se其下的任务数量)。 {load|runnable|utils}_sum计算的负载只是时间没有权重，但是load_avg需要考虑权重，是权重*时间。</p>
 <div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">__update_load_avg_se</span><span class="p">(</span><span class="n">u64</span><span class="w"> </span><span class="n">now</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_entity</span><span class="w"> </span><span class="o">*</span><span class="n">se</span><span class="p">)</span>
 <span class="p">{</span>
@@ -433,7 +433,7 @@
 <li>running：为cfs_rq-&gt;curr != NULL，cfs_rq队列有任务运行。</li>
 </ul>
 <p>下面示例对比task se与cfs_rq。   Task se: load=runnable=1,running=1   group se：load = cfs_rq-&gt;load.weight,runnable = cfs_rq-&gt;h_nr_running, running =1</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_285567189c9839ddcf0895bd8f22ea0f.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_285567189c9839ddcf0895bd8f22ea0f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_285567189c9839ddcf0895bd8f22ea0f.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/7-负载均衡之负载跟踪简介/images/wp_editor_md_285567189c9839ddcf0895bd8f22ea0f.jpg"/></a></p>
 <p>从上面公式可以看出，task se和cfs-rq的差别 ① task （group）se的load_sum不考虑权重只考虑时间，而cfs_rq需要考虑整个队列的权重。 ② task se是一个任务，所以 runnable_sum新增负载贡献乘1，而task group 、cfs_rq 计算的runnable_sum需要乘以任务数量。 ③ load_avg对于cfs_rq是不需要乘以权重的，而task se需要相乘权重。</p>
 <div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">__update_load_avg_cfs_rq</span><span class="p">(</span><span class="n">u64</span><span class="w"> </span><span class="n">now</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="p">)</span>
 <span class="p">{</span>
@@ -610,8 +610,8 @@
 </code></pre></div>
 <p>在更新{utils|runnable|load}_sum|avg的时候，更新gse和所属的cfs_rq，这里的更新与__update_load_avg_se和__update_load_avg_cfs_rq的调用计算是不是重复了？毕竟调用关系是update_load_avg中先调用__update_load_avg_se和__update_load_avg_cfs_rq分别计算se和cfs_rq，然后再调用propagate_entity_load_avg进行更新。答案显然不是，这里的更新可以认为是设置初始值，因为并不是每次都会调用且必须是group se类型才会调用propagate_entity_load_avg计算。__update_load_avg_se和__update_load_avg_cfs_rq是在其初始值的基础上进行更新负载。</p></div>
   <div class="post-nav">
-    <a class="prev" href="/负载均衡之调度组和调度域.html">← 负载均衡之调度组和调度域</a>
-    <a class="next" href="/cfs调度实现.html">CFS调度实现 →</a>
+    <a class="prev" href="../负载均衡之调度组和调度域.html">← 负载均衡之调度组和调度域</a>
+    <a class="next" href="../cfs调度实现.html">CFS调度实现 →</a>
   </div>
 </article>
 
@@ -626,7 +626,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

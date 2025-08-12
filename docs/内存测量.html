@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>内存测量 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -152,7 +152,7 @@
 </ul>
 <p>1.Linux内核的内存用了多少？Slab+VmallocUsed+PageTables+KernelStack+Bounce。 2.用户内存用了多少内存？ （1）LRU视角：active+inactive+unevicatable = 5104+31432+0= 36536KB （2）缓存视角（swapcache=0）：Cached+Buffers +AnonPages= 20352+436+15792=36580KB，cached和buffers内存并不是都使用完成了，这种统计方式往往大于实际使用内存。 观察内存泄露的时候重点看：Memfree、Slab的变化。</p>
 <h3 id="proczoneinfo">/proc/zoneinfo</h3>
-<p>zoneinfo显示了当前系统所有内存管理区的信息，可以分为以下几个部分。 1.当前内存节点的内存统计信息 Node 0，zone DMA：第0个节点，DMA区域的总体信息。 <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_e4093f7be650c02635a1db87f9cb821f.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_e4093f7be650c02635a1db87f9cb821f.jpg"/></a> 2.当前内存管理区的总信息 <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_7086f7e9582157646fe22151d4b36a02.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_7086f7e9582157646fe22151d4b36a02.jpg"/></a> 节点0，zone区域。 - pages free:内存管理区中空闲的页面数量。 - min：警戒水位的页面数量。 - low：低水位的页面数量。 - high：高水位的页面数量。 - spanned:内存管理区总的页面数量，包含空洞。 - present：内存管理区总的可用页面数量，不包含空洞。 - managed：被伙伴系统管理的页面数量。 - protection：管理区中预留内存的页面数量。分别是预留给DMA,DMA32,NORMAL,HIGH。 3.每个CPU内存分配器的信息per_cpu_pageset <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_92cb8ef1cf54c7f446dc36d976f71b5b.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_92cb8ef1cf54c7f446dc36d976f71b5b.jpg"/></a> pagesets:表示每个CPU内存分配器中每个CPU缓存的页面信息。 - count: 在该CPU内存区域上已经分配的页面数量。 - high:页面回收的空闲页面数量的水位线，如果cpu上的页面数量超过该值，需要退还给zone。 - batch:如果缓存中没有页面了，一次性中zone中获取batch个页面。。 - vm stats threshold: 某个进程虚拟内存使用量超过该阈值时，内核将在/proc/PID/smaps打印进程的详细内存映射信息。 zoneinfo节点重点可以看一下各区域min/low/high的水位值，可以通过/proc/sys/vm/min_free_kbytes调整min值。</p>
+<p>zoneinfo显示了当前系统所有内存管理区的信息，可以分为以下几个部分。 1.当前内存节点的内存统计信息 Node 0，zone DMA：第0个节点，DMA区域的总体信息。 <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_e4093f7be650c02635a1db87f9cb821f.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_e4093f7be650c02635a1db87f9cb821f.jpg"/></a> 2.当前内存管理区的总信息 <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_7086f7e9582157646fe22151d4b36a02.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_7086f7e9582157646fe22151d4b36a02.jpg"/></a> 节点0，zone区域。 - pages free:内存管理区中空闲的页面数量。 - min：警戒水位的页面数量。 - low：低水位的页面数量。 - high：高水位的页面数量。 - spanned:内存管理区总的页面数量，包含空洞。 - present：内存管理区总的可用页面数量，不包含空洞。 - managed：被伙伴系统管理的页面数量。 - protection：管理区中预留内存的页面数量。分别是预留给DMA,DMA32,NORMAL,HIGH。 3.每个CPU内存分配器的信息per_cpu_pageset <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_92cb8ef1cf54c7f446dc36d976f71b5b.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_92cb8ef1cf54c7f446dc36d976f71b5b.jpg"/></a> pagesets:表示每个CPU内存分配器中每个CPU缓存的页面信息。 - count: 在该CPU内存区域上已经分配的页面数量。 - high:页面回收的空闲页面数量的水位线，如果cpu上的页面数量超过该值，需要退还给zone。 - batch:如果缓存中没有页面了，一次性中zone中获取batch个页面。。 - vm stats threshold: 某个进程虚拟内存使用量超过该阈值时，内核将在/proc/PID/smaps打印进程的详细内存映射信息。 zoneinfo节点重点可以看一下各区域min/low/high的水位值，可以通过/proc/sys/vm/min_free_kbytes调整min值。</p>
 <h2 id="_2">用户进程占用内存</h2>
 <h3 id="procpidstatus">/proc/pid/status</h3>
 <div class="codehilite"><pre><span></span><code><span class="cp"># cat /proc/1151/status </span>
@@ -267,15 +267,15 @@
 <p>Uss计算</p>
 <div class="codehilite"><pre><span></span><code><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">pid</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Pss</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_57788f1634a7a135b1ab45d81a474592.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_57788f1634a7a135b1ab45d81a474592.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_57788f1634a7a135b1ab45d81a474592.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_57788f1634a7a135b1ab45d81a474592.jpg"/></a></p>
 <p>进程1001： VSS=1+2+3 RSS=4+5+6 PSS=4/2+5+6 USS=5+6 看进程是否有内存泄露，可以优先看USS（Private_Dirty+Private_Clean）是否有增长。</p>
 <h3 id="pmap-x-pid">pmap -x [pid]</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_12fdb61a59ab6537474379cf65f79c9c.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_12fdb61a59ab6537474379cf65f79c9c.jpg"/></a> <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_dc7517b988862316e20005e18c16e1e9.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_dc7517b988862316e20005e18c16e1e9.jpg"/></a> - Address：虚拟地址起始地址 - Kbytes：内存块占用虚拟内存大小，单位KB。 - PSS：进程使用的物理内存大小（贡献内存按比例分配的大小），单位KB。 - Dirty:脏内存大小，指进程修改过的页面大小，单位KB。 - Swap：被交换到磁盘上的内存大小，单位KB。 - Mode：显示内存段的权限属性。 - Mapping：显示内存段对应的文件或库名。 - Total：汇总内存区域的虚拟内存大小，单位KB。 在linux物理内存中，每个页面有一个dirty的标志，如果该页面被改写了，我们称之位dirty page。总的来说，所有非dirty page的物理页面都可以被回收。进程中各个段的dirty page情况。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_12fdb61a59ab6537474379cf65f79c9c.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_12fdb61a59ab6537474379cf65f79c9c.jpg"/></a> <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_dc7517b988862316e20005e18c16e1e9.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_dc7517b988862316e20005e18c16e1e9.jpg"/></a> - Address：虚拟地址起始地址 - Kbytes：内存块占用虚拟内存大小，单位KB。 - PSS：进程使用的物理内存大小（贡献内存按比例分配的大小），单位KB。 - Dirty:脏内存大小，指进程修改过的页面大小，单位KB。 - Swap：被交换到磁盘上的内存大小，单位KB。 - Mode：显示内存段的权限属性。 - Mapping：显示内存段对应的文件或库名。 - Total：汇总内存区域的虚拟内存大小，单位KB。 在linux物理内存中，每个页面有一个dirty的标志，如果该页面被改写了，我们称之位dirty page。总的来说，所有非dirty page的物理页面都可以被回收。进程中各个段的dirty page情况。</p>
 <h2 id="_3">内核占用内存</h2>
 <h3 id="procmeminfo_1">/proc/meminfo</h3>
 <p>内核占用内存：Slab+VmallocUsed+PageTables+KernelStack+Bounce。</p>
 <h3 id="procpagetypeinfo">/proc/pagetypeinfo</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_72f1c23fd6cae037995b2cdb4670063a.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_72f1c23fd6cae037995b2cdb4670063a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_72f1c23fd6cae037995b2cdb4670063a.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_72f1c23fd6cae037995b2cdb4670063a.jpg"/></a></p>
 <p>Page block order：10，支持最高阶order，这里是10，表示内存大小一块为2^10页面。 Pages per block：最高阶一块内存需要的页面数量，等于2^10=1024，即page block大小为1024*4K=4MB。 Unmovable order=1的数量有87个，也就是2^1个页面组成的内存块有87个。 Movable 454：表示在DMA区域，movable类型的page block的数量为454。（按照最高阶计算oder = 2^10的页面组成的内存块）。</p>
 <h2 id="_4">小结</h2>
 <h3 id="_5">内存统计</h3>
@@ -462,8 +462,8 @@
 </code></pre></div>
 <p>操作系统对于小块内存的管理方式，如 Linux 内核中的延迟映射（Lazy Mapping）或零页复制（Zero Page COW）等技术所导致的。在某些情况下，操作系统可能会推迟实际的物理页面映射，直到首次访问相应的内存位置。这意味着即使您访问和修改了分配的内存，实际的物理页面映射可能仍然被推迟。即使使用memset修改了内存，但是可能也不会进行映射，通常可能只有在内存被修改为不同内容时，才会进行实际物理页面映射。而只有做了物理页面映射，进程的USS才会增加。</p></div>
   <div class="post-nav">
-    <a class="prev" href="/wordpress设定固定链接.html">← wordpress设定固定链接</a>
-    <a class="next" href="/进程虚拟内存.html">进程虚拟内存 →</a>
+    <a class="prev" href="../wordpress设定固定链接.html">← wordpress设定固定链接</a>
+    <a class="next" href="../进程虚拟内存.html">进程虚拟内存 →</a>
   </div>
 </article>
 
@@ -478,7 +478,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

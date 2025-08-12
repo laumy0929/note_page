@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>云服务器搭建YOLOv5训练环境 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -56,13 +56,13 @@
 <p>本文使用AutoDL云服务搭建YOLOv5的运行环境。</p>
 <h2 id="_2">获取云服务器</h2>
 <p>在这个链接上<a href="https://www.autodl.com/home">https://www.autodl.com/home</a>订阅服务，这里选择的是按量计费。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_0d79baa7dc8124d23f11b3e67f773aba.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_0d79baa7dc8124d23f11b3e67f773aba.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_0d79baa7dc8124d23f11b3e67f773aba.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_0d79baa7dc8124d23f11b3e67f773aba.jpg"/></a></p>
 <p>镜像选择基础镜像Mniconda最新ubuntu环境。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_e0fde34fc63b34d700557fce47723c70.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_e0fde34fc63b34d700557fce47723c70.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_e0fde34fc63b34d700557fce47723c70.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_e0fde34fc63b34d700557fce47723c70.jpg"/></a></p>
 <p>交钱订阅完成后就可以获取到登录的信息了。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_fdb29f459c074414d27f886d0f410d22.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_fdb29f459c074414d27f886d0f410d22.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_fdb29f459c074414d27f886d0f410d22.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_fdb29f459c074414d27f886d0f410d22.jpg"/></a></p>
 <p>这里使用的是ssh工具根据获取到的登录名和密码进行登录，需要注意的是端口可能不是默认的22，按照实际的端口进行。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_19d5c7919b0b453cee2a771bb3b4315e.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_19d5c7919b0b453cee2a771bb3b4315e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_19d5c7919b0b453cee2a771bb3b4315e.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_19d5c7919b0b453cee2a771bb3b4315e.jpg"/></a></p>
 <h2 id="conda">配置conda环境</h2>
 <p>由于autoDL的服务器可能并不能访问外网，这里先将conda的源更换为清华的源。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">conda</span><span class="w"> </span><span class="n">config</span><span class="w"> </span><span class="o">--</span><span class="n">remove</span><span class="o">-</span><span class="n">key</span><span class="w"> </span><span class="n">channels</span>
@@ -96,39 +96,39 @@
 <p>如果要在本地使用vscode查看代码的话，可以参考：<a href="https://www.autodl.com/docs/vscode/">https://www.autodl.com/docs/vscode/</a></p>
 <p>这里需要注意的是，audoDL可能没有访问GitHub，处理的办法就是参考这个方法在服务器上面做一个代理，<a href="https://github.com/VocabVictor/clash-for-AutoDL">https://github.com/VocabVictor/clash-for-AutoDL</a> 或者<a href="https://gitee.com/laumy0929/clash-for-AutoDL">https://gitee.com/laumy0929/clash-for-AutoDL</a></p>
 <p>获取到CLASH_URL如下示例：</p>
-<p>截屏2025-07-17 12.34.36<a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_b4faea84c61820f4effd42e31301f6bc.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_b4faea84c61820f4effd42e31301f6bc.jpg"/></a></p>
-<p>截屏2025-07-17 12.39.15<a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_00efa21fc53e4b9958b7ed8b58d9f80d.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_00efa21fc53e4b9958b7ed8b58d9f80d.jpg"/></a></p>
+<p>截屏2025-07-17 12.34.36<a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_b4faea84c61820f4effd42e31301f6bc.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_b4faea84c61820f4effd42e31301f6bc.jpg"/></a></p>
+<p>截屏2025-07-17 12.39.15<a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_00efa21fc53e4b9958b7ed8b58d9f80d.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_00efa21fc53e4b9958b7ed8b58d9f80d.jpg"/></a></p>
 <p>按照yolov5的代码环境需要的包</p>
 <div class="codehilite"><pre><span></span><code><span class="n">pip</span><span class="w"> </span><span class="n">install</span><span class="w"> </span><span class="o">-</span><span class="n">r</span><span class="w"> </span><span class="n">requirements</span><span class="p">.</span><span class="n">txt</span>
 </code></pre></div>
 <p>安装完成后，进行推理测试，看看环境是否安装正常，执行detect.py 指定模型文件和输入图片进行测试。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">python</span><span class="w"> </span><span class="n">detect</span><span class="p">.</span><span class="n">py</span><span class="w"> </span><span class="o">--</span><span class="n">weights</span><span class="w"> </span><span class="n">yolov5s</span><span class="p">.</span><span class="n">pt</span><span class="w"> </span><span class="o">--</span><span class="n">source</span><span class="w"> </span><span class="n">data</span><span class="o">/</span><span class="n">images</span><span class="o">/</span><span class="n">bus</span><span class="p">.</span><span class="n">jpg</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_4982a79df885e8c903c136f681d8486c.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_4982a79df885e8c903c136f681d8486c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_4982a79df885e8c903c136f681d8486c.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_4982a79df885e8c903c136f681d8486c.jpg"/></a></p>
 <p>执行上面脚本是，会自动拉取预训练的模型yolov5s.pt，最终将推理结果存储到runs/detect/exp2目录下。</p>
 <h2 id="_3">训练自定义数据集</h2>
 <p>这里从GitHub上抓了一个口罩的书籍集，<a href="https://github.com/iAmEthanMai/mask-detection-dataset.git">https://github.com/iAmEthanMai/mask-detection-dataset.git</a>，使用git clone拉取到本地。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">git</span><span class="w"> </span><span class="n">clone</span><span class="w"> </span><span class="n">https</span><span class="o">:</span><span class="c1">//github.com/iAmEthanMai/mask-detection-dataset.git</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_6666b0a263c999f64a6384d1bee811a6.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_6666b0a263c999f64a6384d1bee811a6.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_6666b0a263c999f64a6384d1bee811a6.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_6666b0a263c999f64a6384d1bee811a6.jpg"/></a></p>
 <p>查看mask的数据集配置，有3个分类。这里使用yolov5s进行微调，复制一份yolov5的模型配置文件，并修改分类为3，需要根据实际的数据集存放的位置调整一下路径。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_c3fd8f49a699bb74aba267a26429156a.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_c3fd8f49a699bb74aba267a26429156a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_c3fd8f49a699bb74aba267a26429156a.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_c3fd8f49a699bb74aba267a26429156a.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="n">cp</span><span class="w"> </span><span class="n">models</span><span class="o">/</span><span class="n">yolov5s</span><span class="p">.</span><span class="n">yaml</span><span class="w"> </span><span class="n">models</span><span class="o">/</span><span class="n">mask_yolov5s</span><span class="p">.</span><span class="n">yaml</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_ff47de5e76b7dfa6e5a8d97039fa3247.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_ff47de5e76b7dfa6e5a8d97039fa3247.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_ff47de5e76b7dfa6e5a8d97039fa3247.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_ff47de5e76b7dfa6e5a8d97039fa3247.jpg"/></a></p>
 <p>配置完成后就可以进行训练了。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">python</span><span class="w"> </span><span class="n">train</span><span class="p">.</span><span class="n">py</span><span class="w"> </span><span class="o">--</span><span class="n">data</span><span class="w"> </span><span class="n">mask</span><span class="o">-</span><span class="n">detection</span><span class="o">-</span><span class="n">dataset</span><span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">data</span><span class="p">.</span><span class="n">yaml</span><span class="w"> </span><span class="o">--</span><span class="n">cfg</span><span class="w"> </span><span class="n">models</span><span class="o">/</span><span class="n">mask_yolov5s</span><span class="p">.</span><span class="n">yaml</span><span class="w"> </span><span class="o">--</span><span class="n">weights</span><span class="w"> </span><span class="n">pretrained</span><span class="o">/</span><span class="n">yolov5s</span><span class="p">.</span><span class="n">pt</span><span class="w"> </span><span class="o">--</span><span class="n">epoch</span><span class="w"> </span><span class="mi">100</span><span class="w"> </span><span class="o">--</span><span class="n">batch</span><span class="o">-</span><span class="n">size</span><span class="w"> </span><span class="mi">4</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_c767003f1adc699459bd46f8796ffacc.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_c767003f1adc699459bd46f8796ffacc.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_c767003f1adc699459bd46f8796ffacc.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_c767003f1adc699459bd46f8796ffacc.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="n">模型文件将输出到</span><span class="err">：</span><span class="n">runs</span><span class="o">/</span><span class="n">train</span><span class="o">/</span><span class="n">exp5</span><span class="o">/</span><span class="n">weights</span><span class="o">/</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_7c429ee342a84c9bf11591e5c8860098.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_7c429ee342a84c9bf11591e5c8860098.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_7c429ee342a84c9bf11591e5c8860098.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_7c429ee342a84c9bf11591e5c8860098.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="n">python</span><span class="w"> </span><span class="n">detect</span><span class="p">.</span><span class="n">py</span><span class="w"> </span><span class="o">--</span><span class="n">weights</span><span class="w"> </span><span class="n">runs</span><span class="o">/</span><span class="n">train</span><span class="o">/</span><span class="n">exp5</span><span class="o">/</span><span class="n">weights</span><span class="o">/</span><span class="n">best</span><span class="p">.</span><span class="n">pt</span><span class="w"> </span><span class="o">--</span><span class="n">source</span><span class="w"> </span><span class="n">mask</span><span class="o">-</span><span class="n">detection</span><span class="o">-</span><span class="n">dataset</span><span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">images</span><span class="o">/</span><span class="n">maksssksksss1</span><span class="p">.</span><span class="n">png</span>
 </code></pre></div>
-<p>上面执行命令使用训练的模型文件测试看看效果。 <a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_bea57475231d24c8e9da61c87b10b525.jpg"><img alt="" src="/assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_bea57475231d24c8e9da61c87b10b525.jpg"/></a></p></div>
+<p>上面执行命令使用训练的模型文件测试看看效果。 <a href="https://www.laumy.tech/wp-content/uploads/2025/06/wp_editor_md_bea57475231d24c8e9da61c87b10b525.jpg"><img alt="" src="../assets/doc/04-ai/ai应用/云服务器搭建yolov5环境/images/wp_editor_md_bea57475231d24c8e9da61c87b10b525.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="/端侧部署yolov5模型.html">← 端侧部署YOLOv5模型</a>
-    <a class="next" href="/yolov2和yolov3.html">YOLOv2和YOLOv3 →</a>
+    <a class="prev" href="../端侧部署yolov5模型.html">← 端侧部署YOLOv5模型</a>
+    <a class="next" href="../yolov2和yolov3.html">YOLOv2和YOLOv3 →</a>
   </div>
 </article>
 
@@ -143,7 +143,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

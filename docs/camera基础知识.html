@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Camera基础知识 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -52,7 +52,7 @@
 <article class="card post">
   <h1>Camera基础知识</h1>
   <div class="meta">2024-08-29 · linux</div>
-  <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_26e12f1b4882155d60c3b04b7e5ebe1d.jpg"><img alt="" src="/assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_26e12f1b4882155d60c3b04b7e5ebe1d.jpg"/></a></p>
+  <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_26e12f1b4882155d60c3b04b7e5ebe1d.jpg"><img alt="" src="../assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_26e12f1b4882155d60c3b04b7e5ebe1d.jpg"/></a></p>
 <p>框架可以分为kernle层、Video input framework、Device Driver层</p>
 <h2 id="v4l2media-device-framework">V4L2与Media device Framework</h2>
 <ul>
@@ -74,31 +74,31 @@
 <li>Video Input Post Process（VIPP）：视频输入后处理，包括Scaler、OSD等。</li>
 </ul>
 <h3 id="isp">ISP驱动框架</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_ea3bd37ca6e848cd72a35095abdb6289.jpg"><img alt="" src="/assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_ea3bd37ca6e848cd72a35095abdb6289.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_ea3bd37ca6e848cd72a35095abdb6289.jpg"><img alt="" src="../assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_ea3bd37ca6e848cd72a35095abdb6289.jpg"/></a></p>
 <h3 id="ae">AE模块流程</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_9be0e12c79606f4408aa4d09320e8f48.jpg"><img alt="" src="/assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_9be0e12c79606f4408aa4d09320e8f48.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_9be0e12c79606f4408aa4d09320e8f48.jpg"><img alt="" src="../assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_9be0e12c79606f4408aa4d09320e8f48.jpg"/></a></p>
 <h3 id="af">AF模块流程</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_525321101875d75f38f988970506e082.jpg"><img alt="" src="/assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_525321101875d75f38f988970506e082.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_525321101875d75f38f988970506e082.jpg"><img alt="" src="../assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_525321101875d75f38f988970506e082.jpg"/></a></p>
 <h2 id="media">Media框架</h2>
 <h3 id="media_1">Media成员</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_d5b16bd31269455181af4d82fd306f57.jpg"><img alt="" src="/assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_d5b16bd31269455181af4d82fd306f57.jpg"/></a> 在media框架下每个v4l2主设备（如video）和v4l2子设备（sensor/mipi/csi/isp/scaler）都是一个media entity实例。每个media entity含有若干个pad，其中source pad标识输出端，sink pad表示输入端。media entity 之间的pad可以通过link链接起来。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_d5b16bd31269455181af4d82fd306f57.jpg"><img alt="" src="../assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_d5b16bd31269455181af4d82fd306f57.jpg"/></a> 在media框架下每个v4l2主设备（如video）和v4l2子设备（sensor/mipi/csi/isp/scaler）都是一个media entity实例。每个media entity含有若干个pad，其中source pad标识输出端，sink pad表示输入端。media entity 之间的pad可以通过link链接起来。</p>
 <p>在media entity中两个特殊的entity 是sensor和video。sensor只有source pad作为整个数据流的源头，video只有sink pad作为整个数据流的终点。每一条完整的数据流必须包含一个sensor和一个video。</p>
 <h3 id="pipeline">pipeline</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_d94ed6aceb0b620dab9b9ac7403a30c7.jpg"><img alt="" src="/assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_d94ed6aceb0b620dab9b9ac7403a30c7.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_d94ed6aceb0b620dab9b9ac7403a30c7.jpg"><img alt="" src="../assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_d94ed6aceb0b620dab9b9ac7403a30c7.jpg"/></a></p>
 <p>连接sensor和video整个数据流我们称之为pipeline，上图中红色的link线形成了三条pipeline。打开/dev/mediax设备可以设置这些media entity的pad之间的link，当一个sensor和一个video之间的link都使能后，并且形成一条完整的通路，一条pipeline就形成了。子设备之间的格式协商、电源管理和数据流都是在这个pipeline上进行的。为了使用方便，驱动在注册时会根据device tree的配置生成默认的pipeline，使用者直接打开/dev/videx就可以获取sensor采集的图像。</p>
 <h4 id="_1">单路输入单路输出</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_58b4bc0b04b0a51347a5f421db9e99a5.jpg"><img alt="" src="/assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_58b4bc0b04b0a51347a5f421db9e99a5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_58b4bc0b04b0a51347a5f421db9e99a5.jpg"><img alt="" src="../assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_58b4bc0b04b0a51347a5f421db9e99a5.jpg"/></a></p>
 <h4 id="_2">单路输入双路输出</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_88638e5ca90e6567c5f705e2a3db14fe.jpg"><img alt="" src="/assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_88638e5ca90e6567c5f705e2a3db14fe.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_88638e5ca90e6567c5f705e2a3db14fe.jpg"><img alt="" src="../assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_88638e5ca90e6567c5f705e2a3db14fe.jpg"/></a></p>
 <p>适用于一路预览一路编码的场景</p>
 <h4 id="isp_1">单路输入双ISP多路输出</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_84bffc22320392919b419575174ace4d.jpg"><img alt="" src="/assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_84bffc22320392919b419575174ace4d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_84bffc22320392919b419575174ace4d.jpg"><img alt="" src="../assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_84bffc22320392919b419575174ace4d.jpg"/></a></p>
 <p>适用于一路预览、一路编码、一路ADAD的场景或者一路编码、一路1fsp/s编码、一路AI处理</p>
 <h4 id="isp_2">双路输入双ISP多路输出</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_729d9cdd7632dc10fb55ed20037f9a17.jpg"><img alt="" src="/assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_729d9cdd7632dc10fb55ed20037f9a17.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_729d9cdd7632dc10fb55ed20037f9a17.jpg"><img alt="" src="../assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_729d9cdd7632dc10fb55ed20037f9a17.jpg"/></a></p>
 <p>用于全景相机场景，双目拼接。</p>
 <h3 id="v4l2-framework">V4L2 Framework</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_08c1a07235a4f4b368683be8deee7467.jpg"><img alt="" src="/assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_08c1a07235a4f4b368683be8deee7467.jpg"/></a> <a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_164c1be03ca0c4b78ac40606414618b4.jpg"><img alt="" src="/assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_164c1be03ca0c4b78ac40606414618b4.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_08c1a07235a4f4b368683be8deee7467.jpg"><img alt="" src="../assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_08c1a07235a4f4b368683be8deee7467.jpg"/></a> <a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_164c1be03ca0c4b78ac40606414618b4.jpg"><img alt="" src="../assets/doc/01-linux/设备驱动/camera基础知识/images/wp_editor_md_164c1be03ca0c4b78ac40606414618b4.jpg"/></a></p>
 <h2 id="_3">其他概念</h2>
 <ul>
 <li>
@@ -124,8 +124,8 @@
 </li>
 </ul></div>
   <div class="post-nav">
-    <a class="prev" href="/function-graph-tracer原理.html">← function graph tracer原理</a>
-    <a class="next" href="/静态ftrace.html">静态ftrace →</a>
+    <a class="prev" href="../function-graph-tracer原理.html">← function graph tracer原理</a>
+    <a class="next" href="../静态ftrace.html">静态ftrace →</a>
   </div>
 </article>
 
@@ -140,7 +140,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CFS调度原理 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -54,9 +54,9 @@
   <div class="meta">2023-03-26 · linux</div>
   <div class="post-content"><p>上一章节中描述了Linux系统中支持多种调度，不同的调度有不同的优先级范围。对于普通进程使用的CFS调度（Completely Fair Scheduler，CFS）。完全公平调度主要核心思想就是保证在一段时间内，每个进程能够运行的时间趋于相等。   为了尽可能的保证一段时间内，每个进程能够运行的时间相等，那么系统就需要计算出每个进程每次能够运行的时间runtime，计算出每个进程的runtime后，系统总是让之前累计运行时间最少的进程先运行，累计运行时间长的进程后运行，这样让进程运行公平。</p>
 <h2 id="_1">理想公平调度模型</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f1e8108aa95e9b00d7f2e69657da380a.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/4-cfs调度原理/images/wp_editor_md_f1e8108aa95e9b00d7f2e69657da380a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f1e8108aa95e9b00d7f2e69657da380a.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/4-cfs调度原理/images/wp_editor_md_f1e8108aa95e9b00d7f2e69657da380a.jpg"/></a></p>
 <p>假设单核CPU上有3个进程，这3个进程都处于就绪队列中，调度器每次调度运行会挑选一个runtime值最小的来运行。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_bac195da3c8fb6b672e082f439fdac90.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/4-cfs调度原理/images/wp_editor_md_bac195da3c8fb6b672e082f439fdac90.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_bac195da3c8fb6b672e082f439fdac90.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/4-cfs调度原理/images/wp_editor_md_bac195da3c8fb6b672e082f439fdac90.jpg"/></a></p>
 <p>如上图，TASK1先运行了4ms（runtime=4ms）让出调度，调度器查询就绪队列中发现TASK2和TASK3的runtime=0（没运行过），那么此次调度按顺序选择TASK2进行调度运行，TASK2运行了2ms就结束了其runtime=2ms。调度器在就绪队列中继续选择，发现此时TASK3的runtime值最小=0，那么挑选TASK3运行，TASK3运行了5ms让出调度其runtime=5ms。调度器继续从就绪队列中选择进程，发现TASK2 runtime=2ms为最小，因此选择TASK2运行，TASK2运行了4ms，因此runtime累计为=6ms。因此在T1时间内TASK1、TASK2、TASK3分别运行了4ms，5ms，6ms，随着时间的推进，调度器总是选择运行时间最小的先运行，那么各进程获得的运行时间趋于相等。   调度器选择运行时间最小的进程先运行，那是不是进程得到调度后想运行多久就运行多久？答案并不是的，而是有一定的限制。在CFS调度中，规定了一个调度周期period，每个进程能够运行的最长时间等于period/进程数量（当然还没有考虑优先级权重）。规定这样的一个调度周期用来限制每个进程最长的运行时间，避免某个进程一直运行，这样保证一段时间内，每个进程都能够得到至少运行一次。理想情况下如果period为20ms，那么有4个进程，那么平均每个进程的运行时间为5ms。在Linux系统中period并不是固定一个值，因为period固定后，当进程数量越来越多后，每个进程分配的时间就会变少，那么调度器的切换时间就会变得频繁，频繁的切换调度器也就意味着需要频繁的切换上下文，这样对于系统的开销是得不偿失的。因此Linux系统的做法是默认情况下保持一个默认值（默认值6ms），当系统就绪进程个数超过一定数量后，计算处理的运行时间小于6ms后，那么Linux系统会进行动态调整。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">kernel</span><span class="o">/</span><span class="n">sched</span><span class="o">/</span><span class="n">fair</span><span class="p">.</span><span class="n">c</span>
 <span class="k">static</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="n">__sched_period</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">nr_running</span><span class="p">)</span>
@@ -92,14 +92,14 @@
 <div class="codehilite"><pre><span></span><code><span class="n">vruntime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">delta_exec</span><span class="o">*</span><span class="err">（</span><span class="n">nice_0_weight</span><span class="o">/</span><span class="n">weight</span><span class="err">）</span>
 </code></pre></div>
 <p>delta_exec表示实际运行时间，nice_0_weight表示nice值为0的进程权重值，weight表示进程的权重值。为什么是nice_0_weight/weight了，是因为nice_0_weight对应的权重实际运行时间和虚拟运行时间相当。 当引入优先级权重中，就不用runtime值最小来判定优先运行，而是选择vruntime来判断，选择vruntime值最小的优先运行。虚拟时间等于实际运行时间乘以一定比重，这个比重根据优先级来判断。调度保证每个进程在一定时间内运行的虚拟时间相等。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_76fba41717f786e75ae434cc18529228.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/4-cfs调度原理/images/wp_editor_md_76fba41717f786e75ae434cc18529228.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_76fba41717f786e75ae434cc18529228.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/4-cfs调度原理/images/wp_editor_md_76fba41717f786e75ae434cc18529228.jpg"/></a></p>
 <p>就绪队列中的每个进程对应的vruntime将会被挂到红黑树中，当前CPU进行调度时，将会从左往右开始优先选择，也就是选择vruntime最小的进程先运行。之所以选择红黑树是因为查找速度是O(1)。</p>
 <h2 id="min_runtime">min_runtime</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e91cffdbf11114ba4c11f45d8585fcd3.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/4-cfs调度原理/images/wp_editor_md_e91cffdbf11114ba4c11f45d8585fcd3.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e91cffdbf11114ba4c11f45d8585fcd3.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/4-cfs调度原理/images/wp_editor_md_e91cffdbf11114ba4c11f45d8585fcd3.jpg"/></a></p>
 <p>考虑这样的一个场景，就绪队列中有A,B,C进程已经各自运行了一段时间了，此时有一个新的进程加入到就绪队列，D加入的时候，runtime应该是多少？如果D从0开始计算，那么D将会一直运行指导追赶上A/B/C三个进程，因为调度的原则就是选择最小的vruntime来运行，如果A/B/C已经运行了几天了，那么当D加入的时候就要先运行几天追赶上A/B/C，这样显然是不合理的。   针对以上的场景，引入了min_runtime。min_runtime记录调度队列中，虚拟时间最小的值。因此当新进程加入的时候，其虚拟时间需要+min_runtime值，这样就能够解决上述场景的问题。</p></div>
   <div class="post-nav">
-    <a class="prev" href="/cfs分组调度.html">← CFS分组调度</a>
-    <a class="next" href="/进程调度简介.html">进程调度简介 →</a>
+    <a class="prev" href="../cfs分组调度.html">← CFS分组调度</a>
+    <a class="next" href="../进程调度简介.html">进程调度简介 →</a>
   </div>
 </article>
 
@@ -114,7 +114,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 
