@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>再论transformer原理 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -55,24 +55,24 @@
   <div class="post-content"><h2 id="_1">概述</h2>
 <h3 id="_2">框架</h3>
 <p>以翻译作为例子，从宏观角度理解大模型，可以把大模型视为一个黑匣子，它可以输入一种语言然后输出另外一种翻译语言，如下图所示。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_520233b55d11c3774c5bfa49cbaf041f.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_520233b55d11c3774c5bfa49cbaf041f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_520233b55d11c3774c5bfa49cbaf041f.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_520233b55d11c3774c5bfa49cbaf041f.jpg"/></a></p>
 <p>如果将模型稍微展开一下，模型分为encoders和decoders两部分。为什么要分为编码器和解码器了？主要是从以下动机考量。</p>
 <ul>
 <li>条件生成需求：在机器翻译、摘要、对话等条件文本生成任务重，需要读懂输入再逐步输出目标序列这两个事情的约束不同。读懂输入需要双上下文（每个词即要看到左也要右），也就是说要在上下文中去理解，没有因果约束。而生成输出需要的是自回归，因为是预测，只需要看历史不能偷看未来，这就需要因果掩码的自注意力。</li>
 <li>结构解耦：把理解和生成拆开，分别最优各自的注意力、掩码和结构，这样更清晰也更高效。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_0c40e93a3adc86519baea116dad139e6.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_0c40e93a3adc86519baea116dad139e6.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_0c40e93a3adc86519baea116dad139e6.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_0c40e93a3adc86519baea116dad139e6.jpg"/></a></p>
 <p>encoders是有多个相同的encoder堆叠在一起形成，decoders也是一样。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_0c2616007e47206c3e2ee3ccc55be2f5.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_0c2616007e47206c3e2ee3ccc55be2f5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_0c2616007e47206c3e2ee3ccc55be2f5.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_0c2616007e47206c3e2ee3ccc55be2f5.jpg"/></a></p>
 <p>encoder和decoder在结构上都是相同的，但是他们不共享权重。下图是encoder和decoder微观结构。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_8cfba4a796779cd05c9d5b19818b7881.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_8cfba4a796779cd05c9d5b19818b7881.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_8cfba4a796779cd05c9d5b19818b7881.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_8cfba4a796779cd05c9d5b19818b7881.jpg"/></a></p>
 <p>编码器将输入的序列X=(x1,......,xn)映射到连续表示序列Z=(z1,.....zn)，然后将Z给到解码器。解码器每次生成一个元素的符号输出序列(y1,......yn)。解码器在每一步都是自回归的，在生成下一步时将先前生成的符号作为额外输入。</p>
 <ul>
 <li>编码器：编码器由N=6个相同层堆叠组成。每层都有两个子层，第一个子层是多头注意力（Multi-Head Attention），第二个是简单的按位置完全连接的前馈网络（Feed Forward）。在两个子层的周围分别采用残差连接（Add），然后再进行层正则化（Norm）。每个子层的输出是LayerNorm(X+Sublayer(X))，其中Sublayer(X)是由子层本身实现的函数。为了促进这些残差连接，模型中所有子层以及嵌入层都产生维度为$d_{model}$=512的输出。</li>
 <li>解码器：解码器也是由N=6个相同层堆栈组成，除了每个解码器层中的两个子层之外，解码器还插入了第三个子层Masked Multi-Head Attention，该子层对编码堆栈的输出执行多头注意。与编码器类似，在每个子层周围采用残差连接然后正则化。与编码器不同的是，这里增加了Masked Multi-Head Attention修改于Multi-Head Attention，防止当前的输入元素关注到后续的位置元素，这种掩码加上输出嵌入偏移一个位置，确保位置i的预测只能依赖小于i的位置的已知输出。</li>
 </ul>
 <h3 id="_3">流程</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_1f6315e70d4496af25ad7d7dd639acd7.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_1f6315e70d4496af25ad7d7dd639acd7.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_1f6315e70d4496af25ad7d7dd639acd7.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_1f6315e70d4496af25ad7d7dd639acd7.jpg"/></a></p>
 <p>下面以一个中文句子翻译为英文为例，简要说明步骤。</p>
 <ul>
 <li>word embedding： 输入的句子分词得到["我", "有", "一个", "苹果"]，然后将每个词进行词嵌入（算法这里不阐述）转换为6维的向量。</li>
@@ -83,7 +83,7 @@
 <li>mask：在解码器内部有一个mask，其主要的作用是让生成步骤仅以来历史信息，不能访问未来的词。因为decoder是一个一个词生成的，自注意力层天然会计算序列中所有位置间的关联，若不施加约束，模型可能尝试为当前未生成的空白位置分配权重，生成第3个词时，模型默认会为第4、5等未来位置计算注意力权重（尽管这些位置尚无实际内容）。</li>
 </ul>
 <h2 id="_4">输入</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_ecf7dae95f44d5eed10b13185712d85b.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_ecf7dae95f44d5eed10b13185712d85b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_ecf7dae95f44d5eed10b13185712d85b.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_ecf7dae95f44d5eed10b13185712d85b.jpg"/></a></p>
 <p>transformer的输入是一个多阶段的过程，核心的目标是将原始序列的数据转换为包含语义和位置信息的向量表示，这里重点分为word embedding和positional encoding。</p>
 <h3 id="word-embedding">word embedding</h3>
 <p>在进行word embedding之前，需要先把输入句子进行分词，得到离散的序列。如"我有一个苹果" → ["我", "有", "一个", "苹果"]。</p>
@@ -131,11 +131,11 @@
 </li>
 </ul>
 <h2 id="_5">注意力机制</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_259600f3f62b169f31612dd4ec002c7f.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_259600f3f62b169f31612dd4ec002c7f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_259600f3f62b169f31612dd4ec002c7f.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_259600f3f62b169f31612dd4ec002c7f.jpg"/></a></p>
 <p>在transformer中最关键的就是Multi-Head Attention,本小节先来重点分析其实现原理。Multi-Head Attention由多个Scaled Dot-Product Attention组成。</p>
 <p>注意力函数可以描述为将查询（Query）和一组键值对（Key-Value）映射到输出，其中查询、键、值和输出都是向量，输出计算为加权和。</p>
 <h3 id="scaled-dot-product-attetion">Scaled Dot-Product Attetion</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_9d162009ceb67542991de46abda64707.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_9d162009ceb67542991de46abda64707.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_9d162009ceb67542991de46abda64707.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_9d162009ceb67542991de46abda64707.jpg"/></a></p>
 <p>其核心的公式就是如下：</p>
 <p>$$ \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V $$</p>
 <p>对于Scaled Dot-Product Attention自下而上计算的流程如下：</p>
@@ -158,12 +158,12 @@
 <p>如翻译“I have an apple”时，生成“apple”的Query会去找跟（“苹果”）相关的key计算高相似度，然后用得到的K取提取Value（“苹果”的语义向量），实现精准跨语言对齐。</p>
 <p>使用Q MatMul K的方式可以量化查询的需求与源特征的匹配程度，最后在MatMul上V是因为做最终的提取。</p>
 <p>既然Q MatMul K是量化查询需求与源特征的匹配程度，那么每个词一般都是在句子中去理解的，所以每个词都需要去计算在句子中其他词的关联。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_110f41dfee4338ff94de44900aa65815.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_110f41dfee4338ff94de44900aa65815.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_110f41dfee4338ff94de44900aa65815.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_110f41dfee4338ff94de44900aa65815.jpg"/></a></p>
 <p>每个都需要与句子中的其他进行相关性计算，各自得到一个输出。如a1最终计算出得到b1，a2计算得到b2......。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_0763be1edad073d404ae9fa7bec63286.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_0763be1edad073d404ae9fa7bec63286.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_0763be1edad073d404ae9fa7bec63286.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_0763be1edad073d404ae9fa7bec63286.jpg"/></a></p>
 <p><strong>（1）以单个词为例说明运作流程</strong></p>
 <p>下面以a1为例：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_ada19bf4d8c95527aa148aa548127b21.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_ada19bf4d8c95527aa148aa548127b21.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_ada19bf4d8c95527aa148aa548127b21.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_ada19bf4d8c95527aa148aa548127b21.jpg"/></a></p>
 <ul>
 <li>首先a1先自己计算出q1，q1=Wq a1，其中Wq为权重参数。</li>
 <li>其次句子中所有词a1,a2,a3,a4分别乘Wk计算各自得到k1,k2,k3,k4。</li>
@@ -177,40 +177,40 @@
 </ul>
 <p>在对softmax之前还要进行一次scale这里就不周赘述了。</p>
 <p>a'11,a'12,a'13,a'14即为a1对句子中每个词的注意力分数，计算出值后就可以根据其值从序列里面抽取出了重要的信息，根据a'11,a'12,a'13,a'14可知输入的词向量哪些跟与a1相关性大，接下来即可根据关联性（即注意力分数）抽取重要的信息。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_48f90b74ea6cfdf43b710e3cce412489.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_48f90b74ea6cfdf43b710e3cce412489.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_48f90b74ea6cfdf43b710e3cce412489.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_48f90b74ea6cfdf43b710e3cce412489.jpg"/></a></p>
 <p>将向量a1~a4分别乘以Wv权重得到新的向量v1,v2,v3,v4，将其中的每一个向量分别乘以注意力分数a'xx,再把结果加起来。</p>
 <p>$$ b_1 = \sum_{i} \alpha'_{1,i} v_i $$</p>
 <p>如果a1和a2关联性强，即a'12的值就很大，那么在做加权和以后，得到的b1就越接近与v2，所以谁的注意力分数越大，谁的v就会主导抽取结果。同理可以计算出b2,b3,b4。</p>
 <p><strong>（2）以矩阵乘法角度说明运作流程</strong></p>
 <p>上面的过程是单个词的计算过程，但是实际在自注意力模型的运作过程中，是通过矩阵乘法的方式计算的，这样效率才高，接下来看看从矩阵乘法的角度理解运行过程。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_612f507dcd877d01ed1fa5b6c20d4ed2.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_612f507dcd877d01ed1fa5b6c20d4ed2.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_612f507dcd877d01ed1fa5b6c20d4ed2.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_612f507dcd877d01ed1fa5b6c20d4ed2.jpg"/></a></p>
 <p>因为每个词都要产生qkv，即每个ai都要乘以权重参数Wq得到qi，那么可以把这些ai合并起来当做一个矩阵，即把a1到a4拼接起来，看成一个矩阵I，矩阵I有4列，其中每一列都是自注意力模型的输入。把矩阵I乘以矩阵Wq，就可以得到Q。其中Wq则是权重参数，Q则可以看成q1~q4的拼接。</p>
 <p>同理产生k和v的操作跟q一模一样，计算得到K，V矩阵。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_02c14fcecc1970222bcf16bae5608b29.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_02c14fcecc1970222bcf16bae5608b29.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_02c14fcecc1970222bcf16bae5608b29.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_02c14fcecc1970222bcf16bae5608b29.jpg"/></a></p>
 <p>通过两个Q与K转置相乘就可以得到注意力分数的矩阵A，然后将A经过softmax得到A'。</p>
 <p>最后使用注意力分数A'提出V，得到最终的输出矩阵O，即b1~b4的拼接。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_20400d733b257f64b7691e2f8a5615b9.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_20400d733b257f64b7691e2f8a5615b9.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_20400d733b257f64b7691e2f8a5615b9.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_20400d733b257f64b7691e2f8a5615b9.jpg"/></a></p>
 <p>最后总结下，自注意力模型输入是一组向量，将这些向量拼接起来得到I，让后将I分别乘以三个矩阵Wq,Wk,Wq，得到另外三个矩阵QKV，将Q乘以K的转置得到A，然后对A在做一些处理得到A'，A'为注意力分数矩阵，将A'乘以V提取出特征，最后得到自注意力的输出O。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_2dad312c055d17c458fc9e707328d964.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_2dad312c055d17c458fc9e707328d964.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_2dad312c055d17c458fc9e707328d964.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_2dad312c055d17c458fc9e707328d964.jpg"/></a></p>
 <h3 id="multi-head-attention">Multi-Head Attention</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_2f47e660eaef9c85c570a705f7c5690e.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_2f47e660eaef9c85c570a705f7c5690e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_2f47e660eaef9c85c570a705f7c5690e.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_2f47e660eaef9c85c570a705f7c5690e.jpg"/></a></p>
 <p>论文中阐述，与其使用一套维度为$d_{model}$的单头注意力，还不如把输入的Query、Key、Value各自用不同的、可学习的线性投影经过注意力机制映射出$h$份版本，每份的维度更小，计为$d_{k}$和$d_{v}$。 在每一份（也就是每个头）上各自并行计算注意力，得到$d_{v}-$维的输出，然后再把所有头的输出沿特征维度拼接，再做一次线性投影到得到最终的输出。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_5e56d9549d5c49373d1aa12384840625.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_5e56d9549d5c49373d1aa12384840625.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_5e56d9549d5c49373d1aa12384840625.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_5e56d9549d5c49373d1aa12384840625.jpg"/></a></p>
 <p>为什么要做多头？多头可以“同时在不同表示子空间里看信息”。一个头往往只能聚焦一种关系（比如短距依赖），多个头能并行关注不同关系（长距、句法、语义等）。如果只有单头，容易把多种关系“平均混在一起”，表达力受限。</p>
 <p>多头注意力会把输入进行降维值C/h，这样每个头的输入维度就为C/h。为什么使用"多头+降维"而不是"多头不降维"，主要会是考虑如果每个头都保持默认的输入C维，h个头拼接后会是[B, L, h·C]，参数量与计算复杂度都膨胀 h 倍，不经济。标准做法让每头维度变为 C/h，拼接回到 C，因此总计算/参数量与单头同量级，但表达力更强（多视角、子空间解耦）。</p>
 <p>下面是来说明一下多头注意力机制是如何计算的，下面省略了输入降维的过程。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_e9f69c91c3972e89ad0ceee2a21f8e1f.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_e9f69c91c3972e89ad0ceee2a21f8e1f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_e9f69c91c3972e89ad0ceee2a21f8e1f.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_e9f69c91c3972e89ad0ceee2a21f8e1f.jpg"/></a></p>
 <p>如上图，先把a乘以一个矩阵得到q，然后再把q乘以另外两个矩阵得到q1,q2。qi1和qi2代表的有两个头，表示要查询两种不同的相关性，那么既然有两个q，k，v也得需要两个，同理得到各自的两个k，v。</p>
 <p>关于多头注意力机制的计算跟上一节的计算类似，各自的头计算各自的，如上图是计算头1，下图是计算头2。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_8d14ab95f5b1cf3412ca263d1e85701a.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_8d14ab95f5b1cf3412ca263d1e85701a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_8d14ab95f5b1cf3412ca263d1e85701a.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_8d14ab95f5b1cf3412ca263d1e85701a.jpg"/></a></p>
 <p>通过各自头的计算，那么将会得到各自头的一个输出bi1,bi2，最后需要将bi1和bi2拼起来，先乘以一个矩阵进行变换得到bi，再送到下下一层。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_edba5a2fa202228ee480c3c4dcdf1353.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_edba5a2fa202228ee480c3c4dcdf1353.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_edba5a2fa202228ee480c3c4dcdf1353.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_edba5a2fa202228ee480c3c4dcdf1353.jpg"/></a></p>
 <h2 id="encoder">encoder</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_99ecfad702c2704324e2eca7e486229a.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_99ecfad702c2704324e2eca7e486229a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_99ecfad702c2704324e2eca7e486229a.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_99ecfad702c2704324e2eca7e486229a.jpg"/></a></p>
 <p>编码器有多个相同的子编码器叠加而成，最小单元的子编码器由Multil-Head Aattention、Add &amp; Norm、Feed Forward这几个组件构成，Multil-head Attention前面已经解释了，接下来重点分析剩余模块的流程。为表述方便后面的编码器都默认指最小单元的编码器。</p>
 <h3 id="add-norm">Add &amp; Norm</h3>
 <p>Add &amp; Norm在编码器一个block中出现了两次，首次出现是位于 Multi-Head Attention（橙色模块）的输出端，再次出现是位于 Feed Forward（蓝色模块）的输出端。如下图：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_6cd53953419870af518f01ed1aa0e926.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_6cd53953419870af518f01ed1aa0e926.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_6cd53953419870af518f01ed1aa0e926.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_6cd53953419870af518f01ed1aa0e926.jpg"/></a></p>
 <p><strong>（1）残差连接</strong></p>
 <p>残差连接的作用是在深层网络中，梯度在反向传播时可能会消失或爆炸。残差连接通过将输入直接加到函数输出上（即 F(x) + x），提供了一个恒等映射的路径。这使得梯度在反向传播时可以直接流过，从而缓解了梯度消失的问题，使深层网络训练成为可能。</p>
 <p>Add操作是残差连接（Resudual Connection），其公式</p>
@@ -218,7 +218,7 @@
 <p><strong>（2）层归一化</strong></p>
 <p>层归一化的作用是在残差连接之后，数据的分布可能会发生变化，可能会导致后续层的学习变得困难，使用层归一化能够重新调整数据分布（如将每一层的输出归一化为均值为0，方差为1），从而加速训练并提高模型的泛化能力。</p>
 <p>层归一化计算公式步骤如下：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_f26ca0c7fcc0b54434620a48ade5b017.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_f26ca0c7fcc0b54434620a48ade5b017.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_f26ca0c7fcc0b54434620a48ade5b017.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_f26ca0c7fcc0b54434620a48ade5b017.jpg"/></a></p>
 <p>这里使用的是层归一化而非批归一化，主要是可以独立处理每个样本，应对变长序列输入，同时对小批量训练不依赖批量统计量。</p>
 <p>为什么Add&amp;Norm要成对使用？</p>
 <p>每个主要计算层后面都有Add &amp; Norm，形成了一种模式：计算层 -&gt; Add &amp; Norm。这样，每个计算层的输出在传递给下一层之前都会被重新调整，使得模型在训练过程中保持稳定。如果只有残差连接而没有归一化，那么随着层数的增加，输出的尺度可能会不断增长，导致训练不稳定；如果只有归一化而没有残差连接，则可能无法解决深层网络中的梯度消失问题。</p>
@@ -247,26 +247,26 @@
 </ul>
 <h3 id="encoder-block">encoder block</h3>
 <p>Multi-Head Attention、Add &amp; Norm、Feed Ward构成了一个encoder block。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_8584c80ebe18cccced8f0b63588bade8.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_8584c80ebe18cccced8f0b63588bade8.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_8584c80ebe18cccced8f0b63588bade8.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_8584c80ebe18cccced8f0b63588bade8.jpg"/></a></p>
 <p>每个encoder block接入输入矩阵Xn_d，并输出一个矩阵On_d，再把输出的O当做输入传递给下一个encoder，通过多个encoder的叠加，最后一个encoder block输出的就是编码信息矩阵E，用于送入到解码器中，就完成transformer的Encoder。</p>
 <h2 id="decoder">decoder</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_d22a2d8278bfc270e0f567b5e68cc951.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_d22a2d8278bfc270e0f567b5e68cc951.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_d22a2d8278bfc270e0f567b5e68cc951.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_d22a2d8278bfc270e0f567b5e68cc951.jpg"/></a></p>
 <p>decoder与encoder大致的结构类似，但是也有差别主要由Masked Multi-head Attention、Multi-head Attention、Add &amp; Norm、Feed Forward组成，这里唯一不一样的是Masked Multi-head Attention，接下来分模块介绍一下关键流程。</p>
 <h3 id="masked-multi-head-attention">Masked Multi-head Attention</h3>
 <p>Masked Multi-head Attention通过一个掩码来阻止每个位置选择器后面的输入信息。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_532691ae4da1d87d3477f3f04e7064d5.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_532691ae4da1d87d3477f3f04e7064d5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_532691ae4da1d87d3477f3f04e7064d5.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_532691ae4da1d87d3477f3f04e7064d5.jpg"/></a></p>
 <p>Multi-head Attention自注意力输入一排向量，自己输出另一排向量，这一排向量中的每个项链都要看过完整的输入后才能决定。如上图必现根据a1,a2,a3,a4的所有信息来输出b1。</p>
 <p>而掩码多头注意力则不再看右边的部分，如下图。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_9d3b77d820a6a7dc7bb0149aea4b8795.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_9d3b77d820a6a7dc7bb0149aea4b8795.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_9d3b77d820a6a7dc7bb0149aea4b8795.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_9d3b77d820a6a7dc7bb0149aea4b8795.jpg"/></a></p>
 <p>在产生b1的时候，只考虑a1的信息，不再考虑a2,a3,a4的信息。在产生b2的时候，只考虑a1,a2的信息，不再考虑a3,a4的信息，在产生b3的时候，只考虑a1,a2,a3的信息，不再考虑a4的信息，只有在阐述b4的时候，才考虑整个输入序列的信息。</p>
 <p>下面是Multi-head Attention产生b2的过程，b2需要和a1,a2,a2,a3的qkv信息计算得到b2。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_79a19c2d2cd4e78d433c6a08e82763fc.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_79a19c2d2cd4e78d433c6a08e82763fc.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_79a19c2d2cd4e78d433c6a08e82763fc.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_79a19c2d2cd4e78d433c6a08e82763fc.jpg"/></a></p>
 <p>而如果是Masked Multi-head Attention，b2只需要拿q2和k1、k2计算注意力，最后只计算v1和v2的加权和，不管a2右边的部分，则计算过下。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_46f31b77c19426b2b35adb48e85be37b.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_46f31b77c19426b2b35adb48e85be37b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_46f31b77c19426b2b35adb48e85be37b.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_46f31b77c19426b2b35adb48e85be37b.jpg"/></a></p>
 <p>为什么在注意力机制中加上掩码了？</p>
 <p>因为解码器的输出是一个一个产生的，只能考虑左边已经生成的部分，而没有办法考虑未生成的右边部分。举个例子，先有得a1,再有a2，接下来是a3，然后是a4。这个跟编码器中的self-attention不一样，编码器中的是a1,a2,a3,a4一次性输入模型，编码器一次性处理输出。正因为解码器这个特性，现有a1，才能预测输出a2，再有后面的a3,a4，所以当我们在计算b2时，a3,a4实际是还没输出的，所以没有办法考虑a3,a4。</p>
 <h3 id="multi-head-attention_1">Multi-head Attention</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_4e87a362b256fe01079c1cdeb4fe926f.jpg"><img alt="" src="../assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_4e87a362b256fe01079c1cdeb4fe926f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_4e87a362b256fe01079c1cdeb4fe926f.jpg"><img alt="" src="assets/doc/04-ai/算法/transformer原理/images/wp_editor_md_4e87a362b256fe01079c1cdeb4fe926f.jpg"/></a></p>
 <p>第二个Mult-head Attention也称为交叉注意力，结构组成与编码器没什么差别。主要的差异点计算输入，解码器的第二个Multi-head Attention（交叉注意力）输入，这个注意力层的Query来自解码器前一层（通常是解码器的第一个Masked Self-Attention层）的输出，而Key和Value则来自编码器的最终输出（即最后一个编码器层的输出）。因此，该注意力层的目的是让解码器在生成当前输出时能够关注到输入序列的相关部分。</p>
 <h2 id="_6">输出</h2>
 <p>transformer最后的输出层是linear层和softmax层。</p>
@@ -358,8 +358,8 @@
 <li><a href="https://zhuanlan.zhihu.com/p/338817680">https://zhuanlan.zhihu.com/p/338817680</a></li>
 </ol></div>
   <div class="post-nav">
-    <a class="prev" href="../数据维度.html">← 数据维度</a>
-    <a class="next" href="../lerobot-act实现分析.html">lerobot ACT实现分析 →</a>
+    <a class="prev" href="../note_page/数据维度.html">← 数据维度</a>
+    <a class="next" href="../note_page/lerobot-act实现分析.html">lerobot ACT实现分析 →</a>
   </div>
 </article>
 
@@ -374,7 +374,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

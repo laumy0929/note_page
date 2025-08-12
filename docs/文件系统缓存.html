@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>文件系统缓存 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -98,7 +98,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>可以cat /proc/slabinfo | grep dentry查看dentry的情况。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4563d1adba322baf728d76cc5d1408c9.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_4563d1adba322baf728d76cc5d1408c9.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4563d1adba322baf728d76cc5d1408c9.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_4563d1adba322baf728d76cc5d1408c9.jpg"/></a></p>
 <p>dcache在kmem_cache_alloc的基础上定义了两个高层分配接口：d_alloc和d_alloc_root函数，用来从dentry_cache slab中分配dentry对象。d_alloc_root时用来为文件系统跟目录分配dentry对象的。 dentry释放后并不会马上清除掉，而是不缓存起来，所以通常有3种状态，而其中unused和negative是可以在主动触发释放是可以进行回收的。</p>
 <ul>
 <li>inuse：正在被使用，引用技术d_lockref&gt;0。</li>
@@ -119,7 +119,7 @@
 <span class="k">extern</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">dentry_stat_t</span><span class="w"> </span><span class="n">dentry_stat</span><span class="p">;</span>
 </code></pre></div>
 <p>可以通过节点/proc/sys/fs/dentry-state来获取，可以发现dentry-state的nr_dentry:15227与slab info中已经分配出去的对象15229差不多，16957表示当前dentry cache中一共还有多少个对象包括使用和为使用的，528表示每个对象的大小，单位是字节，可以看出一个对象是528字节，对应struct dentry数据结构的大小。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_03895bace38c740c412d3f8445ef370d.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_03895bace38c740c412d3f8445ef370d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_03895bace38c740c412d3f8445ef370d.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_03895bace38c740c412d3f8445ef370d.jpg"/></a></p>
 <p>当系统使用echo 2 &gt; /proc/sys/vm/drop_caches可以释放dentry和inode的缓存。</p>
 <div class="codehilite"><pre><span></span><code><span class="cp">#To free dentry and inode cache</span>
 <span class="n">echo</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
@@ -176,9 +176,9 @@
 <span class="k">struct</span><span class="w"> </span><span class="nc">inodes_stat_t</span><span class="w"> </span><span class="n">inodes_stat</span><span class="p">;</span>
 </code></pre></div>
 <p>与dentry类似，inode也定义了一个inodes_stat用于统计inode信息，可以通过cat /proc/sys/fs/inode-state来查询。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ee267a6f349bf5300cf59e781783111a.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_ee267a6f349bf5300cf59e781783111a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ee267a6f349bf5300cf59e781783111a.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_ee267a6f349bf5300cf59e781783111a.jpg"/></a></p>
 <h2 id="page-cache">page cache</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_2191c43017604b7715dc53f66fa53585.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_2191c43017604b7715dc53f66fa53585.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_2191c43017604b7715dc53f66fa53585.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_2191c43017604b7715dc53f66fa53585.jpg"/></a></p>
 <p>free显示中的buff和cache怎么理解，使用free -w会将buff和cache分开，字面上buffer缓冲，而cache是缓存。 free的数据来源与/proc/meminfo之间的关系。</p>
 <ul>
 <li>buffers：内核缓冲区的内存，对应的是/proc/meminfo中的Buffers</li>
@@ -247,7 +247,7 @@
 <span class="w">    </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">b_dev_id</span><span class="p">;</span>
 <span class="p">};</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c03e7f7e9acca067687f6a673f3f3571.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_c03e7f7e9acca067687f6a673f3f3571.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c03e7f7e9acca067687f6a673f3f3571.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_c03e7f7e9acca067687f6a673f3f3571.jpg"/></a></p>
 <p>发展到第三阶段linux 2.4版本，对cache和buffer进行了融合，因为buffer的申请也是基于page的，那这两个为什么不融合在一起了，融合后buffer cache就直接存储在page cache中，但是依旧保留了buffer cache的描述。</p>
 <div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">b_state</span><span class="p">;</span><span class="w">      </span><span class="cm">/* buffer state bitmap (see above) */</span>
@@ -270,7 +270,7 @@
 <span class="cm">                     * buffers in the page */</span>
 <span class="p">};</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_939e0244c4a8a5c6156fae1672142e9c.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_939e0244c4a8a5c6156fae1672142e9c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_939e0244c4a8a5c6156fae1672142e9c.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_939e0244c4a8a5c6156fae1672142e9c.jpg"/></a></p>
 <p>至此page cache和buffer 两者的关系融合了。磁盘的读写是按block为单位操作，一个block对应一个buffer_head缓冲，如块单位是1KB，那么1个page cache就有4个buffer_head。 对于文件系统的操作来说，buffer和cache都是page cache，对应的是进程打开文件内存的缓存，缓存在address_space::i_pages的xarray上，缓存的数量为address_space::nrpages。</p>
 <p>Buffer_head的原义是与block对应，按照磁盘的布局分为元数据区和数据区域，元数据是用于管理磁盘的如supper_block、inode等，数据区域才是正在的对应文件系统操作的数据。所以的对于cache和buffer的区别，buffer还存储了对磁盘管理的元数据缓存，这部分 再后来在linux2.4版本之后，新的文件系统开始引入了bio结构来替换buffer_head，但是原有的一些文件系统并没有完全替换使用bio，所以了就需要做bio兼容buffer_head，在磁盘操作前会调用到submit_bh_wbc函数，该函数会将buffer_head组装成bio，因此最终对磁盘的操作都会转为bio的方式，新的文件系统就直接使用bio。</p>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">submit_bh_wbc</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">op</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">op_flags</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">buffer_head</span><span class="w"> </span><span class="o">*</span><span class="n">bh</span><span class="p">,</span>
@@ -322,9 +322,9 @@
 <span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
 <span class="p">}</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_9af7de69a4945a6d4443dfa9eab81f60.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_9af7de69a4945a6d4443dfa9eab81f60.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_9af7de69a4945a6d4443dfa9eab81f60.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_9af7de69a4945a6d4443dfa9eab81f60.jpg"/></a></p>
 <p>以上的page cache和buffer cache的融合是针对使用文件系统的方式访问块设备的场景。但是如果以下的两个方式访问磁盘①使用文件②使用块设备节点，这两种方式对应的page cache是不同的，文件的方式是buff/cache，而块设备节点是buff（实际也是page cache分配），这种情况下一个物理磁盘的block数据仍然对应linux内核的两份page，一个是通过通用文件层访问的文件page cache（page cache），另一个是通过块设备节点访问的page cache（buffer cache）。另外需要注意的是，如果通过块设备节点访问声明了O_DIRECT，将会直接访问磁盘不会经过buff。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1d1e2bf632800324458f3d5dc461d846.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_1d1e2bf632800324458f3d5dc461d846.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1d1e2bf632800324458f3d5dc461d846.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_1d1e2bf632800324458f3d5dc461d846.jpg"/></a></p>
 <p>上图如果分别使用文件系统方式/mnt/test的方式或者裸设备/dev/sda的方式去写磁盘，即使是一个位置，但是将会有两份page cache，前者的page cache对应的就是free中的cache，而后边的page cache对应的是free中的buff。 可以从/proc/meminfo的实现来研究一下buff和cache的区别。</p>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">meminfo_proc_show</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">seq_file</span><span class="w"> </span><span class="o">*</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">v</span><span class="p">)</span>
 <span class="p">{</span>
@@ -400,7 +400,7 @@
 <span class="w">                </span><span class="n">atomic_long_add</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">vm_node_stat</span><span class="p">[</span><span class="n">item</span><span class="p">]);</span>
 </code></pre></div>
 <p>从上面的函数调用，__mod_lruvec_page_state(struct page *page,enum node_stat_item idx, int val)的作用就是根据item类型（这里是NR_FILE_PAGES）对全局变量vm_node_stat[item]增加val。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f3b8752cc008370caa6d04d54648ab8d.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_f3b8752cc008370caa6d04d54648ab8d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f3b8752cc008370caa6d04d54648ab8d.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_f3b8752cc008370caa6d04d54648ab8d.jpg"/></a></p>
 <p>从上的函数调用流程可知，无论是文件系统的写还是读，当分配新的page时，会调用add_to_page_cache_lru将page添加到xarray树上，并调用__inc_lruvec_page_state增加page计数，同时会添加到LRU链表用于后续回收。除了调用generic_file_read/write读写文件系统会修改vm_node_stat[NR_FILE_PAGES]外，还有不少操作也会让vm_node_stat[NR_FILE_PAGES]会增加，如通过dev节点直接对磁盘的操作（buffers），以及匿名页交换到swap分区的也会修改。因此vm_node_stat[NR_FILE_PAGES]是一个总的值，实际在计算cached的时候会把交换到swap分区、以及buffers的值减去。cached = global_node_page_state(NR_FILE_PAGES) -total_swapcache_pages() - i.bufferram。 总结下：</p>
 <ul>
 <li>对于文件系统的操作方式来说(如/mnt/UDISK/test)，大部分是cached（buffers和cached以及合并了），会占用少部分的buffer，主要是存储一些元数据的存储是划到buffer中。</li>
@@ -412,31 +412,31 @@
 <div class="codehilite"><pre><span></span><code><span class="n">echo</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
 <span class="n">dd</span><span class="w"> </span><span class="k">if</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">urandom</span><span class="w"> </span><span class="n">of</span><span class="o">=/</span><span class="n">mnt</span><span class="o">/</span><span class="n">UDISK</span><span class="o">/</span><span class="n">test</span><span class="w"> </span><span class="n">bs</span><span class="o">=</span><span class="mi">1</span><span class="n">M</span><span class="w"> </span><span class="n">count</span><span class="o">=</span><span class="mi">5</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_827ef7011e8e2b4aa8365a4b7697f41d.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_827ef7011e8e2b4aa8365a4b7697f41d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_827ef7011e8e2b4aa8365a4b7697f41d.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_827ef7011e8e2b4aa8365a4b7697f41d.jpg"/></a></p>
 <p>从文件系统中读</p>
 <div class="codehilite"><pre><span></span><code><span class="n">echo</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
 <span class="n">dd</span><span class="w"> </span><span class="k">if</span><span class="o">=/</span><span class="n">mnt</span><span class="o">/</span><span class="n">UDISK</span><span class="o">/</span><span class="n">test4</span><span class="w"> </span><span class="n">of</span><span class="o">=/</span><span class="n">tmp</span><span class="o">/</span><span class="n">test</span><span class="w"> </span><span class="n">bs</span><span class="o">=</span><span class="mi">1</span><span class="n">M</span><span class="w"> </span><span class="n">count</span><span class="o">=</span><span class="mi">10</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_44bc99e407b69d52a81e94d04c40071b.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_44bc99e407b69d52a81e94d04c40071b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_44bc99e407b69d52a81e94d04c40071b.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_44bc99e407b69d52a81e94d04c40071b.jpg"/></a></p>
 <p>通过vmstat统计来看，写入到文件系统ext4上或从文件系统读，基本都是cache在变化。</p>
 <h3 id="_2">通过磁盘的方式操作</h3>
 <div class="codehilite"><pre><span></span><code><span class="n">echo</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
 <span class="n">dd</span><span class="w"> </span><span class="k">if</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">urandom</span><span class="w"> </span><span class="n">of</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">mmcblk0p9</span><span class="w"> </span><span class="n">bs</span><span class="o">=</span><span class="mi">1</span><span class="n">M</span><span class="w"> </span><span class="n">count</span><span class="o">=</span><span class="mi">8</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4c194f1fe83b6528d16b0e1a5b653b47.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_4c194f1fe83b6528d16b0e1a5b653b47.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4c194f1fe83b6528d16b0e1a5b653b47.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_4c194f1fe83b6528d16b0e1a5b653b47.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="n">echo</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">vm</span><span class="o">/</span><span class="n">drop_caches</span>
 <span class="n">dd</span><span class="w"> </span><span class="k">if</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">mmcblk0p9</span><span class="w"> </span><span class="n">of</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">null</span><span class="w"> </span><span class="n">bs</span><span class="o">=</span><span class="mi">1</span><span class="n">M</span><span class="w"> </span><span class="n">count</span><span class="o">=</span><span class="mi">8</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_192c954031181ebc77218932c4a3db40.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_192c954031181ebc77218932c4a3db40.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_192c954031181ebc77218932c4a3db40.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_192c954031181ebc77218932c4a3db40.jpg"/></a></p>
 <p>通过磁盘的方式操作，可以发现buff和cache都有变化（这里的cache还包括了slab可以回收部分，如果查询/proc/meminfo下的cached变化会更少些），但是buff变化更大些，然后突然又降回去了（被系统回收了）读磁盘数据会缓存到buffer中。</p>
 <h3 id="direct-io">Direct IO写</h3>
 <div class="codehilite"><pre><span></span><code><span class="n">dd</span><span class="w"> </span><span class="k">if</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">urandom</span><span class="w"> </span><span class="n">of</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">mmcblk0p9</span><span class="w"> </span><span class="n">bs</span><span class="o">=</span><span class="mi">1</span><span class="n">M</span><span class="w"> </span><span class="n">count</span><span class="o">=</span><span class="mi">10</span><span class="w"> </span><span class="n">oflag</span><span class="o">=</span><span class="n">direct</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a9b960b2e39d9ac78ba1ab0be66495e5.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_a9b960b2e39d9ac78ba1ab0be66495e5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a9b960b2e39d9ac78ba1ab0be66495e5.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统缓存/images/wp_editor_md_a9b960b2e39d9ac78ba1ab0be66495e5.jpg"/></a></p>
 <p>可以发现buff，cache基本没变化。</p></div>
   <div class="post-nav">
-    <a class="prev" href="../内存初始化基本概念.html">← 内存初始化基本概念</a>
-    <a class="next" href="../一切皆文件之块设备驱动-四.html">一切皆文件之块设备驱动（四） →</a>
+    <a class="prev" href="../note_page/内存初始化基本概念.html">← 内存初始化基本概念</a>
+    <a class="next" href="../note_page/一切皆文件之块设备驱动-四.html">一切皆文件之块设备驱动（四） →</a>
   </div>
 </article>
 
@@ -451,7 +451,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

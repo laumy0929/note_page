@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>内存管理概述 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -53,45 +53,45 @@
   <h1>内存管理概述</h1>
   <div class="meta">2023-06-04 · linux</div>
   <div class="post-content"><h2 id="_1">地址空间</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_cb7636562b9588e0d3070794adffec4e.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_cb7636562b9588e0d3070794adffec4e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_cb7636562b9588e0d3070794adffec4e.jpg"><img alt="" src="assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_cb7636562b9588e0d3070794adffec4e.jpg"/></a></p>
 <p>虚拟地址：程序使用的内存地址；物理地址：硬件的地址空间。虚拟地址通过MMU转化为物理地址，虚拟地址的长度与实际的物理内存容量没有关系，从系统中每个进程的角度看，地址空间的进程无法感知其他进程的存在。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_152ce93b2a3e70f6f50a453975bb8187.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_152ce93b2a3e70f6f50a453975bb8187.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_152ce93b2a3e70f6f50a453975bb8187.jpg"><img alt="" src="assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_152ce93b2a3e70f6f50a453975bb8187.jpg"/></a></p>
 <p>32位cpu处理的地址空间为2^32=4G，所以虚拟地址空间为4G，分为用户空间和内核空间。用户空间的范围0~TASK_SIZE（可配置）通常为0x00000000~0xBFFFFFFF，内核空间的地址范围0xC0000000~0xFFFFFFF。由于地址空间虚拟化的结果，每个用户进程都认为自身有3G内存，而内核空间总是同样的，无论当前执行的是那个进程。 64位的cpu寻址空间为2^64，但实际只使用了47位，即寻址范围位2^48=256TB，多出的高16位就形成了地址空洞。内核空间的高16位全为1，用户空间的高16位全为0，可以直接方便判断是用户空间地址还是内核空间地址。</p>
 <h2 id="_2">虚拟与物理地址</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ab9091262af5f98e8f5bbcf97d546c85.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_ab9091262af5f98e8f5bbcf97d546c85.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ab9091262af5f98e8f5bbcf97d546c85.jpg"><img alt="" src="assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_ab9091262af5f98e8f5bbcf97d546c85.jpg"/></a></p>
 <p>虚拟地址空间和物理内存被划分为很多等长的部分，称之为页，物理内存页被称为页帧。   进程1的页3和进程2的页1同时指向了物理页帧3，这种情况是可能的，因为两个虚拟地址空间的页可以映射到同一物理内存页，内核负责讲虚拟地址空间映射到物理地址空间，可以决定那些内存区域在进程之间共享，那些不共享。   进程的虚拟地址空间不是所有的页都映射到物理内存页帧上，因为没有这么大的一个物理内存供所有进程都一一映射完（一个进程3G，10个进程就是30G），因此只需要将当前使用的页进行映射（加载到内存中）。主要分为一些地址空间完全没有使用，另外就是有一些页被暂时换出到磁盘上，需要的时候再换回。当程序执行虚拟地址没有映射到物理地址，将运行缺页异常处理。</p>
 <h2 id="_3">页表</h2>
 <p>将虚拟地址空间映射到物理地址空间的数据结构称为页表。实现两个地址空间的管理最容易的方法是使用数组，对虚拟地址空间的每一页，都分配一个数组项。该数组项指向与之关联的页帧。</p>
 <h3 id="_4">二级页表</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_77e94ae243436c56bbd0e61b3f8e5c3c.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_77e94ae243436c56bbd0e61b3f8e5c3c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_77e94ae243436c56bbd0e61b3f8e5c3c.jpg"><img alt="" src="assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_77e94ae243436c56bbd0e61b3f8e5c3c.jpg"/></a></p>
 <p>把虚拟地址分为3部分，PGD+PT+Offset组成。   为什么要使用多级页表？ （1）一级页表 一个进程4GB的虚拟地址空间需要4GB/4KB=1MB个页表项，每个页表项占用4字节，每个一级页表需要4MB的存储空间，一个进程需要4MB的内存来存储页表，那100个进程需要400MB。 （2）二级页表   一级页表PGD：一共4096项，每个页表项4字节，一共16KB。   二级页表PTE：一共4096个PTE页表，每个二级页表包含256个页表项，大小为1KB（256 * 4字节），所有的二级页表大小一共是4K * 1KB=4MB。   一个进程需要4MB+16KB的内存来存储页表。   根据linux内核局部性原理，不是所有的地址空间都需要映射到物理内存，所以二级页表实际的页表占用内存大小为（16KB+1KB * n） * m，其中n表示PTE的个数，m表示进程的数目。 因此对比一级页表，一个进程最少需要4MB的空间，而二级页表最少需要17KB的空间。</p>
 <h3 id="_5">多级页表</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_91fdc39d154c65c2a844b5c6f397966b.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_91fdc39d154c65c2a844b5c6f397966b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_91fdc39d154c65c2a844b5c6f397966b.jpg"><img alt="" src="assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_91fdc39d154c65c2a844b5c6f397966b.jpg"/></a></p>
 <ul>
 <li>PGD: page global directory，页全局目录</li>
 <li>PUD: page upper directory，页上级目录</li>
 <li>PMD:page middle directory，页中间目录</li>
 <li>PT:page table，直接页表   linux 4.11之后，页表拓展到5级，在页全局目录和页上级目录之间增加了页四级目录。各个处理器架构可以选择5级、4级、3级、2级，使用CONFIG_PGTABLE_LEVELS来配置页表级数。页表级数越多，存储空间越小，主要是利用了内存管理的局部性原理，但是相应的硬件结构越复杂，访问的速度也会降低。针对访问速度的问题，CPU试图通过以下两种方法加速其转换过程。 （1）CPU中有一个专门的部分MMU（Memory Management Unit，内存管理单元），该单元优化了内存访问的操作。（通过硬件来负责转化，所有的页表都是存储在物理内存中，由软件按照要求先填写好，然后给一级页表的起始地址给TTBRx，后续虚拟地址到物理地址的转换就由MMU自动完成） （2）地址转换中出现最频繁的那些地址，保存到地址转换缓冲器中（TLB，Translation Lookaside Buffer），下次访问直接从缓存器中获得地址数据，不在进行地址转换。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_99d3788f981768ff8810ea2ce7196873.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_99d3788f981768ff8810ea2ce7196873.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_99d3788f981768ff8810ea2ce7196873.jpg"><img alt="" src="assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_99d3788f981768ff8810ea2ce7196873.jpg"/></a></p>
 <h2 id="_6">物理内存分配</h2>
 <p>物理内存被均匀的分配为多个相等长度的页（页帧），通常大小为4KB。内核在分配内存时，必须要记录页帧的状态（是否已分配），以免两个进程使用同样的内存区域。由于内存分配和释放非常的频繁，内核还必须保证相关的操作尽快完成。</p>
 <h3 id="_7">伙伴系统</h3>
 <p>内核中很多时候要求分配连续的页，快速检测内存中连续区域，内核使用伙伴系统。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c1ae8c68710cd7baf12bbc0a4577b16b.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_c1ae8c68710cd7baf12bbc0a4577b16b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c1ae8c68710cd7baf12bbc0a4577b16b.jpg"><img alt="" src="assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_c1ae8c68710cd7baf12bbc0a4577b16b.jpg"/></a></p>
 <p>内核对所有大小相同的伙伴，都放置到同一个列表中管理。空闲内存块总是两两分组，每组中的两个内存块称为伙伴。   如果系统中需要8个页帧，则将16个页帧组成的块分成两个伙伴，其中一块用户满足应用程序使用，剩余的8个页帧则放置到对应8页大小内存块列表中。   如果两个伙伴都是空闲的，内核会可以将其合并为一个更大的内存块，作为下一层上某个内存块的伙伴。</p>
 <h3 id="slab">slab缓存</h3>
 <p>物理页帧的大小为4KB，但是内核本身经常需要分配比4KB小的内存块。由于内核无法使用标准库的函数，因而在伙伴系统的基础上自行定义额外的内存管理层，将伙伴系统提供的页划分为更小的部分。该方法不仅可以分配内存，还为频繁使用的小对象实现一个一般性的缓存-slab缓存。可以通过两种方法分配内存： （1）频繁使用的对象，内存定义了只包含所需类型对象的示例缓存。每次需要某种对象时，可以从对应的缓存快速分配。Slab缓存自动维护与伙伴系统的交互，在缓存用完时会请求新的页帧。 （2）通常情况下小内存的分配，内核针对不同大小的对象定义了一组slab缓存，可以像用户空间编程一样，使用类似的函数获取，如kmalloc和kfree。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_84d1e73f0768eb13b1c9ba834b88b2b4.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_84d1e73f0768eb13b1c9ba834b88b2b4.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_84d1e73f0768eb13b1c9ba834b88b2b4.jpg"><img alt="" src="assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_84d1e73f0768eb13b1c9ba834b88b2b4.jpg"/></a></p>
 <h3 id="_8">页面交换和页面回收</h3>
 <ul>
 <li>页面交换：通过利用磁盘空间作为扩展内存，从而增大可用的内存。在内核需要更多内存时，不经常使用的页可以写入到磁盘中，如果再访问相关数据时，内核再将相应的页切换会内存。</li>
 <li>页面回收：内存映射被修改的内容与底层的块设备同步，此时也称为数据写回。数据刷出后，内核即可将页帧用于其他用途。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_003076b90b8bfe996e34480f88887b79.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_003076b90b8bfe996e34480f88887b79.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_003076b90b8bfe996e34480f88887b79.jpg"><img alt="" src="assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_003076b90b8bfe996e34480f88887b79.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="../一切皆文件之块设备驱动-三.html">← 一切皆文件之块设备驱动（三）</a>
-    <a class="next" href="../一切皆文件之块设备驱动-一.html">一切皆文件之块设备驱动（一） →</a>
+    <a class="prev" href="../note_page/一切皆文件之块设备驱动-三.html">← 一切皆文件之块设备驱动（三）</a>
+    <a class="next" href="../note_page/一切皆文件之块设备驱动-一.html">一切皆文件之块设备驱动（一） →</a>
   </div>
 </article>
 
@@ -106,7 +106,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

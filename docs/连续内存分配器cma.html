@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>连续内存分配器CMA - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -53,7 +53,7 @@
   <h1>连续内存分配器CMA</h1>
   <div class="meta">2023-08-19 · linux</div>
   <div class="post-content"><p>CMA,contiguous memory allocator是内存管理子系统的一个模块，其主要为了解决分配连续的物理内存。尽管有了伙伴系统、slab分配器以及相关的内存回收机制，但是对于一些驱动如camera、display等模块一下需要分配比较大的一块连续物理内存，随着系统运行久之后，碎片化严重，分配较大的连续内存会变得困难，而同时又不能直接预留一块大的连续内存只用于连续物理内存分配，因为当模块不使用这些内存时，内存就浪费掉了。因此为解决这个问题，提出了CMA机制，先预留一部分内存出来专门用于CMA内存，当驱动没有分配使用的时候，这些memory可以给伙伴系统供其他模块正常使用，当需要分配连续的大内存时，就回收回来形成物理地址连续的大块内存。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_534a275819ad65dd5978c0d341381b29.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/连续内存分配器cma/images/wp_editor_md_534a275819ad65dd5978c0d341381b29.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_534a275819ad65dd5978c0d341381b29.jpg"><img alt="" src="assets/doc/01-linux/内存管理/连续内存分配器cma/images/wp_editor_md_534a275819ad65dd5978c0d341381b29.jpg"/></a></p>
 <p>上图可以看出CMA所处的位置，CMA向下是基于伙伴系统，向上是提供给DMA的封装接口，最终用户通过操作DMA buffer来分配和释放内存。CMA的区域有两种方式可以进行配置，分别是内核命令行参数配置和DTS设备树的方式配置。</p>
 <div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">cma</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w">   </span><span class="n">base_pfn</span><span class="p">;</span><span class="w">  </span><span class="n">物理地址起始页帧号</span>
@@ -72,7 +72,7 @@
 <span class="k">extern</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="n">cma_area_count</span><span class="p">;</span>
 </code></pre></div>
 <p>内核使用struct cma结构体来描述cma区域，系统中可能有多个cma区域，使用一个全局的数组来描述所有的cma区域struct cma cma_areas[MAX_CMA_AREAS];</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_9cfaf952d9167d7c2305b9492f635706.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/连续内存分配器cma/images/wp_editor_md_9cfaf952d9167d7c2305b9492f635706.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_9cfaf952d9167d7c2305b9492f635706.jpg"><img alt="" src="assets/doc/01-linux/内存管理/连续内存分配器cma/images/wp_editor_md_9cfaf952d9167d7c2305b9492f635706.jpg"/></a></p>
 <p>如上图，cma_areas 0号区域，物理页号从0开始，每块内存由4页物理帧组成，目前只分配了第0块。</p>
 <h2 id="cma">CMA区域创建</h2>
 <p>创建CMA区域有两种方式：第一种方式是通过设备树DTS的配置方式，另一种是根据命令行或宏配置方式。</p>
@@ -329,8 +329,8 @@
 <h2 id="ion">ION</h2>
 <p>待补充</p></div>
   <div class="post-nav">
-    <a class="prev" href="../dma与cache一致性.html">← DMA与cache一致性</a>
-    <a class="next" href="../slub分配器.html">slub分配器 →</a>
+    <a class="prev" href="../note_page/dma与cache一致性.html">← DMA与cache一致性</a>
+    <a class="next" href="../note_page/slub分配器.html">slub分配器 →</a>
   </div>
 </article>
 
@@ -345,7 +345,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

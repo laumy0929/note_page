@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>安装unbuntu双系统 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -58,22 +58,22 @@
 <h2 id="ubuntu">下载ubuntu镜像</h2>
 <p>先下载ubuntu镜像：<a href="https://cn.ubuntu.com/download/desktop">https://cn.ubuntu.com/download/desktop</a>，我这里使用的是Ubuntu 24.04.2 LTS版本。或者可以从国内的镜像站获取<a href="https://mirror.nyist.edu.cn/ubuntu-releases/">https://mirror.nyist.edu.cn/ubuntu-releases/</a></p>
 <h2 id="u">制作U盘启动盘</h2>
-<p>下载U盘启动盘制作工具，将镜像写入U盘中<a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_2014ae74246369b85301ae6cfe53f502.jpg"><img alt="" src="../assets/doc/10-其他/安装unbuntu双系统/images/wp_editor_md_2014ae74246369b85301ae6cfe53f502.jpg"/></a></p>
+<p>下载U盘启动盘制作工具，将镜像写入U盘中<a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_2014ae74246369b85301ae6cfe53f502.jpg"><img alt="" src="assets/doc/10-其他/安装unbuntu双系统/images/wp_editor_md_2014ae74246369b85301ae6cfe53f502.jpg"/></a></p>
 <h2 id="ubuntu_1">准备ubuntu系统分区</h2>
 <p>打开磁盘管理，选中一个大一点的磁盘，点击压缩卷。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_24162a7fe70ad46f6135baab9c6a6cdd.jpg"><img alt="" src="../assets/doc/10-其他/安装unbuntu双系统/images/wp_editor_md_24162a7fe70ad46f6135baab9c6a6cdd.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_24162a7fe70ad46f6135baab9c6a6cdd.jpg"><img alt="" src="assets/doc/10-其他/安装unbuntu双系统/images/wp_editor_md_24162a7fe70ad46f6135baab9c6a6cdd.jpg"/></a></p>
 <p>输入压缩空间容量就是要拓展出来的分区，不要进行格式化新建卷，如下就行。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_e9838b26fa1f7b02e6f13c5fcfcdddd1.jpg"><img alt="" src="../assets/doc/10-其他/安装unbuntu双系统/images/wp_editor_md_e9838b26fa1f7b02e6f13c5fcfcdddd1.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_e9838b26fa1f7b02e6f13c5fcfcdddd1.jpg"><img alt="" src="assets/doc/10-其他/安装unbuntu双系统/images/wp_editor_md_e9838b26fa1f7b02e6f13c5fcfcdddd1.jpg"/></a></p>
 <h2 id="_2">设置非安全启动</h2>
 <p>需要将BIOS设置为非安全启动，否则不能启动U盘。系统关机重启，一直按F1（有的是F2），然后进入设置界面，将security boot改为disabled，然后保存。</p>
 <h2 id="u_1">选中U盘启动</h2>
 <p>关掉security boot后，重启按住F12选中U盘启动，接下来就可以安装向导安装ubuntu了。</p>
 <p>特别需要注意的是，要选择<strong>手动分区安装</strong>。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_211b0a36adf5fb9a97541e4a443d81f8.jpg"><img alt="" src="../assets/doc/10-其他/安装unbuntu双系统/images/wp_editor_md_211b0a36adf5fb9a97541e4a443d81f8.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_211b0a36adf5fb9a97541e4a443d81f8.jpg"><img alt="" src="assets/doc/10-其他/安装unbuntu双系统/images/wp_editor_md_211b0a36adf5fb9a97541e4a443d81f8.jpg"/></a></p>
 <p>然后选择<strong>剩余空间</strong>，进行格式化挂载。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_4a332c840f2aca3848c8ea56a05851e3.jpg"><img alt="" src="../assets/doc/10-其他/安装unbuntu双系统/images/wp_editor_md_4a332c840f2aca3848c8ea56a05851e3.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_4a332c840f2aca3848c8ea56a05851e3.jpg"><img alt="" src="assets/doc/10-其他/安装unbuntu双系统/images/wp_editor_md_4a332c840f2aca3848c8ea56a05851e3.jpg"/></a></p>
 <p>选择好挂载点和文件系统Ext4.</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_41f467adbce8afbe4fb0049e59b9ec7b.jpg"><img alt="" src="../assets/doc/10-其他/安装unbuntu双系统/images/wp_editor_md_41f467adbce8afbe4fb0049e59b9ec7b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_41f467adbce8afbe4fb0049e59b9ec7b.jpg"><img alt="" src="assets/doc/10-其他/安装unbuntu双系统/images/wp_editor_md_41f467adbce8afbe4fb0049e59b9ec7b.jpg"/></a></p>
 <p>接下来就进行下一步安装。</p>
 <h2 id="_3">修改默认启动顺序</h2>
 <p>windows基础上装了ubuntu双系统后，默认将是ubuntu启动，如果要修改默认启动顺序，方法如下。开机重启，在刚开始启动的时候会让选择是ubuntu还是window，默认就是ubuntu系统第1行，然后记住windows是第几行，一般是第3行，确认了windows是第几行后，然后先进入登录ubuntu系统。</p>
@@ -83,8 +83,8 @@
 </code></pre></div>
 <p>然后保存退出，</p></div>
   <div class="post-nav">
-    <a class="prev" href="../手机给电脑配置代理.html">← 手机给电脑配置代理</a>
-    <a class="next" href="../lerobot搭建.html">lerobot搭建 →</a>
+    <a class="prev" href="../note_page/手机给电脑配置代理.html">← 手机给电脑配置代理</a>
+    <a class="next" href="../note_page/lerobot搭建.html">lerobot搭建 →</a>
   </div>
 </article>
 
@@ -99,7 +99,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

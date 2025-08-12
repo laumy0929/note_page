@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>平头哥RISC-V+gdb+vscode调试 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -62,41 +62,41 @@
 <p>安装完成工具后，硬件平台要使能调试模式，一般是GPIO的复用要打开为JTAG模式。</p>
 <h2 id="t-headdebugserver">T-headDebugServer工具</h2>
 <p>安装好T-headDebugServer以及对应的cklink驱动后，并且使能了硬件平台的gpio复用为jtag，打开T-headDebugServer即可链接上硬件平台。如下图所示，表示连接成功。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_c3f838b6069cbf2b18e89b74313be139.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_c3f838b6069cbf2b18e89b74313be139.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_c3f838b6069cbf2b18e89b74313be139.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_c3f838b6069cbf2b18e89b74313be139.jpg"/></a></p>
 <p>如果连接不成功，可以修改下配置，再进行尝试。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_ba0570bedb8e45fe721623de764c29ee.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_ba0570bedb8e45fe721623de764c29ee.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_ba0570bedb8e45fe721623de764c29ee.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_ba0570bedb8e45fe721623de764c29ee.jpg"/></a></p>
 <h2 id="mobarxt-headdebuger-gdb">mobarX远程服务器代码与本地T-HeadDebuger GDB调试</h2>
 <h3 id="t-headdebugserver_1">设置T-HeadDebugServer监听端口</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_deb29bf45f39ceeb5baeac473becdfa1.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_deb29bf45f39ceeb5baeac473becdfa1.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_deb29bf45f39ceeb5baeac473becdfa1.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_deb29bf45f39ceeb5baeac473becdfa1.jpg"/></a></p>
 <p>设置好监听端口后启动</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_a889a57cb6c6621c42f99552a9108f69.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_a889a57cb6c6621c42f99552a9108f69.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_a889a57cb6c6621c42f99552a9108f69.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_a889a57cb6c6621c42f99552a9108f69.jpg"/></a></p>
 <h3 id="mobaxterm">设置mobaXterm</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_8843fd0b2b28d3ffd639381f2c517c58.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_8843fd0b2b28d3ffd639381f2c517c58.jpg"/></a></p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_4411bab38ba2b1b4194bd648a035311d.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_4411bab38ba2b1b4194bd648a035311d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_8843fd0b2b28d3ffd639381f2c517c58.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_8843fd0b2b28d3ffd639381f2c517c58.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_4411bab38ba2b1b4194bd648a035311d.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_4411bab38ba2b1b4194bd648a035311d.jpg"/></a></p>
 <p>启动代理连接，有可能要输入ssh访问远程服务的账号和密码</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_644da20fa48c51108c271b549cc52ad9.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_644da20fa48c51108c271b549cc52ad9.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_644da20fa48c51108c271b549cc52ad9.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_644da20fa48c51108c271b549cc52ad9.jpg"/></a></p>
 <h3 id="gdb">gdb连接</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_9c50b8a702bac7c0757fc67e3c7f01e4.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_9c50b8a702bac7c0757fc67e3c7f01e4.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_9c50b8a702bac7c0757fc67e3c7f01e4.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_9c50b8a702bac7c0757fc67e3c7f01e4.jpg"/></a></p>
 <p>如果架构相关不正确，可使用set architecture riscv:rv64来设置。 为了便捷快速连接，也可以将常用的指令设置到.gdbinit脚本中。</p>
 <h2 id="vscodegdb">vscode+gdb调试</h2>
 <p>如果不习惯mobarXiterm上gdb命令行方式调试，可以使用vscode搭建gdb的调试环境，下面介绍vscode的gdb调试方法，前置条件为设置好mobarXiterm的代理。</p>
 <h3 id="remote-ssh">安装Remote-SSH</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_291fb045fea72f2c683c0ad49782e12d.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_291fb045fea72f2c683c0ad49782e12d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_291fb045fea72f2c683c0ad49782e12d.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_291fb045fea72f2c683c0ad49782e12d.jpg"/></a></p>
 <h3 id="ssh">ssh连接服务器</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_aec6c49cc431dfa327f7d6c313f24e87.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_aec6c49cc431dfa327f7d6c313f24e87.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_aec6c49cc431dfa327f7d6c313f24e87.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_aec6c49cc431dfa327f7d6c313f24e87.jpg"/></a></p>
 <h3 id="_2">错误解决</h3>
 <h4 id="could-not-establish-connetion-to-xxxx">Could not establish connetion to xxxx</h4>
 <p>如果报下面的错误</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_eb3d6925b915465fdbc2fac5fae4294e.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_eb3d6925b915465fdbc2fac5fae4294e.jpg"/></a></p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_c2b0ba6d649cb2a936d5cde4099af758.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_c2b0ba6d649cb2a936d5cde4099af758.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_eb3d6925b915465fdbc2fac5fae4294e.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_eb3d6925b915465fdbc2fac5fae4294e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_c2b0ba6d649cb2a936d5cde4099af758.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_c2b0ba6d649cb2a936d5cde4099af758.jpg"/></a></p>
 <p>则进行配置remote-SSH,右键-&gt;Extension Setting</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_333d34d55277af3308e5ef94b2c2a4f5.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_333d34d55277af3308e5ef94b2c2a4f5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_333d34d55277af3308e5ef94b2c2a4f5.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_333d34d55277af3308e5ef94b2c2a4f5.jpg"/></a></p>
 <p>参考：<a href="https://blog.csdn.net/qq_41854763/article/details/103317116">https://blog.csdn.net/qq_41854763/article/details/103317116</a></p>
 <h4 id="xhr-failedscode">XHR failedscode</h4>
 <p>参考：<a href="https://blog.csdn.net/m0_38040006/article/details/126752751">https://blog.csdn.net/m0_38040006/article/details/126752751</a></p>
 <h3 id="gdb_1">gdb连接</h3>
 <p>创建一个lauch.json</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_44382ab7e7d9da437c00ef0a66fb9556.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_44382ab7e7d9da437c00ef0a66fb9556.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_44382ab7e7d9da437c00ef0a66fb9556.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_44382ab7e7d9da437c00ef0a66fb9556.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="p">{</span>
 <span class="w">    </span><span class="c1">// Use IntelliSense to learn about possible attributes.</span>
 <span class="w">    </span><span class="c1">// Hover to view descriptions of existing attributes.</span>
@@ -128,19 +128,19 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>修改好elf、gdb的位置，然后再设置好mobarXiterm的代理端口，这样就可以启动连接了。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_e3319a14ea4d1a272bb553bb1ffe898a.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_e3319a14ea4d1a272bb553bb1ffe898a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_e3319a14ea4d1a272bb553bb1ffe898a.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_e3319a14ea4d1a272bb553bb1ffe898a.jpg"/></a></p>
 <h3 id="_3">常用技巧</h3>
 <h4 id="_4">在汇编代码中支持打断点</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_fbbc6e5ac43d2bb1637b4baae0c97527.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_fbbc6e5ac43d2bb1637b4baae0c97527.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_fbbc6e5ac43d2bb1637b4baae0c97527.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_fbbc6e5ac43d2bb1637b4baae0c97527.jpg"/></a></p>
 <h4 id="ctrl">ctrl+鼠标左键生效</h4>
-<p>先安装拓展插件 <a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_1d12c9f52434d85afa719564c1b1fc55.jpg"><img alt="" src="../assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_1d12c9f52434d85afa719564c1b1fc55.jpg"/></a></p>
+<p>先安装拓展插件 <a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_1d12c9f52434d85afa719564c1b1fc55.jpg"><img alt="" src="assets/doc/02-risc-v/平头哥risc-vgdbvscode调试/images/wp_editor_md_1d12c9f52434d85afa719564c1b1fc55.jpg"/></a></p>
 <p>进入VScode的首选项，选择设置（快捷键 Ctrl + , )，输入Go to definition，找到如下两个设置。 Editor: Multi Cursor Modifier 设置成 alt “editor.gotoLocation.multipleDefinitions” 设置成 “goto”。</p>
 <p>重启vscode</p>
 <h4 id="vscode">在vscode中实时显示汇编</h4>
 <p>在代码处右键-&gt;Open Disassembly View。</p></div>
   <div class="post-nav">
-    <a class="prev" href="../平头哥e90x中断处理汇编部分.html">← 平头哥E90X中断处理汇编部分</a>
-    <a class="next" href="../risc-v指令集架构.html">RISC-V指令集架构 →</a>
+    <a class="prev" href="../note_page/平头哥e90x中断处理汇编部分.html">← 平头哥E90X中断处理汇编部分</a>
+    <a class="next" href="../note_page/risc-v指令集架构.html">RISC-V指令集架构 →</a>
   </div>
 </article>
 
@@ -155,7 +155,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

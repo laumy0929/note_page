@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Arm64体系结构简介 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -116,16 +116,16 @@
 </ul>
 <h2 id="armv8">Armv8体系结构</h2>
 <h3 id="_1">通用寄存器</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_300bd876e354afece405179950027a19.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_300bd876e354afece405179950027a19.jpg"/></a></p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3a9846839047d6c5589d0be273267e79.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_3a9846839047d6c5589d0be273267e79.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_300bd876e354afece405179950027a19.jpg"><img alt="" src="assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_300bd876e354afece405179950027a19.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3a9846839047d6c5589d0be273267e79.jpg"><img alt="" src="assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_3a9846839047d6c5589d0be273267e79.jpg"/></a></p>
 <p>AArch64状态下支持31个64位通用寄存器，分别是X0~X30，而AArch32状态支持16个32位通用寄存器。在AArch64状态下使用X表示64位寄存器，另外还可以使用W来表示32位的数据。X29（FP）是栈帧寄存器，指向栈的顶部（SP指向栈的当前位置），X30（LR）是链接寄存器，保持函数返回地址。</p>
 <p>下图是AArch32状态下AArch64到AArch32状态的寄存器mapping。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_2b3ec9c1a3941651f2d9b8dfee42fdd2.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_2b3ec9c1a3941651f2d9b8dfee42fdd2.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_2b3ec9c1a3941651f2d9b8dfee42fdd2.jpg"><img alt="" src="assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_2b3ec9c1a3941651f2d9b8dfee42fdd2.jpg"/></a></p>
 <h3 id="_2">处理器状态</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_5433b5e87c5d450f730e9933e5598d9f.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_5433b5e87c5d450f730e9933e5598d9f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_5433b5e87c5d450f730e9933e5598d9f.jpg"><img alt="" src="assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_5433b5e87c5d450f730e9933e5598d9f.jpg"/></a></p>
 <p>Aarch64使用了PSTATE寄存器来表示当前处理器的状态（armv7使用的是CPSR），上图中I和F表示cpu本地中断的屏蔽位。SP为选择SP寄存器，在不同的异常等级下，SP寄存器是不一样的（见下小节），当运行在EL0是即为SP_EL0。</p>
 <h3 id="_3">特殊寄存器</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b513e04cf9482236a9552e95d3cdff19.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_b513e04cf9482236a9552e95d3cdff19.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b513e04cf9482236a9552e95d3cdff19.jpg"><img alt="" src="assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_b513e04cf9482236a9552e95d3cdff19.jpg"/></a></p>
 <p>除了31个通用的寄存器外，还有上面的特殊寄存器。不同特权模式下的寄存器有所差别。 - XZR/WZR：两个零寄存器。WZR是32位零位寄存器，XZR是64位零位寄存器。 - PC：指向当前运行指令的下一条指令地址。 - SP:每个异常等级都有一个专门的SP寄存器SP_ELn。高等级的特权模式可以访问低等级的SP寄存器。 - SPSR:备份程序状态寄存器，运行一个异常程序是，处理器的一些状态信息会保存在备份程序状态寄存器里，如会将处理器的PSTATE寄存器的值暂时保存到SPSR里，当处理完成返回时，再把SPSR的值恢复到PSTATE寄存器。 - ELR:存放异常返回地址。</p>
 <h2 id="_4">异常</h2>
 <h3 id="_5">异常类型</h3>
@@ -137,7 +137,7 @@
 </ul>
 <h3 id="_6">异常等级</h3>
 <p>Armv8支持aarch64和aarch32两种执行状态，aarch64是64位执行状态，运行A64指令集；aarch32是兼容armv7架构32位执行状态，运行A32的指令集。aarch64有4中异常等级。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_d33462d1c44c6e5a531a2de24c1d5e58.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_d33462d1c44c6e5a531a2de24c1d5e58.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_d33462d1c44c6e5a531a2de24c1d5e58.jpg"><img alt="" src="assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_d33462d1c44c6e5a531a2de24c1d5e58.jpg"/></a></p>
 <ul>
 <li>EL0:用户特权，用于运行普通的用户程序。</li>
 <li>EL1:系统特权，用于操作系统内核。如果使能虚拟化，则运行虚拟机操作系统内核。</li>
@@ -146,7 +146,7 @@
 </ul>
 <p>除了EL0以外，每个异常等级都有两个选择，选择自己等级或使用EL0等级，如果选用自己等级SP为SP_ELn（SP_ELnH），如果使用EL0那么SP为SP_EL0（SP_ELnt）。 ARMv8有4种以上等级，只有在获取异常或异常返回发生等级的变化。当处理器从较高等级切换到较低等级时，执行状态可以不变或者可以从aarch64切换到aarch32。当处理器从较低等级切换到较高等级时，执行状态可以不变或从aarch32切换到aarch64。</p>
 <h3 id="_7">中断发生硬件处理过程</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ab2e4fe23e14c02bb29a7f1f4c2374bf.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_ab2e4fe23e14c02bb29a7f1f4c2374bf.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ab2e4fe23e14c02bb29a7f1f4c2374bf.jpg"><img alt="" src="assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_ab2e4fe23e14c02bb29a7f1f4c2374bf.jpg"/></a></p>
 <p>当事件触发异常发生时，处理器硬件会自动的执行以下动作。 1. 进入异常： （1）将PC保存到ELR_ELx （2）PSTATE保存到SPSR_ELx，会关闭到cpu本地的IRQ和FIQ中断，防止中断嵌套 1. 退出异常： （1）将ELR_ELx的数据保存到PC （2）将SPSR_ELx的数据保存到PSTATE，打开中断。</p>
 <p>以上过程都是硬件自动完成。硬件处理完成后，就进入程序处理阶段，分为三个阶段保存上下文、中断处理、恢复上下文。</p>
 <ul>
@@ -157,8 +157,8 @@
 <p>异常发生时，处理器会跳转到相应位置执行异常相关指令。异常相关的处理指令通常存储在内存种，这个存储位置为异常向量，在ARMv8体系结构中，EL1、EL2、EL3都有一个异常向量表，每个异常向量表存储的基地址在VBAR_ELx寄存器中，EL0没有异常向量表，那是因为EL0的异常发生在用户态，当用户态发生发生异常时系统会跃迁到内核态EL1处理，所以EL0没有异常向量表，也可以认为EL0和EL1是共用EL1的异常向量表。</p>
 <p>下图是一张异常向量表的示例，可以看到异常向量表分为4组，每组有4种类型。</p>
 <p>异常向量表为什么分为4组？ （1）当系统的发生异常处于内核态，异常等级为ELx（EL1/EL2/EL3）时，可以选择使用SP_EL0或SP_ELx来作为栈指针，所以分为Current EL with SP0和Current EL with SPx两组。目前对于arm64的嵌入式设备来说，通常只有到EL1等级，EL2用于虚拟化，EL3用于安全基本，所以EL2和EL3基本没有用。 （2）当系统的发生在用户态（EL0），会下陷到内核变为EL1，但是会根据执行状态是aarch64或者aarch32来区分两组，Lower EL using AArch64或Lower EL using AArch32。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_af808db86932ba6136ca71480519e505.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_af808db86932ba6136ca71480519e505.jpg"/></a></p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_652e4d45dde75ecd30f79fca1919fdda.jpg"><img alt="" src="../assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_652e4d45dde75ecd30f79fca1919fdda.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_af808db86932ba6136ca71480519e505.jpg"><img alt="" src="assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_af808db86932ba6136ca71480519e505.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_652e4d45dde75ecd30f79fca1919fdda.jpg"><img alt="" src="assets/doc/01-linux/中断管理/arm64体系结构简介/images/wp_editor_md_652e4d45dde75ecd30f79fca1919fdda.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="n">arch</span><span class="o">/</span><span class="n">arm64</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">entry</span><span class="p">.</span><span class="n">S</span>
 
 <span class="n">SYM_CODE_START</span><span class="p">(</span><span class="n">vectors</span><span class="p">)</span>
@@ -185,8 +185,8 @@
 <span class="n">SYM_CODE_END</span><span class="p">(</span><span class="n">vectors</span><span class="p">)</span>
 </code></pre></div></div>
   <div class="post-nav">
-    <a class="prev" href="../linux中断实现.html">← Linux中断实现</a>
-    <a class="next" href="../中断基本概念.html">中断基本概念 →</a>
+    <a class="prev" href="../note_page/linux中断实现.html">← Linux中断实现</a>
+    <a class="next" href="../note_page/中断基本概念.html">中断基本概念 →</a>
   </div>
 </article>
 
@@ -201,7 +201,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

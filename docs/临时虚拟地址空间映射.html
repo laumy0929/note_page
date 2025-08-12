@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>临时虚拟地址空间映射 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -53,7 +53,7 @@
   <h1>临时虚拟地址空间映射</h1>
   <div class="meta">2024-07-07 · risc-v</div>
   <div class="post-content"><h2 id="_1">概述</h2>
-<p>为什么要做临时虚拟地址空间映射？ 一旦开启MMU，PC的下一条指令地址会经过MMU转化，未开启MMU之前地址的翻译是不需要经过MMU转化直接访问。对应开启MMU之后，应该要使用虚拟地址，才能访问到正确的指令内存。 前面描述了虚拟地址转换为物理地址是通过MMU自动转换，但是需要给MMU创建好页表，这样MMU才能自动查询到物理地址。页表也是对应的物理内存，也是需要分配的，在正常系统运行时，页表的分配可以通过系统的内存管理接口获取到，但是在系统刚运行时，内存管理并没有初始化好，无法调用接口分配到页表，这样即使使能MMU但是找不到页表，也无法翻译出物理地址。 而临时虚拟地址空间映射就是要解决这样的问题，对于页表可以提前定义一个静态的全局数组来代替，填充好页表，使能MMU时，可以从物理地址访问过度到虚拟地址访问，等后期的内存初始化好后，可以分配页表了，再重新映射一遍。 在使能MMU后，要访问内核代码，又要访问设备树？要解决这个问题，内核会先做那些临时虚拟地址空间映射？ （1）固定虚拟地址映射(fixmap)：Linux内核分配了一段固定的虚拟地址范围，这段地址范围称为fixmap，专门用于映射到设备树，early console寄存器等使用，用于在使能MMU时，在未完成内存初始化时可以通过fixmap访问到设备树。 （2） 内核代码的映射(kernel)：开启MMU后，内核代码的指令访问都是虚拟地址，所以需要马上进行映射。内核代码的映射了，虚拟地址范围在编译时就确定了，需要处理的是分配到页表进行填充，而各级页表使用的是事先先分配的全局数组，填充好各级页表即可。 <a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_b4dc7dc2cd99e6cdaffbe6a5bba2bd34.jpg"><img alt="" src="../assets/doc/02-risc-v/四、临时虚拟地址空间映射/images/wp_editor_md_b4dc7dc2cd99e6cdaffbe6a5bba2bd34.jpg"/></a></p>
+<p>为什么要做临时虚拟地址空间映射？ 一旦开启MMU，PC的下一条指令地址会经过MMU转化，未开启MMU之前地址的翻译是不需要经过MMU转化直接访问。对应开启MMU之后，应该要使用虚拟地址，才能访问到正确的指令内存。 前面描述了虚拟地址转换为物理地址是通过MMU自动转换，但是需要给MMU创建好页表，这样MMU才能自动查询到物理地址。页表也是对应的物理内存，也是需要分配的，在正常系统运行时，页表的分配可以通过系统的内存管理接口获取到，但是在系统刚运行时，内存管理并没有初始化好，无法调用接口分配到页表，这样即使使能MMU但是找不到页表，也无法翻译出物理地址。 而临时虚拟地址空间映射就是要解决这样的问题，对于页表可以提前定义一个静态的全局数组来代替，填充好页表，使能MMU时，可以从物理地址访问过度到虚拟地址访问，等后期的内存初始化好后，可以分配页表了，再重新映射一遍。 在使能MMU后，要访问内核代码，又要访问设备树？要解决这个问题，内核会先做那些临时虚拟地址空间映射？ （1）固定虚拟地址映射(fixmap)：Linux内核分配了一段固定的虚拟地址范围，这段地址范围称为fixmap，专门用于映射到设备树，early console寄存器等使用，用于在使能MMU时，在未完成内存初始化时可以通过fixmap访问到设备树。 （2） 内核代码的映射(kernel)：开启MMU后，内核代码的指令访问都是虚拟地址，所以需要马上进行映射。内核代码的映射了，虚拟地址范围在编译时就确定了，需要处理的是分配到页表进行填充，而各级页表使用的是事先先分配的全局数组，填充好各级页表即可。 <a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_b4dc7dc2cd99e6cdaffbe6a5bba2bd34.jpg"><img alt="" src="assets/doc/02-risc-v/四、临时虚拟地址空间映射/images/wp_editor_md_b4dc7dc2cd99e6cdaffbe6a5bba2bd34.jpg"/></a></p>
 <p>（1）内核vmlinux被加载到内存的0x80200000的位置，DTB被加载到0x82200000的位置。 （2）fixmap这段地址编译时由FIXADDR_START和FIXADDR_TOP确定，这段虚拟地址是固定的，如上图例子在0xffffffcefee00000~0xffffffceff000000范围。 （3）kernel地址范围编译的时候确定，从PAGE_OFFSET开始，如上图是0xffffffe000000000开始，与readelf -h工具链查看的入口地址一致。 （4）两段虚拟地址共用了一个根目录页表early_pg_dir[512]，因为对应3级页表根目录页表每个表项寻址范围1G，512个表项共计512G范围，是完全足够的。 （5）kernel虚拟地址使用的粗粒度映射，二级页目录为early_pmd[512]，每个页表项2M寻址访问，10M的空间占用了5个页表项。 （6）fixmap虚拟地址目前主要用于映射到DTB，本身的映射范围有2M的空间，预留了1M的空间用于DTB，DTB使用的细粒度映射，二级页表使用的是fixmap_pmd[512]，三级页表使用的是fixmap_pte[512]。 （7）上述涉及的4个页表都是定义的全局数组，位于vmlinux中被事先加载到物理内存中。 （8）fixmap的地址在PAGE_OFFSET下面，与kernel之间还有vmalloc和pci_io的地址空间。即FIXADDR_TOP= PCI_IO_START，PCI_IO_END=VMEMMAP_START，VMALLOC_END=PAGE_OFFSET - 1。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">asmlinkage</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">setup_vm</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">dtb_pa</span><span class="p">)</span>
 <span class="p">{</span>
@@ -285,7 +285,7 @@
 <span class="n">pmd_t</span><span class="w"> </span><span class="n">fixmap_pmd</span><span class="p">[</span><span class="n">PTRS_PER_PMD</span><span class="p">]</span><span class="w"> </span><span class="n">__page_aligned_bss</span><span class="p">;</span>
 <span class="n">pte_t</span><span class="w"> </span><span class="n">fixmap_pte</span><span class="p">[</span><span class="n">PTRS_PER_PTE</span><span class="p">]</span><span class="w"> </span><span class="n">__page_aligned_bss</span><span class="p">;</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_a00c61b497142f9df8142772c118635f.jpg"><img alt="" src="../assets/doc/02-risc-v/四、临时虚拟地址空间映射/images/wp_editor_md_a00c61b497142f9df8142772c118635f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_a00c61b497142f9df8142772c118635f.jpg"><img alt="" src="assets/doc/02-risc-v/四、临时虚拟地址空间映射/images/wp_editor_md_a00c61b497142f9df8142772c118635f.jpg"/></a></p>
 <p>上述除了FIX_FDT的范围由FIX_FDT_SIZE决定外，其他的FIX_PTE、FIX_PMD、EARLYCON都是4K范围。</p>
 <h3 id="fixmap_1">fixmap初始化</h3>
 <div class="codehilite"><pre><span></span><code><span class="n">asmlinkage</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">setup_vm</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">dtb_pa</span><span class="p">)</span>
@@ -439,8 +439,8 @@
 <span class="p">}</span>
 </code></pre></div></div>
   <div class="post-nav">
-    <a class="prev" href="../arch初始化.html">← arch初始化</a>
-    <a class="next" href="../使能mmu.html">使能MMU →</a>
+    <a class="prev" href="../note_page/arch初始化.html">← arch初始化</a>
+    <a class="next" href="../note_page/使能mmu.html">使能MMU →</a>
   </div>
 </article>
 
@@ -455,7 +455,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

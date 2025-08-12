@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>sotfmax回归实现 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -92,7 +92,7 @@
 <span class="n">titles</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s1">'Label: </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">label</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">n</span><span class="p">]]</span>
 <span class="n">d2l</span><span class="o">.</span><span class="n">show_images</span><span class="p">(</span><span class="n">X_selected</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">titles</span><span class="o">=</span><span class="n">titles</span><span class="p">)</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/04/wp_editor_md_c498a5a2f4ecdcf9c2c6979444cfe20b.jpg"><img alt="" src="../assets/doc/04-ai/深度学习/sotfmax回归实现/images/wp_editor_md_c498a5a2f4ecdcf9c2c6979444cfe20b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/04/wp_editor_md_c498a5a2f4ecdcf9c2c6979444cfe20b.jpg"><img alt="" src="assets/doc/04-ai/深度学习/sotfmax回归实现/images/wp_editor_md_c498a5a2f4ecdcf9c2c6979444cfe20b.jpg"/></a></p>
 <h3 id="_3">定义模型</h3>
 <h4 id="sotfmax_1">sotfmax函数</h4>
 <p>计算softmax的步骤如下：</p>
@@ -220,7 +220,7 @@
 <span class="n">train_ch3</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">train_iter</span><span class="p">,</span> <span class="n">test_iter</span><span class="p">,</span> <span class="n">cross_entropy</span><span class="p">,</span> <span class="n">num_epochs</span><span class="p">,</span> <span class="n">updater</span><span class="p">)</span>
 </code></pre></div>
 <p>下面是训练的过程显示：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/04/wp_editor_md_3a3c450df8d8bfcc93b0654e2265e52c.jpg"><img alt="" src="../assets/doc/04-ai/深度学习/sotfmax回归实现/images/wp_editor_md_3a3c450df8d8bfcc93b0654e2265e52c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/04/wp_editor_md_3a3c450df8d8bfcc93b0654e2265e52c.jpg"><img alt="" src="assets/doc/04-ai/深度学习/sotfmax回归实现/images/wp_editor_md_3a3c450df8d8bfcc93b0654e2265e52c.jpg"/></a></p>
 <ul>
 <li>train loss: 训练损失，也就是损失函数的结果。是模型在训练集上的平均损失值，通常使用损失函数来衡量。例如，常用的交叉熵损失（cross-entropy loss）或均方误差（mean squared error）。损失越小，说明模型在训练数据上的表现越好。它反映了模型预测值与真实标签之间的差距。</li>
 <li>train acc: Training Accuracy, 训练精度。是模型在训练集上的正确预测的比例。它通过比较模型的预测结果和真实标签来计算。训练精度=正确预测的样本数量/总样本数量。训练准确度越高，说明模型在训练数据上的拟合程度越好。训练准确度反映了模型对训练集的学习能力。</li>
@@ -239,7 +239,7 @@
 <span class="n">predict_ch3</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">test_iter</span><span class="p">)</span>
 </code></pre></div>
 <p>使用训练好的模型，来预测实际的效果：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/04/wp_editor_md_613f320a2cdf3039cec189d756c20eb9.jpg"><img alt="" src="../assets/doc/04-ai/深度学习/sotfmax回归实现/images/wp_editor_md_613f320a2cdf3039cec189d756c20eb9.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/04/wp_editor_md_613f320a2cdf3039cec189d756c20eb9.jpg"><img alt="" src="assets/doc/04-ai/深度学习/sotfmax回归实现/images/wp_editor_md_613f320a2cdf3039cec189d756c20eb9.jpg"/></a></p>
 <h2 id="_9">总结</h2>
 <div class="codehilite"><pre><span></span><code><span class="n">一</span><span class="err">、</span><span class="n">公式和代码</span>
 
@@ -265,8 +265,8 @@
 </code></pre></div>
 <p>本文来自： <a href="https://zh.d2l.ai/" title="&lt;动手学深度学习 V2&gt;">&lt;动手学深度学习 V2&gt;</a> 的学习笔记</p></div>
   <div class="post-nav">
-    <a class="prev" href="../激活函数.html">← 激活函数</a>
-    <a class="next" href="../线性回归实现.html">线性回归实现 →</a>
+    <a class="prev" href="../note_page/激活函数.html">← 激活函数</a>
+    <a class="next" href="../note_page/线性回归实现.html">线性回归实现 →</a>
   </div>
 </article>
 
@@ -281,7 +281,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

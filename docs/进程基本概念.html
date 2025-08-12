@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>进程基本概念 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -93,7 +93,7 @@
 </tbody>
 </table>
 <p>与namespace相关的函数只有三个clone,setns,unshare。分别是创建一个进程放到对应namespace，将当前进程加入到已知namespace，退出指定类型namespace并加如到创建的namespace。   PID命名空间对进程PID重新标号，即不同的namespace下进程可以有同一个PID，如下容器1的a和容器2的a。他们分别对应在内核空间是PID namespace 1和PID namespace2。内核种为所有的PID namespace维护了一个树状结构，最顶层的是系统初始化创建的，被称为root namespace，由他创建的新的PID namespace成为它的chid namespace。父节点是可以看到字节点种的进程的，可以通过信号对子节点的进程产生影响，但是子节点无法看到父节点的进程。PID namespace对容器应用特别重要，可以实现容器内进程的暂停/恢复等功能，还可以支持容器在跨主机的迁移前后保持内部进程的PID不发生变化。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_db7d532557f8e79e8a7b296e3fb1629d.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/1-进程基本概念/images/wp_editor_md_db7d532557f8e79e8a7b296e3fb1629d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_db7d532557f8e79e8a7b296e3fb1629d.jpg"><img alt="" src="assets/doc/01-linux/进程调度/1-进程基本概念/images/wp_editor_md_db7d532557f8e79e8a7b296e3fb1629d.jpg"/></a></p>
 <h2 id="_2">进程描述</h2>
 <p>Linux系统要对进程进行操作，需要抽象出所拥有的资源，我们称为进程控制块（Process Control Block，PCB），也称为进程描述符号，Linux中使用struct task_struct结构体来进行描述。task_struct数据结构包含的内容可以归类为几类：</p>
 <ul>
@@ -105,11 +105,11 @@
 <li>信号相关信息。</li>
 <li>资源限制相关信息。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_15254036e84146db6fc752a2a7ca284d.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/1-进程基本概念/images/wp_editor_md_15254036e84146db6fc752a2a7ca284d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_15254036e84146db6fc752a2a7ca284d.jpg"><img alt="" src="assets/doc/01-linux/进程调度/1-进程基本概念/images/wp_editor_md_15254036e84146db6fc752a2a7ca284d.jpg"/></a></p>
 <p>上图中列出了task_struct数据结构中包含的一些内容。在linux中，进程和线程都是使用task_struct来进行描述。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_50761e7edf4b818567887f869c9f2d35.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/1-进程基本概念/images/wp_editor_md_50761e7edf4b818567887f869c9f2d35.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_50761e7edf4b818567887f869c9f2d35.jpg"><img alt="" src="assets/doc/01-linux/进程调度/1-进程基本概念/images/wp_editor_md_50761e7edf4b818567887f869c9f2d35.jpg"/></a></p>
 <h2 id="_3">进程状态</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_905511d0195f3dfbc4cc23847c10b554.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/1-进程基本概念/images/wp_editor_md_905511d0195f3dfbc4cc23847c10b554.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_905511d0195f3dfbc4cc23847c10b554.jpg"><img alt="" src="assets/doc/01-linux/进程调度/1-进程基本概念/images/wp_editor_md_905511d0195f3dfbc4cc23847c10b554.jpg"/></a></p>
 <ul>
 <li>就绪态：进程获得了可以运行的所有资源和准备条件</li>
 <li>运行态：CPU正在运行该进程。（linux中就绪态和运行态都是TASK_RUNNING）</li>
@@ -120,7 +120,7 @@
 </ul>
 <h2 id="_4">进程间的关系</h2>
 <p>linux内核启动时，会创建一个init_task进程，这是系统中所有进程的祖先，称为进程0或idle进程，当系统没有进程调度时，调度器就会运行idle进程。在smp中，每个cpu都有一个进程0。在执行kernel_init函数后，会启动进程1（用户第一个进程），进程1是所有用户进程的祖先，可以通过pstree来查看进程关系。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fbb7afc2a2f5cd5b4293ea6436b693df.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/1-进程基本概念/images/wp_editor_md_fbb7afc2a2f5cd5b4293ea6436b693df.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fbb7afc2a2f5cd5b4293ea6436b693df.jpg"><img alt="" src="assets/doc/01-linux/进程调度/1-进程基本概念/images/wp_editor_md_fbb7afc2a2f5cd5b4293ea6436b693df.jpg"/></a></p>
 <p>上图中，procd等同于init，有用openwrt的1号进程使用的是procd，当然也可以改成init。   Linux系统中task_struct数据结构使用4个成员来描述进程间的关系，如下：</p>
 <ul>
 <li>real_parent: 指向创建当前进程的进程描述描述符，如果创建的进程不存在，则指向init进程。</li>
@@ -131,8 +131,8 @@
 <h2 id="_5">获取当前进程</h2>
 <p>系统运行时，调度操作的数据结构就是task_struct，因此在系统调度时要运行进程，必现要找到对应进程的task_struct结构体。Linux内核提供了current宏来方便快速找到当前要运行或正在运行的task_struct数据结构。   current的实现和具体的架构有关，通常有两类实现方式。在ARM32系统中，存放了一个thread_info的数据结构在内核栈里面，current宏通过arm32的SP寄存器来获取当前内核栈的地址，对齐后即可获取到thread_info数据结构的指针，最后通过thread_info-&gt;task成员获取task_struct数据结构。   在linux 5.0内核中，新增了一个配置选项CONFIG_THREAD_INFO_IN_TASK，将thread_info存放在task_struct数据结构中。在ARM64处理上，利用SP_EL0寄存器粗放囊当前进程的task_struct数据结构的地址。</p></div>
   <div class="post-nav">
-    <a class="prev" href="../markdown使用说明.html">← markdown使用说明</a>
-    <a class="next" href="../中断小结.html">中断小结 →</a>
+    <a class="prev" href="../note_page/markdown使用说明.html">← markdown使用说明</a>
+    <a class="next" href="../note_page/中断小结.html">中断小结 →</a>
   </div>
 </article>
 
@@ -147,7 +147,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

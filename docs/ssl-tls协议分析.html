@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SSL/TLS协议分析 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -63,30 +63,30 @@
 <li>2018: TLS 1.3 减少时延，完全前向安全。</li>
 </ul>
 <p>传输层安全性协议（英语：Transport Layer Security，缩写：TLS），前身称为安全套接层（英语：Secure Sockets Layer，缩写：SSL）是一种安全协议，目的是为互联网通信提供安全及数据完整性保障。TLS（Transport Layer Security）是计算机网络通信用于安全加密的协议，HTTP+TLS后后即HTTPS。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_e9f9ffc568940f68b439583170b3103a.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_e9f9ffc568940f68b439583170b3103a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_e9f9ffc568940f68b439583170b3103a.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_e9f9ffc568940f68b439583170b3103a.jpg"/></a></p>
 <p>TLS介于网络传输层和应用层之间，TLS主要用于数据加密过程，保证数据的安全传输。TLS是一套混合加密系统，使用了对称加密和非对称加密两种方式。非对称加密相对对称加密更安全，但是其复杂的加解密会使得通信效率降低，为了解决这种场景。先使用“非对称加密”的方式传输用于数据的“对称加密密钥”，以保证双方的对称加密秘钥是安全传输的，后续就可以直接使用对称加密秘钥进行传输了。关于非对称加密和对称加密接下来简单说明一下。</p>
 <h2 id="_1">对称加密与非对称加密</h2>
 <h3 id="_2">对称加密</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_54da987c3ff7c93a92589c1c65878ce5.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_54da987c3ff7c93a92589c1c65878ce5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_54da987c3ff7c93a92589c1c65878ce5.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_54da987c3ff7c93a92589c1c65878ce5.jpg"/></a></p>
 <p>对称加密双方使用相同的秘钥进行加解密，秘钥被称为共享秘钥和对称秘钥。常见的对称加密算法有AES、DES、3DES等等，下面简要说明一下常用的AES算法。</p>
 <h4 id="aes">AES加解密</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_3531839093318f8c9c696b8e87eb96d2.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_3531839093318f8c9c696b8e87eb96d2.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_3531839093318f8c9c696b8e87eb96d2.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_3531839093318f8c9c696b8e87eb96d2.jpg"/></a></p>
 <p>AES是秘钥长度有128/192/256，其秘钥长度用于指定将明文转换为密文所需要的变化轮数，如当秘钥长度128位是，轮数是10；秘钥长度为192位时，轮数为12；秘钥长度为256时，轮数为14。</p>
 <p>由于AES算法单次只能加解密固定长度的分组数据，如AES 单次只能加解密128位数据，而实际场景中的AES加解密长度并不是128位的整数倍，为了解决这个问题，使用AES可以使用分组密码模式配合消息填充的方法来解决。</p>
 <h4 id="_3">分组密码模式</h4>
 <h5 id="ecb">ECB模式</h5>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_decf8d1758e13be4c267884dcc12f153.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_decf8d1758e13be4c267884dcc12f153.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_decf8d1758e13be4c267884dcc12f153.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_decf8d1758e13be4c267884dcc12f153.jpg"/></a></p>
 <p>将明文进行分组加密，加密结果为密文分组，最后一个明文分组需要必须要填充为128位。</p>
 <h5 id="cbc">CBC模式</h5>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_fdc7c60b0e77a061bcc44cf15923afe7.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_fdc7c60b0e77a061bcc44cf15923afe7.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_fdc7c60b0e77a061bcc44cf15923afe7.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_fdc7c60b0e77a061bcc44cf15923afe7.jpg"/></a></p>
 <p>依旧是对明文进行分组加密，最后一个分组需要填充满128位。每一组明文在加密前都与前面的密文分组进行异或操作。由于第一个明文分组前没有密文分组，所以需要准备一个与密文分组长度相等的比特序列来代替密文分组，这个比特序列被称作初始化向量，简称IV。</p>
 <h5 id="ctr">CTR模式</h5>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_1406fd28e0cec64cad39912a8d3b40cd.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_1406fd28e0cec64cad39912a8d3b40cd.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_1406fd28e0cec64cad39912a8d3b40cd.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_1406fd28e0cec64cad39912a8d3b40cd.jpg"/></a></p>
 <p>CTR模式使用用于分组长度相同的计数值参与运算，通过对逐次累加的计数器进行加密来生成密钥流，通过加密计数器得到的密钥流与明文分组进行异或运算，得到密文分组。若明文长度不是分组长度的整数倍，假设最后一个明文分组N的 长度为L位，那么最后一个明文分组N只需与计数器N加密结果的左侧 L位异或，获得的密文分组N的长度也是N位。这种算法结构使得CTR 模式不需要对明文进行填充。</p>
 <h4 id="_4">分组明文的填充</h4>
 <p>使用ECB/CBC模式，当加密明文不是分组密码长度的整数倍是，通常需要对明文进行填充，常用的填充方案是PKCS7。</p>
 <p>以AES-CBC算法为例，若分组的长度是16字节，当加密明文是28字节是，则需要在明文末尾填充4字节，使其达到分组长度的整数倍；若待加密数据恰好是16字节，需要在明文后面额外填充16字节，并将其全部填充为16。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_48995a950eec731b8ca2a927ce221683.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_48995a950eec731b8ca2a927ce221683.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_48995a950eec731b8ca2a927ce221683.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_48995a950eec731b8ca2a927ce221683.jpg"/></a></p>
 <h4 id="mbedtls-aes">Mbedtls AES示例</h4>
 <div class="codehilite"><pre><span></span><code><span class="kt">uint8_t</span><span class="w"> </span><span class="n">key</span><span class="p">[</span><span class="mi">16</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mh">0x06</span><span class="p">,</span><span class="w"> </span><span class="mh">0xa9</span><span class="p">,</span><span class="w"> </span><span class="mh">0x21</span><span class="p">,</span><span class="w"> </span><span class="mh">0x40</span><span class="p">,</span><span class="w"> </span><span class="mh">0x36</span><span class="p">,</span><span class="w"> </span><span class="mh">0xb8</span><span class="p">,</span>
 <span class="w">     </span><span class="mh">0xa1</span><span class="p">,</span><span class="w"> </span><span class="mh">0x5b</span><span class="p">,</span><span class="w"> </span><span class="mh">0x51</span><span class="p">,</span><span class="w"> </span><span class="mh">0x2e</span><span class="p">,</span><span class="w"> </span><span class="mh">0x03</span><span class="p">,</span><span class="w"> </span><span class="mh">0xd5</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">,</span><span class="w"> </span><span class="mh">0x12</span><span class="p">,</span><span class="w"> </span><span class="mh">0x00</span><span class="p">,</span><span class="w"> </span><span class="mh">0x06</span><span class="w"> </span><span class="p">};</span>
@@ -126,7 +126,7 @@
 <h3 id="_5">非对称加密</h3>
 <p>上一小节说了对称加密算法，其特点就是加密速度快，效率高，但是其缺点就是在于密钥的传输存在安全性问题，因为大部分通信都是通过网络来进行传输的，密钥容易在传输过程中被窃取，一旦获得密钥，那么后面的加密就毫无意义了。为了解决这种问题，非对称加密就产生了，非对称加密的特点就是把密钥进行分离，分成公钥和私钥两个部分。公钥是传输的双方公有的密钥，用于数据的加密，而私钥用于解密，双方的私钥不一样，各自保管。通过公钥加密、各自的私钥解密这样即使公钥被泄露，也不用担心，没有私钥是无法解密的。常见的非对称加密算法有RSA，DSA，ECC等。下面重点简要介绍RSA加密算法。</p>
 <h4 id="rsa">RSA</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_616fc5d8c31eedc9ff2812e54a761341.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_616fc5d8c31eedc9ff2812e54a761341.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_616fc5d8c31eedc9ff2812e54a761341.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_616fc5d8c31eedc9ff2812e54a761341.jpg"/></a></p>
 <p>1） Bob按照RSA算法标准生成密钥对，这个密钥对包含公钥和私钥。 2） Bob将公钥发送给Alice，私钥则自己进行保存起来。 3） Alice收到Bob的公钥后，使用该公钥加密明文，接着发送给Bob。 4） Bob接收到Alice使用公钥加密的密文后，使用自己的私钥进行解密得到明文，解密正确后则后续Bob就使用这套密钥。</p>
 <h4 id="mbedtls-rsa">mbedtls RSA示例</h4>
 <div class="codehilite"><pre><span></span><code><span class="kt">size_t</span><span class="w"> </span><span class="n">olen</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
@@ -169,13 +169,13 @@
 <span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
 </code></pre></div>
 <h2 id="_6">数字证书</h2>
-<p>使用非对称加密的好处就是，通过公钥加密、私钥解密，私钥是各自私有这样相比于对称加密就更安全了。一般情况下，公钥需要通过网络进行传输，而且公钥都是公开的。假设有这么一个场景，A和B在首次建立通信连接的时候，A发送给B公钥，但是在发送公钥的过程中被C劫持了，换成了C自己的公钥发送给B，那么B就误认为C的公钥是A发送的，那么后续C就可以作为中间人获取到通信内容，传输链路A-&gt;C-B。 <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_1d2a1e52824660e6f2d95cdae8ec3c4e.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_1d2a1e52824660e6f2d95cdae8ec3c4e.jpg"/></a></p>
+<p>使用非对称加密的好处就是，通过公钥加密、私钥解密，私钥是各自私有这样相比于对称加密就更安全了。一般情况下，公钥需要通过网络进行传输，而且公钥都是公开的。假设有这么一个场景，A和B在首次建立通信连接的时候，A发送给B公钥，但是在发送公钥的过程中被C劫持了，换成了C自己的公钥发送给B，那么B就误认为C的公钥是A发送的，那么后续C就可以作为中间人获取到通信内容，传输链路A-&gt;C-B。 <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_1d2a1e52824660e6f2d95cdae8ec3c4e.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_1d2a1e52824660e6f2d95cdae8ec3c4e.jpg"/></a></p>
 <p>为了解决这种在初次建立连接是被中间人中继的问题，因为非对称加密公私钥可以分离，所以可以找个大家信得过的机构来专门颁发公钥，这个机构颁发的就是数字证书，相当于就是身份证。让A和B的公钥是值得信赖的，不要让B误认为公钥是C的公钥。</p>
 <p>签发证书的机构被称为 CA（ Certificate Authority），理论上每个人都可以成为CA，因为每个人都可以自己签发证书，但是只有极少数的权威CA颁发的证书才会被承认。</p>
 <p>一般来说数字证书可以按照安全程度分为以下三类：</p>
 <p>EV：<strong>EV证书(Extended Validation Certificate)</strong>是一种根据一系列特定标准颁发的X.509电子证书，根据要求，在颁发证书之前，证书颁发机构(CA)必须验证申请者的身份。不同机构根据证书标准发行的扩展验证证书并无太大差异，但是有时候根据一些具体的要求，特定机构发行的证书可以被特定的软件识别 OV：<strong>OV证书(Organization Validation SSL)</strong>，指需要验证网站所有单位的真实身份的标准型SSL证书，此类证书不仅能够起到网站信息加密的作用，而且能向用户证明网站的真实身份 DV：<strong>DV证书(Domain Validation SSL)</strong>，指需要验证域名的有效性。该类证书只提供基本的加密保障，不能提供域名所有者的信息</p>
 <h2 id="tls_1">TLS协议</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_e8cb6eead7f66c0de612f800ebf78251.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_e8cb6eead7f66c0de612f800ebf78251.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_e8cb6eead7f66c0de612f800ebf78251.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_e8cb6eead7f66c0de612f800ebf78251.jpg"/></a></p>
 <p>TLS协议可以分为记录层和握手层</p>
 <ul>
 <li>记录层：负责对数据进行加密、压缩、分段，并保证数据的完整性和安全传输。</li>
@@ -183,19 +183,19 @@
 </ul>
 <p>握手层有3个协议，握手协议（Handshake Protocol）、更换加密规约协议（Change Cipher Spec Protocol）、告警协议（Alert Protocol）。</p>
 <h3 id="tlsv12">TLSv1.2 握手过程</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_478e96f04b345888d2ad686217c45939.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_478e96f04b345888d2ad686217c45939.jpg"/></a></p>
-<p><strong>步骤1</strong>：客户端通过明文的方式发送Client Hello 消息到服务器，消息中主要包含了客户端支持的ciphersuites， TLS 版本信息和客户端随机数。 <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_8a16af48187c398c9d7edc8cd0cb37bc.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_8a16af48187c398c9d7edc8cd0cb37bc.jpg"/></a></p>
-<p><strong>步骤2</strong>：服务器接收到消息后，明文发送一个Server Hello给客户端，包括自己支持的ciphersuites， TLS 版本，自己的<strong>数字证书</strong>（证书中包含了公钥）和服务器端生成的随机数。在包的交互上，证书、随机数等可能是不包含在Server Hello一个包中单独进行发送，示服务器具体的行为。下图是Server Hello， <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_1a66f3f876ae76777bf5bce5b82b7015.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_1a66f3f876ae76777bf5bce5b82b7015.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_478e96f04b345888d2ad686217c45939.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_478e96f04b345888d2ad686217c45939.jpg"/></a></p>
+<p><strong>步骤1</strong>：客户端通过明文的方式发送Client Hello 消息到服务器，消息中主要包含了客户端支持的ciphersuites， TLS 版本信息和客户端随机数。 <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_8a16af48187c398c9d7edc8cd0cb37bc.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_8a16af48187c398c9d7edc8cd0cb37bc.jpg"/></a></p>
+<p><strong>步骤2</strong>：服务器接收到消息后，明文发送一个Server Hello给客户端，包括自己支持的ciphersuites， TLS 版本，自己的<strong>数字证书</strong>（证书中包含了公钥）和服务器端生成的随机数。在包的交互上，证书、随机数等可能是不包含在Server Hello一个包中单独进行发送，示服务器具体的行为。下图是Server Hello， <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_1a66f3f876ae76777bf5bce5b82b7015.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_1a66f3f876ae76777bf5bce5b82b7015.jpg"/></a></p>
 <p>当客户端需要对服务器的身份进行验证时，服务器端发送 Certificate消息。该消息中包含证书清单，证书清单是一组X.509 v3证书列表。证书列表包含服务器证书、中间证书和根证书。通常情况下服务器并不会发送根证书，这就需要客户端提前导入根证书。通过Certificate消息，客户端将获得服务器的公钥，并通过根证书中的公钥验证服务器公钥的合法 性。下图是服务器证书Ceriticate，证书中包含了公钥。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_c5e2519b166fa1c73348d2a68f25d622.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_c5e2519b166fa1c73348d2a68f25d622.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_c5e2519b166fa1c73348d2a68f25d622.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_c5e2519b166fa1c73348d2a68f25d622.jpg"/></a></p>
 <p>如果服务器没有证书或者服务器的证书仅用来签名（如DSS证书、签名RSA证书），或者使用的是FORTEZZA KEA密钥交换算法，那么就需要发送Server Key Exchange。服务器会在 server Certificate 消息之后发送 Server Key Exchange 消息。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_b0af68f119ff372778ff248ea60cbb50.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_b0af68f119ff372778ff248ea60cbb50.jpg"/></a></p>
-<p>服务器Hello阶段结束后，一般会附上一条简单的Server Hello Done表示结束。 <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_5e749e6cc65f10ab6d448b81757ba803.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_5e749e6cc65f10ab6d448b81757ba803.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_b0af68f119ff372778ff248ea60cbb50.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_b0af68f119ff372778ff248ea60cbb50.jpg"/></a></p>
+<p>服务器Hello阶段结束后，一般会附上一条简单的Server Hello Done表示结束。 <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_5e749e6cc65f10ab6d448b81757ba803.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_5e749e6cc65f10ab6d448b81757ba803.jpg"/></a></p>
 <p><strong>步骤3</strong>：客户端开始验证数字证书，可能会不断往上追溯 CA，直到一个可信任CA。验证证书合法之后，从证书中读取公钥信息。之后生成一个<strong>pre-master key</strong>（用来生成后续的对称秘钥），接着使用证书中的<strong>公钥来对pre-master key进行加密</strong>，然后发送给服务器。该过程是非对称加密传输。服务器接收到客户端发送过来的非对称加密的密文，使用自己的私钥进行解密，获得了pre-master key。注意此时是非对称加密传输，这样服务器就获得了后续对称加密的密钥。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_98b69be6641d25f6b292431a8d6f8d66.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_98b69be6641d25f6b292431a8d6f8d66.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_98b69be6641d25f6b292431a8d6f8d66.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_98b69be6641d25f6b292431a8d6f8d66.jpg"/></a></p>
 <p>经过1）2）3）不走，服务器和客户端有了3组数据，分别是<strong>客户端的随机数、服务器的随机数和pre-master key</strong>。其中由于客户端的随机数和服务器的随机数都是使用明文传输，所以这两个数字是有被暴露的风险的，但是由于pre-master key是使用非对称加密传输，十分安全，所以将这三者结合，使用之前协商好的特定的算法就可以生成一个密钥，这个密钥称为<strong>shared secert</strong>。也就是之后用来对称加密的密钥。</p>
 <p><strong>步骤4</strong>：客户端在计算出对称加密的密钥之后，使用该密钥进行对称加密通信，告知服务器之后都使用该密钥进行对称加密。注意此时是对称加密传输服务器接收到密文后，使用之前计算出的密钥来进行对称解密，解密成功之后，再使用该密钥进行对称加密通信。告知客户端密钥确认无误，可以使用该密钥进行通信。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_f60fbc0472f89e7010da0f3981117f83.jpg"><img alt="" src="../assets/doc/08-网络/tls/images/wp_editor_md_f60fbc0472f89e7010da0f3981117f83.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_f60fbc0472f89e7010da0f3981117f83.jpg"><img alt="" src="assets/doc/08-网络/tls/images/wp_editor_md_f60fbc0472f89e7010da0f3981117f83.jpg"/></a></p>
 <p>至此，整个TLS的握手过程完整，之后就可以开始对称加密的通信了。总结一下SSL/TLS协议的基本过程，前两步又称为\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"握手阶段\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"（handshake）,是SSL/TLS加密通信的基础。</p>
 <ul>
 <li>
@@ -357,8 +357,8 @@
 </code></pre></div>
 <p>参考： 1. 《密码技术与物联网安全》 2. <a href="https://tinychen.com/20200602-encryption-intro/">https://tinychen.com/20200602-encryption-intro/</a></p></div>
   <div class="post-nav">
-    <a class="prev" href="../看wireshark报文技巧.html">← 看wireshark报文技巧</a>
-    <a class="next" href="../拍照示例代码分析.html">拍照示例代码分析 →</a>
+    <a class="prev" href="../note_page/看wireshark报文技巧.html">← 看wireshark报文技巧</a>
+    <a class="next" href="../note_page/拍照示例代码分析.html">拍照示例代码分析 →</a>
   </div>
 </article>
 
@@ -373,7 +373,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

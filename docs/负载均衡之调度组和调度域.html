@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>负载均衡之调度组和调度域 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -54,7 +54,7 @@
   <div class="meta">2023-04-16 · linux</div>
   <div class="post-content"><h2 id="_1">概述</h2>
 <p>从上一章节大概应该能够理解负载和利用率的区别了，当一个进程正在运行或者即使没有在cpu上运行，而在就绪队列中等待运行，那么他依旧消耗cpu的负载。这是合理的，因为cpu的就绪队列有10个任务等待着运行与5个任务等待运行，明显是10个任务的负载重。而利用率只是关注正在运行的任务而不包含在就绪队列的任务，在某个时间段内可能某个任务的cpu利用率很高，但是占用完之后一直睡眠，那么其队系统的负载贡献还是较小。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_7899f9010271eec5a7d023fca4dd488b.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_7899f9010271eec5a7d023fca4dd488b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_7899f9010271eec5a7d023fca4dd488b.jpg"><img alt="" src="assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_7899f9010271eec5a7d023fca4dd488b.jpg"/></a></p>
 <p>从CPU的层次划分，从大到小分为：</p>
 <ul>
 <li>NUMA: 多个SOC组成，通过UPI可以共享多块物理内存，常用于服务器。</li>
@@ -63,7 +63,7 @@
 <li>SMT:Simultaneous Multi-Threading，超线程，单个核心处理器同时执行多个线程，在单个核心处理器引入多个逻辑执行单元和资源共享极致，实现更好的指令集并发性。</li>
 </ul>
 <p>现在的嵌入式处理器通常包含SOC+MC技术，也就是在一个SOC上集成了多核处理器，目前遇到的SMT和NUMA的还比较少，因此本章节先讨论一个SOC上集成MC的情况。 因为多核的出现，我们需要引入负载均衡，我们需要解决将SOC运行的任务均衡的分配到各个核上处理，但是并不能简单的平均分配任务到各个CPU上，从上图的架构来看，一个SOC上存在大小核的情况2个小核+2个大核，那自然大核的算力要高于小核的算力，同时我们还需要考虑CPU的频率，同样的架构核心高频的算力自然要高于低频的算力。除了配合各CPU的算力来均衡负载外，还需要考虑任务迁移的开销，上图CPU0上的任务迁移到CPU1上的开销会少于迁移到CPU2上，因为CPU0和CPU1共享L2 cache，如果迁移到L2上的话，cache就会失效，性能或许会减弱。基于上述这些因素，linux构建了相关的数据结构来处理这些问题，称为调度域和调度组。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_2e21f150223e2f456e7dab528e5568de.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_2e21f150223e2f456e7dab528e5568de.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_2e21f150223e2f456e7dab528e5568de.jpg"><img alt="" src="assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_2e21f150223e2f456e7dab528e5568de.jpg"/></a></p>
 <p>系统为了便于负载均衡，构建调度域（sched domain，简记sd）和调度组(sched group，简记sg)。按照架构层级可以依次划分为不同的SOC、相同SOC不同的核心、相同的核心不同的超线程。我们把相同层级称为调度域，越往下层的调度域共用的缓存越多，因此在任务做迁移时，优先选择从底层的调度域中进行。先不考虑SMT，上图的调度域可以分为两级从下往上MC domain（multi core domain），DIE domain。</p>
 <ul>
 <li>DIE domain：处于顶层，覆盖系统所有的CPU（CPU0~CPU3）。</li>
@@ -71,9 +71,9 @@
 </ul>
 <p>负载均衡调度的最小单元是调度组，每个调度域进行分组。对于MC域，基本可以按照一个cpu是一组，所以小核MC domain可以分为两组（一个CPU对应一组），大核MC domain也是分为两组。对于DIE域，每个分组要覆盖到其child domain，DIE 域有两个子domain，分别是小核MC domain，大核MC domain，因此DIE domain分为两个组对于小核group和大核group。</p>
 <h2 id="_2">数据结构</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a488005fef52cf5dc4690aa63612a881.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_a488005fef52cf5dc4690aa63612a881.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a488005fef52cf5dc4690aa63612a881.jpg"><img alt="" src="assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_a488005fef52cf5dc4690aa63612a881.jpg"/></a></p>
 <p>Linux内核使用struct sched_domain_topology_level，简称SDTL来描述CPU的层次关系。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_92716d6b3a12d29b803e07b741b7498c.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_92716d6b3a12d29b803e07b741b7498c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_92716d6b3a12d29b803e07b741b7498c.jpg"><img alt="" src="assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_92716d6b3a12d29b803e07b741b7498c.jpg"/></a></p>
 <p>struct sched_domain_topology_level</p>
 <ul>
 <li>mask：函数指针，指定cpumask位图</li>
@@ -319,7 +319,7 @@
 <li>DIE: cpu 0~7</li>
 <li>MC: cpu 0~3一组，cpu4~7一组。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_85351c787565585bdea6b8eb17e513f1.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_85351c787565585bdea6b8eb17e513f1.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_85351c787565585bdea6b8eb17e513f1.jpg"><img alt="" src="assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_85351c787565585bdea6b8eb17e513f1.jpg"/></a></p>
 <p>可以通过 /sys/devices/system/cpu/cpuX/topology节点来获取topology相关信息。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">root</span><span class="err">@</span><span class="n">TinaLinux</span><span class="o">:/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">system</span><span class="o">/</span><span class="n">cpu</span><span class="o">/</span><span class="n">cpu0</span><span class="o">/</span><span class="n">topology</span><span class="err">#</span><span class="w"> </span><span class="n">cat</span><span class="w"> </span><span class="o">*</span>
 <span class="mo">01</span><span class="w"> </span><span class="c1">//core_cpus </span>
@@ -522,7 +522,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>执行完__sdt_alloc，层次结构就如下所示，如对应DIE层次，sdd-sd[0~7]分别指向各自cpu分配的sd区域。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_93ac6fcf2c164a26ffc7776cbd62875a.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_93ac6fcf2c164a26ffc7776cbd62875a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_93ac6fcf2c164a26ffc7776cbd62875a.jpg"><img alt="" src="assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_93ac6fcf2c164a26ffc7776cbd62875a.jpg"/></a></p>
 <h3 id="sd">初始化调度域sd</h3>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span>
 <span class="nf">build_sched_domains</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">cpumask</span><span class="w"> </span><span class="o">*</span><span class="n">cpu_map</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_domain_attr</span><span class="w"> </span><span class="o">*</span><span class="n">attr</span><span class="p">)</span>
@@ -567,7 +567,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>for_each_cpu遍历每一个cpu，接着for_each_sd_topology(tl)对每个cpu从最底层依次往上构建调度域，先构建MC再DIE。build_sched_domain中会调用sd_init对调度域进行初始化，主要是struct sched_domain结构体成员赋值，同时建立起MC与DIE层级sd的父子联系，如下对于DIE层级，每cpu的sd.child指向MC层级的sd，而MC层级sd.parent指向DIE层级的sd。在初始化调度域是会设置其span，span为调度域作用的cpu范围，实际是根据span的作用范围来对当前调度域层级进行分组。如MC层级，按照4.2.1.2的拓扑结构，有两个MC调度域名，CPU0~CPU3是一组，所以CPU0~CPU3的sd-&gt;span是相同的，CPU4~CPU7是一组，所以CPU4~CPU7的sd-&gt;span相同的。sd-&gt;span非常重要，在后续章节中也会使用该信息来建立sg之间的联系。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_977a5d176cdc2259262d23e5536bbb5f.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_977a5d176cdc2259262d23e5536bbb5f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_977a5d176cdc2259262d23e5536bbb5f.jpg"><img alt="" src="assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_977a5d176cdc2259262d23e5536bbb5f.jpg"/></a></p>
 <h3 id="sg">初始化调度组sg</h3>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span>
 <span class="nf">build_sched_domains</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">cpumask</span><span class="w"> </span><span class="o">*</span><span class="n">cpu_map</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_domain_attr</span><span class="w"> </span><span class="o">*</span><span class="n">attr</span><span class="p">)</span>
@@ -640,7 +640,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>在MC调度域层级，根据调度域sd-&gt;span定义的cpu范围内的sg形成环形链表，下面就是两个环形链表，对应的就是MC调度域层级的两个调度域实体。 在DIE区域，sg取的是子调度域所在的第一个cpu，即cpu0所在的sg和cpu4所在的sg。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f9ca1c7f1149e85701f9b533ebdd5eab.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_f9ca1c7f1149e85701f9b533ebdd5eab.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f9ca1c7f1149e85701f9b533ebdd5eab.jpg"><img alt="" src="assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_f9ca1c7f1149e85701f9b533ebdd5eab.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_group</span><span class="w"> </span><span class="o">*</span><span class="n">get_group</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">cpu</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">sd_data</span><span class="w"> </span><span class="o">*</span><span class="n">sdd</span><span class="p">)</span>
 <span class="p">{</span>
 <span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_domain</span><span class="w"> </span><span class="o">*</span><span class="n">sd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">per_cpu_ptr</span><span class="p">(</span><span class="n">sdd</span><span class="o">-&gt;</span><span class="n">sd</span><span class="p">,</span><span class="w"> </span><span class="n">cpu</span><span class="p">);</span>
@@ -685,7 +685,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>MC层级基本是一个cpu对应一个调度组sg，而对于DIE层级一个cluster对应一个调度组，调度组表示一般选择每个cluster的第一个cpu，该sg代表的不是一个cpu，而是整个cluster上的cpu，所以cpu上的sg-&gt;cpumask为子调度域的sd-&gt;span。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_de708bbcaf7fa6f9463cb50c1df39411.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_de708bbcaf7fa6f9463cb50c1df39411.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_de708bbcaf7fa6f9463cb50c1df39411.jpg"><img alt="" src="assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_de708bbcaf7fa6f9463cb50c1df39411.jpg"/></a></p>
 <h3 id="sgc">构建调度组能力sgc</h3>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span>
 <span class="nf">build_sched_domains</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">cpumask</span><span class="w"> </span><span class="o">*</span><span class="n">cpu_map</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_domain_attr</span><span class="w"> </span><span class="o">*</span><span class="n">attr</span><span class="p">)</span>
@@ -775,7 +775,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>将每个cpu的MC层级的调度域sd赋值给当前cpu调度队列的rq-&gt;sd，将root domain 赋值为当前cpu调度队列的rq-&gt;rd。 总结：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4eddbc7922c08a5aa49fb18e019c2ad6.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_4eddbc7922c08a5aa49fb18e019c2ad6.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4eddbc7922c08a5aa49fb18e019c2ad6.jpg"><img alt="" src="assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_4eddbc7922c08a5aa49fb18e019c2ad6.jpg"/></a></p>
 <ul>
 <li>根据CPU架构的层次，从下到上，分为MC层级-&gt;DIE层级，每个层级使用struct sched_domain_topology_levels（SDTL）数据结构描述。</li>
 <li>考虑多核的锁竞争访问，每层级SDTL为每个cpu定义了sd/sds/sg/sgc数据结构。</li>
@@ -785,10 +785,10 @@
 <li>对于DIE层其每cpu的调度域sd.child指向下一级MC层每cpu调度域sd，而MC层其每cpu调度域sd.parent指向上一级DIE层每cpu调度域sd。</li>
 <li>负载均衡时会优先从最底层级进行均衡，从下往上意味着可选择的cpu会越来越多，但是均衡的代价也会越来越大。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_72cca7be11d43af0b4877e54f6989813.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_72cca7be11d43af0b4877e54f6989813.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_72cca7be11d43af0b4877e54f6989813.jpg"><img alt="" src="assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_72cca7be11d43af0b4877e54f6989813.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="../负载均衡之均衡.html">← 负载均衡之均衡</a>
-    <a class="next" href="../负载均衡之负载跟踪.html">负载均衡之负载跟踪 →</a>
+    <a class="prev" href="../note_page/负载均衡之均衡.html">← 负载均衡之均衡</a>
+    <a class="next" href="../note_page/负载均衡之负载跟踪.html">负载均衡之负载跟踪 →</a>
   </div>
 </article>
 
@@ -803,7 +803,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

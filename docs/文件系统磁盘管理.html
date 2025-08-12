@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>文件系统磁盘管理 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -53,7 +53,7 @@
   <h1>文件系统磁盘管理</h1>
   <div class="meta">2023-05-14 · linux</div>
   <div class="post-content"><h2 id="_1">磁盘空间布局</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3094f9387032029d6524d9d20fe0a6ca.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统磁盘管理/images/wp_editor_md_3094f9387032029d6524d9d20fe0a6ca.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3094f9387032029d6524d9d20fe0a6ca.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统磁盘管理/images/wp_editor_md_3094f9387032029d6524d9d20fe0a6ca.jpg"/></a></p>
 <p>Extx将磁盘划分为等份的若干区域（最后一个区域可能会小一些），这些区域称为块组（block group）。磁盘以块组为单位进行管理。每个块组再划分为相同大小的block，这些block按功能分为原数据区和数据区。原数据区域也是占用block空间，但是是用于描述管理磁盘的信息，其中块0的原数据区域是相对比较复杂的，其包含了引导块、超级块、块组描述符、GDT、数据块位图、inode位图、inode表。出块组0外的其他块组就稍微简单些只有数据位图、inode位图、inode表。</p>
 <ul>
 <li>Boot block:引导块，引导操作系统启动的区域，其并非文件系统的一部分，而是预留给操作系统使用的。</li>
@@ -65,11 +65,11 @@
 <li>Inode table：inode 表，inode是文件系统非常重要的概念，每个文件或目录对应一个inode来描述，inode 表中存储了inode的数据结构实体，即文件系统中有多少个文件+目录就有多少个inode的实体。</li>
 <li>Data block：数据块，实际文件的内容，块组中出勤原数据剩余的就是数据块了，这些数据块也分为等分的大小，一般数据块的大小为1KB或2KB或4KB，由系统进行设置。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_77a4388c50a7246a2a9895a9c820eed7.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统磁盘管理/images/wp_editor_md_77a4388c50a7246a2a9895a9c820eed7.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_77a4388c50a7246a2a9895a9c820eed7.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统磁盘管理/images/wp_editor_md_77a4388c50a7246a2a9895a9c820eed7.jpg"/></a></p>
 <p>可以使用dumpe2fs来查看磁盘块信息，可以看到Group0有super block，gdt，reserved GDT。其他组没有superblock，但是可能会有backup superrblock，主要用于备份使用。大部分group只有block bitmap、inode bitmap、inode table。</p>
 <h2 id="_2">文件数据管理</h2>
 <h3 id="ext2">间接块的文件数据管理（ext2）</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_63c0da8be18cf2335528ea0358781875.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统磁盘管理/images/wp_editor_md_63c0da8be18cf2335528ea0358781875.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_63c0da8be18cf2335528ea0358781875.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统磁盘管理/images/wp_editor_md_63c0da8be18cf2335528ea0358781875.jpg"/></a></p>
 <p>文件占用了磁盘中的那些空间是通过inode来进行标识，一个文件对应一个inode，在struct ext2_inode结构体有一个成员i_block[EXT2_N_BLOCKS]，该成员的作用就是标识了当前文件占用的是磁盘中那些数据块。</p>
 <div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">ext2_inode</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="n">__le16</span><span class="w">  </span><span class="n">i_mode</span><span class="p">;</span><span class="w">     </span><span class="cm">/* File mode */</span>
@@ -96,7 +96,7 @@
 <p>直接索引：数组的前12个索引项一一对应磁盘的某一个数据块，假设磁盘的数据块大小是4K，那么前12个索引项可支持的文件大小为12*4KB=48KB，这种索引的方式速度是最快的，但是也不能无限制的增加数组的大小来一一对应数据块，这样耗费的内存空间将是很大的。为了解决这个问题，当文件大小超过一定大小将使用间接索引的方式。   间接索引：间接索引有2级、3级间接索引，以2级间接索引为例i_block[12]指向磁盘不是实际的数据块，而是指向下一级的地址，下一级地址中的数据块内容指向的数据块才是实际的内容。相当于使用磁盘的空间来存储数据块的索引，类似于虚拟内存的多级页表。   小结：在ext2的inode节点中有i_blocks[15]元素的数组，其中前12个元素存储的是文件数据的磁盘地址，第13个元素存储的地址所指向的磁盘数据存储的不是文件内容数据而是指向下一级的地址，也就是说该数组的元素和实际存储文件数据的磁盘块多出一个磁盘块用于存储磁盘的地址，这个磁盘块称为间接块。由于文件系统中块的大小是确定的，而地址长度和数组元素也是确定的，因此可以确定文件的最大大小。同时，每个地址指向的就是一个块，这种方式的特点就是磁盘的块大小是等分的，缺点就是如果用户写入远大于文件系统块的数据，还是要切分为指定大小的块，同时文件越大需要的元数据越多，寻址的级数也会变多，效率就会变差。</p>
 <h3 id="extentext4">基于Extent的文件数据管理（ext4）</h3>
 <p>Ext2的缺点所有的数据块大小是等分的，数据块的索引也是固定大小的，每个索引只能索引一个数据块，那么对于大文件来说，比如一个电影大小几个G，那么就需要很多的索引和很多的数据块组组合存储，这样的效率是及低的，在ext4中则进行了改进，主要的核心原理就是一个索引对应的块大小是不定的，比如一个3GB的电影文件，用一个索引就解决，只要在索引中给定磁盘块地址和长度就可以检索到，如下图各索引只要给定磁盘地址加上长度就可以索引到具体的文件所划分的磁盘块。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_177a84c24ab12fa4a2858c5c61a13362.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统磁盘管理/images/wp_editor_md_177a84c24ab12fa4a2858c5c61a13362.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_177a84c24ab12fa4a2858c5c61a13362.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统磁盘管理/images/wp_editor_md_177a84c24ab12fa4a2858c5c61a13362.jpg"/></a></p>
 <p>当然实际在实现时没这么简单，上面只是一个简化版本模型便于理解，但是核心原理就是上面的方式。在ext4文件系统上引入了extent机制，extent的数据存储方式，使用B+树的方式，而inode中的i_blocks[15]就变成了B+树的树根。使用extents，用一个struct ext4_extent结构就可以映射多个数据块，减少原数据块的使用。   Extent树的每个节点可以分为内部节点和叶子节点，每个节点的构成为ext4_extent_header+内容，内容根据内部节点和叶子节点有所不同，①如果节点是内部节点（ext4_extent_header.eh_depth&gt;0），ext4_extent_header后面紧跟的是extent_header.eh_entries个struct ext4_extent_idx，也称为索引节点。②如果节点是叶子节点（ext4_extent_header.eh_depth=0），ext4_extent_header后面紧跟的是extent_header.eh_entries个Extent项struct ext4_extent数据结构。   原inode.iblocks[15]则存储的是Extent树的根节点，一共是60字节前12字节用于存储struct ext4_extent_header，后48字节用于存储4个struct ext4_extent_idx（每个12字节）。 struct ext4_inode：</p>
 <div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">ext4_inode</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="n">__le16</span><span class="w">  </span><span class="n">i_mode</span><span class="p">;</span><span class="w">     </span><span class="cm">/* File mode */</span>
@@ -140,10 +140,10 @@
 <span class="w">    </span><span class="n">__u16</span><span class="w">   </span><span class="n">ei_unused</span><span class="p">;</span>
 <span class="p">};</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4615720acf348b1f7d27e97c17294be9.jpg"><img alt="" src="../assets/doc/01-linux/文件系统/文件系统磁盘管理/images/wp_editor_md_4615720acf348b1f7d27e97c17294be9.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4615720acf348b1f7d27e97c17294be9.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统磁盘管理/images/wp_editor_md_4615720acf348b1f7d27e97c17294be9.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="../虚拟文件系统.html">← 虚拟文件系统</a>
-    <a class="next" href="../文件系统基本概念.html">文件系统基本概念 →</a>
+    <a class="prev" href="../note_page/虚拟文件系统.html">← 虚拟文件系统</a>
+    <a class="next" href="../note_page/文件系统基本概念.html">文件系统基本概念 →</a>
   </div>
 </article>
 
@@ -158,7 +158,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

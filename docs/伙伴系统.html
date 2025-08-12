@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>伙伴系统 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -54,7 +54,7 @@
   <div class="meta">2023-07-22 · linux</div>
   <div class="post-content"><h2 id="_1">相关结构体</h2>
 <h3 id="_2">核心结构体</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_145e1dfab349c93979e3382e570502f5.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_145e1dfab349c93979e3382e570502f5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_145e1dfab349c93979e3382e570502f5.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_145e1dfab349c93979e3382e570502f5.jpg"/></a></p>
 <ul>
 <li>struct pglist_data: 节点的描述，arm64 UMA架构中，只有一个节点。</li>
 <li>struct zone node_zone[]：是一个数组，每个元素表示一个内存区域所对应的 struct zone 结构体。从名字可以看出，此数组的长度为 MAX_NR_ZONES，即它最多可以包含 MAX_NR_ZONES 个元素，因此，此数组通常用于描述系统所能支持的所有内存区域。这些内存区域可能包括不同类型（例如，DMA、普通或高端）和大小的内存区域。</li>
@@ -64,7 +64,7 @@
 <li>free_area:用于实现伙伴系统，每个数组元素都表示某中固定长度的一些连续内存区。对于包含在每个区域的空闲内存页的管理。</li>
 </ul>
 <h3 id="free_area">free_area</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b6dcaa46e506c9d16ad6c387ffe95db0.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_b6dcaa46e506c9d16ad6c387ffe95db0.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b6dcaa46e506c9d16ad6c387ffe95db0.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_b6dcaa46e506c9d16ad6c387ffe95db0.jpg"/></a></p>
 <p>上图描述出了Node-&gt;zone-&gt;free_area-&gt;page之间的关系。</p>
 <div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">zone</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="p">......</span>
@@ -83,15 +83,15 @@
 <li>free_list用于连接空闲页的链表，每种迁移类型都对应于一个空闲列表。</li>
 <li>free_area[]确定连续内存的级数后，还会根据其MIGRATE类型来进行分类。这样做是为了便更好的管理内存，以减少内存碎片。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_09912eee85e1252a5720ec66cddb2972.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_09912eee85e1252a5720ec66cddb2972.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_09912eee85e1252a5720ec66cddb2972.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_09912eee85e1252a5720ec66cddb2972.jpg"/></a></p>
 <h2 id="_3">基本原理</h2>
 <p>为了解决内存碎片的问题，linux内核使用的伙伴系统算法。伙伴系统算法是一个高效且简单的内存分配策略，当我们找到待分配内存的zone后，内核将从对应zone的空闲链表中去分配内存。在释放内存是，内核将相应的内存还回相应的内存还回对应的zone空闲内存链表中。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b6dcaa46e506c9d16ad6c387ffe95db0.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_b6dcaa46e506c9d16ad6c387ffe95db0.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b6dcaa46e506c9d16ad6c387ffe95db0.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_b6dcaa46e506c9d16ad6c387ffe95db0.jpg"/></a></p>
 <p>如上图所示free_area数组大小为MAX_ORDER，也就是free_area数组存放着MAX_ORDER个链表，每个链表的元素存放的页块大小为2的n次幂，其中n为该链表在free_area数组中的索引位置。在同一个order内存块中，有根据MIGRATE类型将page存放在不同的链表中。</p>
 <h3 id="_4">伙伴系统内存块分配</h3>
 <p>如果内核要分配2^n个页内存大小，伙伴系统处理方式如下： （1）检查对应的free_area[n]索引（如果是3，则是free_area[3]）的数组，如果在其索引下的链表有空闲内存块，则返回。 （2）如果没有找到满足要求的内存块，则查找n+1数组索引（free_area[4]），若存在空闲内存块，将n+1索引的内存块拆分成大小相等且连续的两块内存，将一块内存返回给内核使用，另外一块内存添加到n的数组索引链表中。 （3）若n+1数组索引中依旧没有找到，则继续向n+2数组索引寻找，再依次向下拆分，直至满足要求位置。</p>
 <h3 id="_5">伙伴系统内存块合并</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e14a45790a10dc23e9916b4f4413814a.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_e14a45790a10dc23e9916b4f4413814a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e14a45790a10dc23e9916b4f4413814a.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_e14a45790a10dc23e9916b4f4413814a.jpg"/></a></p>
 <p>当系统中存在两块大小一样，内存物理地址连续将会试图合并添加到上一阶。上图中在free_area[2]中有5个空闲内存块，当非空闲内存块PFN=6即将释放是，伙伴系统将会进行检查，发现PFN=6与PFN=1内存块大小一样且连续，则进行合并添加到order=3的上一阶连续内存块中，同时在order=3中会继续搜索，看是否满足可以合并添加到order=4中，直到不能合并为止。struct page中有几个成员变量与伙伴系统有关系。</p>
 <ul>
 <li>__mapcount:标记page是否在伙伴系统中</li>
@@ -101,7 +101,7 @@
 </ul>
 <h3 id="_6">内存块迁移</h3>
 <p>伙伴系统能一定程度解决内存碎片问题，但是系统运行久之后，内核会大量的进行内存的分配和释放工作，这依旧会导致内存碎片。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_125209fe9700e90e4c4f6b520d274ef8.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_125209fe9700e90e4c4f6b520d274ef8.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_125209fe9700e90e4c4f6b520d274ef8.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_125209fe9700e90e4c4f6b520d274ef8.jpg"/></a></p>
 <p>如上图，假定内存由60页组成，左侧的地址空间散布着空闲页，尽管25%的物理内存仍然未分配，但最大的连续空闲区只有一页。这对用户空间应用程序是没问题（其内存通过页表映射，即使空闲页在物理内存中分布如何，应用程序看到的内存是连续的）。右图给出的情形中，空闲页和使用页的数目与作图相同，但所有空闲页都位于一个连续区中。为了缓解这种内存碎片问题，内核伙伴系统引入了MIGRATE。下面是Linux内核中用于描述不同内存区域的迁移类型常量，表示对应区域中页面的可移动性和重要性等属性。</p>
 <ul>
 <li>MIGRATE_ISOLATE:表示这个内存区域的页面不可移动，并且需要独立出来，例如用于设备DMA。</li>
@@ -125,7 +125,7 @@
 </code></pre></div>
 <h2 id="_7">初始化</h2>
 <h3 id="_8">初始化相关数据结构</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b53a6ce1e893cd701e83c3db0bb7978e.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_b53a6ce1e893cd701e83c3db0bb7978e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b53a6ce1e893cd701e83c3db0bb7978e.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_b53a6ce1e893cd701e83c3db0bb7978e.jpg"/></a></p>
 <p>伙伴系统相关数据结构主要在zone_sizes_init中完成，主要的几点如下： （1）为每个zone区域的free_area[]数组中的MIGRATE free list链表初始化。 （2）为每个zone区域所有的页框描述符struct page（分配）初始化。 （3）为每个zone区域中所有的pageblock设定迁移类型。 （4）为每个内存节点初始化可使用的备用内存node_zonelists。 为每个zone区域的每cpu成员pageset初始化。</p>
 <h3 id="memblock">memblock内存释放到伙伴系统</h3>
 <p><a href="http://8.134.108.235/wp-content/uploads/2023/11/wp_editor_md_9e3347fbfc030e039f1392ee33c867f2.jpg"><img alt="" src="images/wp_editor_md_9e3347fbfc030e039f1392ee33c867f2.jpg"/></a></p>
@@ -133,18 +133,18 @@
 <h3 id="api">分配器API</h3>
 <p>就伙伴系统接口而言，与c库中的malloc函数不同的是，这里分配的参数是以分配阶为参数，即伙伴系统将在内存中分配2^order页。</p>
 <h4 id="_10">分配接口</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3bfc370b8e9591b77db8ff33c3115527.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_3bfc370b8e9591b77db8ff33c3115527.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3bfc370b8e9591b77db8ff33c3115527.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_3bfc370b8e9591b77db8ff33c3115527.jpg"/></a></p>
 <h4 id="_11">分配掩码</h4>
 <h5 id="_12">区域修饰符</h5>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_84bc7a4844ae938021a6069a25c64ecf.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_84bc7a4844ae938021a6069a25c64ecf.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_84bc7a4844ae938021a6069a25c64ecf.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_84bc7a4844ae938021a6069a25c64ecf.jpg"/></a></p>
 <h5 id="_13">移动修饰符</h5>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ae7068647219ad19519ad010d2e2838d.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_ae7068647219ad19519ad010d2e2838d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ae7068647219ad19519ad010d2e2838d.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_ae7068647219ad19519ad010d2e2838d.jpg"/></a></p>
 <h5 id="_14">水线修饰符</h5>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c1692c66aafab364d8dddebeaa564f7c.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_c1692c66aafab364d8dddebeaa564f7c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c1692c66aafab364d8dddebeaa564f7c.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_c1692c66aafab364d8dddebeaa564f7c.jpg"/></a></p>
 <h5 id="_15">回收修饰符</h5>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c0ffd53fc4f403387bad2959ded0169d.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_c0ffd53fc4f403387bad2959ded0169d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c0ffd53fc4f403387bad2959ded0169d.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_c0ffd53fc4f403387bad2959ded0169d.jpg"/></a></p>
 <h3 id="alloc_pages">alloc_pages</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_6ddd633e5ceb3a6b88e7172c5126c869.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_6ddd633e5ceb3a6b88e7172c5126c869.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_6ddd633e5ceb3a6b88e7172c5126c869.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_6ddd633e5ceb3a6b88e7172c5126c869.jpg"/></a></p>
 <p>alloc_pages最终会调用到__alloc_pages，分配物理页面首先会先尝试从伙伴系统中进行快速分配，如果快速分配不成功会进入慢速分配。快速分配和慢速分配的区别？</p>
 <h4 id="prepare_alloc_pages">prepare_alloc_pages</h4>
 <p>用于初始化页面分配器中用到的参数，确定首选的zone等。在页面分配器中，使用alloc_context数据结构来用于各函数之间的参数传递。</p>
@@ -214,12 +214,12 @@
 <span class="p">}</span>
 </code></pre></div>
 <h4 id="_16">快速路径分配</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a6aecfddcbcbd49af95e6e9d659eda12.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_a6aecfddcbcbd49af95e6e9d659eda12.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a6aecfddcbcbd49af95e6e9d659eda12.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_a6aecfddcbcbd49af95e6e9d659eda12.jpg"/></a></p>
 <p>遍历zonelist中的zone，扫描zone的方向是从高端zone到低端zone，大部分情况不一定扫描zonelist中所有的zone，而是从首选zone(prefered_zone)开始扫描，首选zone是通过gfp_mask换算。 alloc_context是一个非常重要的参数，其存储了zone从哪里开始扫描，内存分配的迁移类型等。zone_watermark_ok将会检测在分配内存时需要判断zone的水位情况以及是否满足分配连续大内存块的需求，如果不符合则分配失败。 rmqueue会从伙伴系统中获取内存，如果对应的order不满足，就会从高一阶的内存块区获取。在调用requeue分配内存时，当分配的时单个物理页面(order=0)，将会调用rmqueue_pcplist函数，从Per-CPU变量per_cpu_pages中分配页面。per_cpu_pages是一个Per-CPU变量，即每个CPU都由一个本地的per_cpu_pages变量，这个per_cpu_pages数据结构理由一个单页面链表，里面存放一小部分单个物理页面，当系统需要单个物理页面是，就从本地CPU的Per-CPU变量链表中直接获取物理页面，这样就可以快速分配内存，减少zone中相关锁的操作（在多个节点中访问内存会有锁保护）。</p>
 <h4 id="_17">慢速路径分配</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_92e81393fe4ffab32a2faf9d1f7e6a03.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_92e81393fe4ffab32a2faf9d1f7e6a03.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_92e81393fe4ffab32a2faf9d1f7e6a03.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_92e81393fe4ffab32a2faf9d1f7e6a03.jpg"/></a></p>
 <h4 id="_18">水位管理</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_057ce6206421a720aec0a0aaba72fff3.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_057ce6206421a720aec0a0aaba72fff3.jpg"/></a> 水位管理的设置主要在init_per_zone_wmark_min函数中实现，如下：</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_057ce6206421a720aec0a0aaba72fff3.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_057ce6206421a720aec0a0aaba72fff3.jpg"/></a> 水位管理的设置主要在init_per_zone_wmark_min函数中实现，如下：</p>
 <div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">__meminit</span><span class="w"> </span><span class="nf">init_per_zone_wmark_min</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
 <span class="err">（</span><span class="mi">1</span><span class="err">）</span><span class="n">计算min_free_kbytes值</span>
@@ -286,8 +286,8 @@
 </ul>
 <h5 id="min_free_kbytes">min_free_kbytes计算</h5>
 <p>在函数calculate_min_free_kbytes用于计算min_free_kbytes的值，接下来线看看min_free_kbytes内核是如何计算出来的。如下（如果有DMA32也需要包含进去），初始化时high=0，所以实际等于ZONE_DMA+ZONE_NORMAL中managed_pages的和。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_6340e226d227b860c482fd1b1bc874b2.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_6340e226d227b860c482fd1b1bc874b2.jpg"/></a></p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3e44bddb70f008f147fd8ccef9dd9bfa.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_3e44bddb70f008f147fd8ccef9dd9bfa.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_6340e226d227b860c482fd1b1bc874b2.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_6340e226d227b860c482fd1b1bc874b2.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3e44bddb70f008f147fd8ccef9dd9bfa.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_3e44bddb70f008f147fd8ccef9dd9bfa.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="nf">nr_free_zone_pages</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">offset</span><span class="p">)</span>
 <span class="p">{</span>
 <span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">zoneref</span><span class="w"> </span><span class="o">*</span><span class="n">z</span><span class="p">;</span>
@@ -407,9 +407,9 @@
 <p>min水位到low和high水位之间的距离，可以通过调节节点/proc/sys/vm/watermark_scale_factor来控制，内存占比计算方式为范围为watermark_scale_factor/10000，意思是min与low的差值为总内存大小*。</p>
 <p>（watermark_scale_factor/10000），watermark_scale_factor取值范围10~1000，所以占比范围0.1%~10%（10/10000~1000/10000）。因此min和low的差值为总内存大小*（0.1%~10%）。</p>
 <p>小结，对应水线的low和high为止分两种情况： - 若min_free_kbytes偏大，则水线low到high区间长度由min_free_kbytes决定， - 若min_free_kbytes偏小，则水线low到high区间长度由watermark_scale_factor决定。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c3401f3e65a06bbc7b76c2fd4e5ec865.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_c3401f3e65a06bbc7b76c2fd4e5ec865.jpg"/></a></p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f173f629f2884001b99edee9bc09115a.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_f173f629f2884001b99edee9bc09115a.jpg"/></a></p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3a6275365e1dcb5dd3b76af984d3c1e8.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_3a6275365e1dcb5dd3b76af984d3c1e8.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c3401f3e65a06bbc7b76c2fd4e5ec865.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_c3401f3e65a06bbc7b76c2fd4e5ec865.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f173f629f2884001b99edee9bc09115a.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_f173f629f2884001b99edee9bc09115a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3a6275365e1dcb5dd3b76af984d3c1e8.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_3a6275365e1dcb5dd3b76af984d3c1e8.jpg"/></a></p>
 <p>当分配内存发现剩余空间低于低水位，将会唤醒kswpad内核线程进行内存回收,回收过程是异步的，如果low与min水位差值较小，即使kswpad启动，但是回收过程是缓慢，当出现突发大内存分配时，可能直接触发到min水位，这时候就会触发阻塞式内存回收（Direct Reclaim），所以需要进行合理的调整low和min之间的差值，因此引入了watermark_scale_factor，该值就是进行人为调整low和min之间的差值，当差值较大时，中间空余空间较大，也能使kswpad提前进行唤醒回收内存。 可以观察/proc/vmstat中的allocstall计数，当进程频繁发生allocstall或者kswapd过早进入休眠状体，说明min和low水位差值太小，无法应对突发内存分配。即可通过watermark_scale_factor用于调整kspwad的激进程度。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">vmstat</span><span class="w"> </span><span class="o">|</span><span class="n">grep</span><span class="w"> </span><span class="o">-</span><span class="n">E</span><span class="w"> </span><span class="err">'</span><span class="n">allocstall</span><span class="o">|</span><span class="n">kswapd_low_wmark_hit_quickly</span><span class="err">'</span>
 <span class="n">allocstall_dma</span><span class="w"> </span><span class="mi">0</span>
@@ -483,10 +483,10 @@
 <span class="w">    </span><span class="n">calculate_totalreserve_pages</span><span class="p">();</span>
 <span class="p">}</span>
 </code></pre></div>
-<p>计算方式图举例，如下： <a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_75ed7c9261af53d97e712ab483afd736.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_75ed7c9261af53d97e712ab483afd736.jpg"/></a></p>
+<p>计算方式图举例，如下： <a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_75ed7c9261af53d97e712ab483afd736.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_75ed7c9261af53d97e712ab483afd736.jpg"/></a></p>
 <p>图来源于网络</p>
 <p>可以通过/proc/zoneinfo节点查看各个内存区域预留内存大小，参数protection读取的就是内存管理区中lowmem_reserve[]数组的值，lowmem_reserve[]数组的单位是页面。设置lowmem_reserved是为了防止页面分配器过度低从低端内存管理区中分配内存。下图中，ZONE_DMA32，ZONE_NORMAL对应的protection都为0，说明不需要做保护。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_7dc17118cf466206c6f58ab7abaf214c.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_7dc17118cf466206c6f58ab7abaf214c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_7dc17118cf466206c6f58ab7abaf214c.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_7dc17118cf466206c6f58ab7abaf214c.jpg"/></a></p>
 <p>在内存管理中，判断是否满足这次分配任务是通过__zone_watermark_ok来判断。</p>
 <div class="codehilite"><pre><span></span><code><span class="kt">bool</span><span class="w"> </span><span class="nf">__zone_watermark_ok</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">zone</span><span class="w"> </span><span class="o">*</span><span class="n">z</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">order</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">mark</span><span class="p">,</span>
 <span class="w">             </span><span class="kt">int</span><span class="w"> </span><span class="n">highest_zoneidx</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">alloc_flags</span><span class="p">,</span>
@@ -505,7 +505,7 @@
 <p>伙伴系统以页的方式来管理物理内存，随着系统不断的运行，系统就会产生碎片，一旦形成大片的碎片，系统就无法分配连续的物理内存（对用户空间的进程无影响？），因此linux内核引入的内存规整技术，来处理内存碎片的问题。内存碎片可以分配内碎片和外碎片。 内碎片：物理内存页里面的碎片。 外碎片：物理内存页之间的碎片，造成无法分配连续物理页。</p>
 <h3 id="_25">基本原理</h3>
 <p>在内存卡迁移章节中，内核定义了migrate_type用于描述迁移类型，主要有 - MIGRATE_MOVABLE:可移动，表示这个内存区域的页面可以自由被迁移，通常用于用户空间的虚拟内存或者支持虚拟机的内存管理场景。 - MIGRATE_RECALAIMABLE:不可移动，但页面可以被回收，例如包含缓存页，匿名页等。 - MIGRATE_UNMOVABLE:不可移动，例如内核代码，内核数据等。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e9abd1eb005c7aef6a3efab5b6f2a10a.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_e9abd1eb005c7aef6a3efab5b6f2a10a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e9abd1eb005c7aef6a3efab5b6f2a10a.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_e9abd1eb005c7aef6a3efab5b6f2a10a.jpg"/></a></p>
 <ul>
 <li>T0时刻：处于迁移前，此时物理内存中有空闲内存，但是并不连续。</li>
 <li>T1时刻：启动迁移，迁移分两个方向对zone分区进行遍历扫描，zone区域低地址往高地址扫描空闲的物理页，zone区域高地址到地址扫描可移动已分配的物理页，两个扫描器在中间相遇时结束，将可移动已分配的物理页迁移（拷贝）到空闲页中，释放原内存。</li>
@@ -513,11 +513,11 @@
 </ul>
 <p>Linux内核触发内存规整有3个途径 - 手动触发：echo 1 &gt; proc/sys/vm/compact_memory，会触发内存规整。 - kcompactd内核线程：每个内存节点会创建一个kcompactd内核线程，名称为kcompactd0、kcompactd1等等。内存水位不够时，kcompactd守护线程会在后台唤醒，与kswapd线程类似。 - 直接内存规整：在内存分配不足时，直接触发compact。</p>
 <h2 id="_26">内存页面回收</h2>
-<p>Linux系统会将内存尽可能的都使用起来，如将剩余的内存作为文件缓存（page cache）从而提高系统的性能。当有更高优先级的任务需要分配内存发现内存不足时，会进行内存进行回收，将不常用的内存进行回收。内存回收不是简单的回收页面越多越好，因为系统中很多地方都是用空间换时间，如尽可能的使用内存作为设备交换的缓存，这样可以极大的提高系统运行效率。因此内存回收是系统在分配内存不足时，才会触发回收。 对于用户空间来说，页可以分为匿名页分为文件页和匿名页，对于内核空间申请的内存来说，没有匿名页和文件页的划分，所以本章节描述的页面回收，回收的都是用户空间的内存。 - 文件页（磁盘缓存页）：与磁盘存在映射关系的内存页（文件背景），如进程代码段、文件映射页等，他们有对应的磁盘进行存储，要回收此类页面时，可将页面直接丢弃（回收），数据还能从磁盘中读取，这部分称为page cache。 - 匿名页：没有与磁盘存在映射关系（无文件背景），如堆、栈、数据段等，如果将此类数据直接丢弃将无法找回，因此要回收此类页面，需要将数据交换到指定磁盘空间存储（swap分区）。 <a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e377f9da1b30145066fc138246e74597.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_e377f9da1b30145066fc138246e74597.jpg"/></a></p>
+<p>Linux系统会将内存尽可能的都使用起来，如将剩余的内存作为文件缓存（page cache）从而提高系统的性能。当有更高优先级的任务需要分配内存发现内存不足时，会进行内存进行回收，将不常用的内存进行回收。内存回收不是简单的回收页面越多越好，因为系统中很多地方都是用空间换时间，如尽可能的使用内存作为设备交换的缓存，这样可以极大的提高系统运行效率。因此内存回收是系统在分配内存不足时，才会触发回收。 对于用户空间来说，页可以分为匿名页分为文件页和匿名页，对于内核空间申请的内存来说，没有匿名页和文件页的划分，所以本章节描述的页面回收，回收的都是用户空间的内存。 - 文件页（磁盘缓存页）：与磁盘存在映射关系的内存页（文件背景），如进程代码段、文件映射页等，他们有对应的磁盘进行存储，要回收此类页面时，可将页面直接丢弃（回收），数据还能从磁盘中读取，这部分称为page cache。 - 匿名页：没有与磁盘存在映射关系（无文件背景），如堆、栈、数据段等，如果将此类数据直接丢弃将无法找回，因此要回收此类页面，需要将数据交换到指定磁盘空间存储（swap分区）。 <a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e377f9da1b30145066fc138246e74597.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_e377f9da1b30145066fc138246e74597.jpg"/></a></p>
 <p>磁盘高速缓存的页面都是可以直接被丢弃回收的，但当磁盘缓存页是脏页面时，在丢弃回收前需要将其写回到磁盘中。 匿名页是不可以丢弃的，因为磁盘中是没有对应的存储，因此要想回收这种类型的页面，需要将该页面的数据转储到指定磁盘空间中（称为swap分区），这个过程页称为页面交换（swap），显然这种交换的代价是相对较高一些。 Linux内核中除非页面被保留或上锁（特殊处理，避免回收），所有的磁盘高速缓存页面都可以回收，所有的匿名页面页可以被交换出去而回收。</p>
 <h3 id="lru">LRU机制</h3>
 <p>对于linux内存回收来说，LRU链表是关键，因为内存回收的整个过程都是处理LRU链表的收缩。LRU链表主要是堆页进行排序，将使用频率低的页放到链表尾部，使用频率高的放到链表头部；而内存回收就是将LRU链表中最近很少访问的尾部页框内容从内存转储到磁盘中（分为匿名页和文件页），然后将其页框释放到伙伴系统作为空闲内存使用。 LRU算法认为过去一段时间频繁使用的页面，在不久的将来可能会在此访问到，而很久没有使用的页面在未来短时间内也不会被访问到，因此在物理内存不够用的情况下，这样的页面成为被换出的最佳候选者。 LRU的基本原理是为每个物理页面绑定一个计数器，用以表示该页面的访问频度。操作系统内核进行页面回收是就根据页面的计数器值来确定要回收那些页面。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fb3a92ba2026e5edfd060ce3133ffa46.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_fb3a92ba2026e5edfd060ce3133ffa46.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fb3a92ba2026e5edfd060ce3133ffa46.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_fb3a92ba2026e5edfd060ce3133ffa46.jpg"/></a></p>
 <p>Linux内核对于LRU的实现主要是基于一对双向链表：active和inactive两类链表。经常被访问处于活跃状态的页面会被放在active链表上，不常使用的页面被放到inactive链表上。系统在执行过程中，页面会在active链表和inactive链表之间转移，在active链表中使用频率最低的将会移到链表尾部，再转移到不活跃链表中，最后换出页面。 第二次机会法是在经典LRU链表算法基础上做了一些改进，在经典LRU链表算法中，新产生的页面被添加到LRU链表的开发，将LRU链表中现存的页面向后移动一个位置。当系统内存出现短缺是，LRU链表尾部的页面将会离开并经历换出。当系统再需要这些页面是，这些页面会重新置于LRU链表的开头，这样的设计只考虑的时间的先后顺序而没有考虑到页面是否频繁使用，而第二次机会法的改进就是避免经常使用的页面不会被置换出去，第二次机会法给页面设置一个访问状态位，在进行淘汰选择是，会先判断该状态是位为1，如果是则给他第二次机会，并清空该位，选择其他页面判断换出。</p>
 <h3 id="lru_1">LRU链表</h3>
 <p>内核中一共有5条LRU链表，如下： - LRU_INACTIVE_ANON:不活跃匿名页面链表 - LRU_ACTIVE_ANON:活跃匿名页面链表 - LRU_INACTIVE_FILE:不活跃文件映射页面链表 - LRU_ACTIVE_FILE:活跃文件映射页面链表 - LRU_UNEVICTABLE:不可回收页面链表 Linux内核分成5条链表，主要是当内存出现紧缺时优先换出文件映射的文件换出页面，因为文件页可能不需要重新刷回磁盘而直接进行回收，而匿名页是必须要写入交换区才能回收。Linux每个内存节点都维护一整套LRU链表，存储在pglist_data中。</p>
@@ -566,7 +566,7 @@
 <span class="w">    </span><span class="n">ANDROID_VENDOR_DATA</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
 <span class="p">};</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f46f5f84032ec6a1ea66c55ff726a051.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_f46f5f84032ec6a1ea66c55ff726a051.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f46f5f84032ec6a1ea66c55ff726a051.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_f46f5f84032ec6a1ea66c55ff726a051.jpg"/></a></p>
 <p>内存节点的描述数据结构种有一个成员变量lruvec指向这些链表，枚举类型变量lru_list列举出上述各种LRU链表类型，lruvec数据结构中定义了上述各种LRU类型链表。 linux内核使用有两个标志位来用于LRU机制的判断，分别是PG_active和PG_referenced， - PG_active：标志位指示了该页块应该在那个LRU链表，为1在active链表，0在inactive链表。 - PG_referenced：指示页框是否被使用，当页框被访问是，会置为1。 Linux中实现LRU链表之间的移动页面使用如下关键函数： - mark_page_accessed()：访问一个页面时，调用该函数修改PG_active和PG_refenrenced - page_refenrenced():系统在进行扫描页面时，调用该函数判断PG_referenced位，如果该位被置位但是长时间没有被再次访问，该位就会被清除。 - active_page():将页面放到active链表上去。 shrink_active_list():将页面移动到inactive链表上去。</p>
 <h3 id="lru_2">LRU缓存</h3>
 <p>系统内核根据其活跃程度将页面来active和inactive链表之间来回移动，随着当前的硬件系统大多都是多cpu处理器，所以需要保证多核之间的并发访问，因此需要通过自旋锁来防止并发操作。由于自旋锁会导致系统性能下降，为了减少其影响，于是内核引入了LRU缓存，每次处理页面移动时，进行批量处理，当累计到一定数量后才会统一迁移，这样就能降低锁的竞争，提升系统的性能。LRU缓存使用的时struct pagevec结构。</p>
@@ -579,10 +579,10 @@
 <span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">page</span><span class="w"> </span><span class="o">*</span><span class="n">pages</span><span class="p">[</span><span class="n">PAGEVEC_SIZE</span><span class="p">];</span><span class="w"> </span><span class="c1">//存放14个page</span>
 <span class="p">};</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_732223ceca45e9e72a4152ad8b88919b.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_732223ceca45e9e72a4152ad8b88919b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_732223ceca45e9e72a4152ad8b88919b.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_732223ceca45e9e72a4152ad8b88919b.jpg"/></a></p>
 <p>页面批量最终通过list_add函数添加到LRU链表中，list_add会将成员添加到链表头。</p>
 <h3 id="_27">页面回收时机</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_5050b347715550ca7bb94d408a7029d2.jpg"><img alt="" src="../assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_5050b347715550ca7bb94d408a7029d2.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_5050b347715550ca7bb94d408a7029d2.jpg"><img alt="" src="assets/doc/01-linux/内存管理/伙伴系统相关结构体/images/wp_editor_md_5050b347715550ca7bb94d408a7029d2.jpg"/></a></p>
 <p>系统中通常以下3种机制会触发进行页面回收（实际上与水位有关系，见2.4.2.4）三种方式触发页面回收，最终都会调用shrink_node： - 快速回收：快速路径做内存分配时失败，调用node_reclaim进行页面回收，这个时候不回收脏文件页，加速内存分配速度，避免回写磁盘耗时的IO操作。 - 异步回收（Kswapd内核线程）：慢速路径内存分配时，会唤醒内核线程，该线程就会在后台进行页面回收处理。 直接回收：慢速路径内存分配时，经过多轮尝试依旧无法分配内存（水位低于min区），就会触发进行直接回收。（同步）</p>
 <h3 id="_28">回收策略</h3>
 <p>内存的回收并不是回收的越多越好，系统中很多都会用到物理内存，系统尽可能的用空间换时间最大化提高运行速率，比如对磁盘IO的读写使用物理内存缓存。各个页面的回收效率是不一样的，比如回收干净的文件页效率是最高的，匿名页和脏文件夹都需要刷写数据到磁盘。综上，系统需要确定一下回收的策略。如要回收多少页面合适？回收匿名页面还是文件页面等等。</p>
@@ -698,8 +698,8 @@
 <h3 id="shrink_node">shrink_node</h3>
 <p>待补充</p></div>
   <div class="post-nav">
-    <a class="prev" href="../slub分配器.html">← slub分配器</a>
-    <a class="next" href="../内存初始化之物理内存初始化.html">内存初始化之物理内存初始化 →</a>
+    <a class="prev" href="../note_page/slub分配器.html">← slub分配器</a>
+    <a class="next" href="../note_page/内存初始化之物理内存初始化.html">内存初始化之物理内存初始化 →</a>
   </div>
 </article>
 
@@ -714,7 +714,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

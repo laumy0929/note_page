@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>虚拟地址与物理地址概念 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -53,16 +53,16 @@
   <h1>虚拟地址与物理地址概念</h1>
   <div class="meta">2024-07-07 · risc-v</div>
   <div class="post-content"><h2 id="_1">地址空间</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_1f236d08257ff16646b4ff4b3e00e63b.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_1f236d08257ff16646b4ff4b3e00e63b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_1f236d08257ff16646b4ff4b3e00e63b.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_1f236d08257ff16646b4ff4b3e00e63b.jpg"/></a></p>
 <p>虚拟地址：程序使用的内存地址；物理地址：硬件的地址空间。虚拟地址通过MMU转化为物理地址，虚拟地址的长度与实际的物理内存容量没有关系，从系统中每个进程的角度看，地址空间的进程无法感知其他进程的存在。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_9e600ba47cd531ab749f1c130183a1a8.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_9e600ba47cd531ab749f1c130183a1a8.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_9e600ba47cd531ab749f1c130183a1a8.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_9e600ba47cd531ab749f1c130183a1a8.jpg"/></a></p>
 <p>32位cpu处理的地址空间为2^32=4G，所以虚拟地址空间为4G，分为用户空间和内核空间。用户空间的范围0~TASK_SIZE（可配置）通常为0x00000000~0xBFFFFFFF，内核空间的地址范围0xC0000000~0xFFFFFFF。由于地址空间虚拟化的结果，每个用户进程都认为自身有3G内存，而内核空间总是同样的，无论当前执行的是那个进程。 64位的cpu寻址空间为2^64，但实际只使用了47位，即寻址范围位2^48=256TB，多出的高16位就形成了地址空洞。内核空间的高16位全为1，用户空间的高16位全为0，可以直接方便判断是用户空间地址还是内核空间地址。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_d8771defb1015498eca0f73393477f42.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_d8771defb1015498eca0f73393477f42.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_d8771defb1015498eca0f73393477f42.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_d8771defb1015498eca0f73393477f42.jpg"/></a></p>
 <p>虚拟地址空间和物理内存被划分为很多等长的部分，称之为页，物理内存页被称为页帧。 进程1的页3和进程2的页1同时指向了物理页帧3，这种情况是可能的，因为两个虚拟地址空间的页可以映射到同一物理内存页，内核负责将虚拟地址空间映射到物理地址空间，可以决定哪些内存区域在进程之间共享，那些不共享。 进程的虚拟地址空间不是所有的页都映射到物理内存页帧上，因为没有这么大的一个物理内存供所有进程都一一映射完（一个进程3G，10个进程就是30G），因此只需要将当前使用的页进行映射（加载到内存中）。主要分为一些地址空间完全没有使用，另外就是有一些页被暂时换出到磁盘上，需要的时候再换回。当程序执行虚拟地址在经过MMU转化时，找不到页表无法查询不到物理地址，将运行缺页异常处理。</p>
 <h2 id="_2">页表</h2>
 <p>实现虚拟地址和物理地址两个地址空间的映射管理最容易的方法是使用数组，对虚拟地址空间的每一页，都分配一个数组项，该数组项指向与之关联的页帧。虚拟地址空间经过查询获得物理地址的数据结构称为页表。 虚拟地址经过MMU查询页表，页表中存储了映射的物理地址，查询的过程由硬件MMU自动执行，但是需要事先分配一个页表并填充好页表项目，把页表的地址给到MMU。</p>
 <h3 id="_3">二级页表</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_d467ca7992517bedf15cf2775f42779f.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_d467ca7992517bedf15cf2775f42779f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_d467ca7992517bedf15cf2775f42779f.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_d467ca7992517bedf15cf2775f42779f.jpg"/></a></p>
 <p>先解释下什么是PFN：是page frame number的缩写，所谓page frame，就是针对物理内存而言的，把物理内存分成一个个的page size的区域，并且给每一个page 编号，这个编号就是PFN。 假设物理内存从0地址开始，那么PFN等于0的那个页帧就是0地址（物理地址）开始的那个page。</p>
 <h4 id="_4">寻址转化过程</h4>
 <p>把虚拟地址分为3部分，PGD+PT+Offset组成，而最终的物理地址为PFN+Offset。虚拟地址转化为物理地址是硬件MMU自动行为，查询的最终目的是要找到虚拟地址对应的PFN。这里先不讨论页表的填充过程，默认页表已经填充好，转化的具体过程如下： （1）一级页表的地址会被存储在satp寄存器中，因此通过获取satp寄存器就可以获取到一级页表，取虚拟地址的[31:20]的值计算出二级页表物理地址所在的表项偏移，这里为0x600（1536）,即二级页表的物理地址存储在一级页表的第1536表项中，进而查询到二级页表的物理地址。 （2）取虚拟地址的[19:12]的值计算出PFN所在表项的位置，这里是0x3，所以PFN的值存储在二级页表的第3表项中，这样就获取到了PFN。 （3）最终的物理地址就是 PFN &lt;&lt; 12 | Offset。 页表项中存储的地址是虚拟地址还是物理地址？是物理地址。</p>
@@ -70,7 +70,7 @@
 <p>（1）一级页表 假设32位系统，以4KB物理页为映射单位，一个进程4GB的虚拟地址空间需要4GB/4KB=1MB个页表项来做映射。每个页表项占用4字节，那么一级页表目录就需要4 * 1MB = 4MB的存储空间，那么对应该进程就需要4MB的内存来存储页表，那100个进程需要400MB。 （2）二级页表 一级页表PGD： 有4096个页表项（PGD [31:20]，2^12），每个页表项4字节，一共16KB。 二级页表PTE：一共4096个PTE页表，每个二级页表包含256个页表项（PTE[19:12]，2^8），大小为1KB（256_4字节），所有的二级页表大小一共是4K_1KB=4MB。 一个进程需要4MB+16KB的内存来存储页表。一个页表中有多少个页表项，根据当前PGD/PTE等的位数来决定。</p>
 <p>根据linux内核局部性原理，不是所有的地址空间都需要映射到物理内存，所以二级页表实际的页表占用内存大小为（16KB+1KB_n）_m，其中n表示PTE页表的个数，m表示进程的数目。 因此对比一级页表，一个进程最少需要4MB的空间，而二级页表最少需要17KB的空间。</p>
 <h4 id="_6">五级页表</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_6faf2f34f2784278532987ef3173b84b.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_6faf2f34f2784278532987ef3173b84b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_6faf2f34f2784278532987ef3173b84b.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_6faf2f34f2784278532987ef3173b84b.jpg"/></a></p>
 <ul>
 <li>PGD: page global directory，页全局目录，用于索引L2的表项，512个表项。</li>
 <li>P4D: page four directory，页四级目录，用于索引L3的表项，512个表项，一个表项512G寻址范围。</li>
@@ -78,34 +78,34 @@
 <li>PMD:page middle directory，页中间目录，用于索引L5的表现，512个表项，一个表项2M寻址范围。</li>
 <li>PT:page table，直接页表，用于获取PFN的表项，512个表项，1个表项4K寻址范围。 linux 4.11之后，页表拓展到5级，在页全局目录和页上级目录之间增加了页四级目录。各个处理器架构可以选择5级、4级、3级、2级。页表级数越多，存储空间越小，主要是利用了内存管理的局部性原理，但是相应的硬件结构越复杂，访问的速度也会降低。针对访问速度的问题，CPU试图通过以下两种方法加速其转换过程。 （1）CPU中有一个专门的部分MMU（Memory Management Unit，内存管理单元），该单元优化了内存访问的操作。（通过硬件来负责转化，所有的页表都是存储在物理内存中，由软件按照要求先填写好，然后给一级页表的起始地址给TTBRx，后续虚拟地址到物理地址的转换就由MMU自动完成） （2）地址转换中出现最频繁的那些地址，保存到地址转换缓冲器中（TLB，Translation Lookaside Buffer），下次访问直接从缓存器中获得地址数据，不在进行地址转换。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_98b1add5a70942b9dbc3563c420fb158.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_98b1add5a70942b9dbc3563c420fb158.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_98b1add5a70942b9dbc3563c420fb158.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_98b1add5a70942b9dbc3563c420fb158.jpg"/></a></p>
 <h4 id="_7">块页表</h4>
 <p>上两小结描述都是页表类型的页表项，映射的页面大小一般为4KB。还有一种块类型的页表项，映射的范围大块内存，块类型的页表项包含的是大块物理内存的基地址，如1GB,2MB等大块内存。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_867aa458fa3b3039077dfe04369b0f6c.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_867aa458fa3b3039077dfe04369b0f6c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_867aa458fa3b3039077dfe04369b0f6c.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_867aa458fa3b3039077dfe04369b0f6c.jpg"/></a></p>
 <p>如上图，PMD已经为子页表项，没有PT页表,PMD页表项中存储的就是PFN，只不过这种类型的PFN页面大小是2M，相对于4KB的页面大小，这种页面粒度较大。在系统刚初始化时，会使用这种粗粒度的方式，而最终正常运行时会使用小粒度，毕竟如果时粗粒度，每次分配的最小单元时2M，内存就会浪费。</p>
 <h2 id="risc-v-mmu">RISC-V MMU</h2>
 <p>RISC-V的MMU，功能主要有：地址转换、页面保护、页面属性管理。 - 地址转换：将虚拟地址转换位物理地址 - 页面保护：通过对页面的访问者读写执行权限检查来进行保护 - 页面属性管理：扩展地址属性位，根据访问地址，获取原页面对应的属性，提供系统进一步使用。 在RISC-V体系结构中，根据处理器虚拟地址的位宽，提供了多种地址转换机制。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_095137f821d143420b11882b4490987a.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_095137f821d143420b11882b4490987a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_095137f821d143420b11882b4490987a.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_095137f821d143420b11882b4490987a.jpg"/></a></p>
 <h3 id="satp">SATP地址转化寄存器</h3>
 <p>在RISC-V中有一个重要的SATP( Supervisor Address Translation and Protection Register)寄存器，称为MMU地址转换寄存器，一级页表的地址从该寄存器中获取得到，寄存器如下图：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_b3fea3814a22e5c5a5aaf1e00c756db0.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_b3fea3814a22e5c5a5aaf1e00c756db0.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_b3fea3814a22e5c5a5aaf1e00c756db0.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_b3fea3814a22e5c5a5aaf1e00c756db0.jpg"/></a></p>
 <ul>
 <li>PPN:存储了第一级页表基地址的页帧号，页表物理地址=PPN*PAGE SIZE。</li>
 <li>ASID:进程地址空间标识符，用于优化TLB的。</li>
 <li>MODE：用来选择地址转换的模式，多少级页表，如下图所示，当mode=9时，位Sv48模式。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_6931e55ed595b0ceac02a3d835e650bb.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_6931e55ed595b0ceac02a3d835e650bb.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_6931e55ed595b0ceac02a3d835e650bb.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_6931e55ed595b0ceac02a3d835e650bb.jpg"/></a></p>
 <h3 id="sv39">Sv39类型页表</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_8164904350fa5f01033697a28cbd0f9f.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_8164904350fa5f01033697a28cbd0f9f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_8164904350fa5f01033697a28cbd0f9f.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_8164904350fa5f01033697a28cbd0f9f.jpg"/></a></p>
 <p>页表的大小为4KB，Sv39页表包含了512个（2^9）页表项（PTEs），每个页表项8个字节（64 bit）。因为页表大小正好是4KB，所以要获取页表的地址只有获取到PPN就行，而根页表的PPN（ physical page number）存储在satp寄存器的PPN域。 页表项的格式如上图4.21所示，[9:0]用于描述页表项的属性。 - V：指示页表项是否有效，0表示无效，1表示有效。 - R：指示页表项对应页面可读权限，0表示不可读，1表示可读。 - W：页面的可写权限 - X：页面的可执行权限 - U：用户模式下的访问权限 - G：全局映射，用于TLB。 - A：处理器是否访问过页面 - D：脏页，是否被修改过。 - RSW：预留给管理员使用。 - PPN[2]:PPN[0]:下一级页表或物理地址的页帧号。 - PBMT:映射页面的内存属性，0-无；1-普通内存；2-I/O内存；3-保留。 页表项类型分为非子叶页表类型和子叶页表类型，非子叶页表类型表示指向的是下一级页表，对应页表属性值[3:1]XWR为0；子叶页表类型表示指向的是实际的物理内存，对应页表属性值[3:1]XWR不为0；</p>
 <h3 id="sv39_1">Sv39地址转化过程</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_a4001e2335af589368e8879b5590d3a7.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_a4001e2335af589368e8879b5590d3a7.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_a4001e2335af589368e8879b5590d3a7.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_a4001e2335af589368e8879b5590d3a7.jpg"/></a></p>
 <p>（1）根据SATP.PPN获取到一级页表的基地址。 （2）根据PGD[38:30]的值定位到表项index，计算出目标表项的物理地址。 （3）获取一级页表中的目标表项的值，判断[9:0]相关权限属性，若都合法取出PPN[2]:PPN[0]即为二级页表的物理基地址。 （4）根据PMD[29:21]获取到第三级页表的物理基地址。 （5）根据PT[20:12]查询在第三级页表项中获取到最终的PFN。 （6）最终的物理地址PFN&lt;&lt;12 | Offset。</p>
 <p>上面的整个过程软件只需要填充好各级页表，并将根目录页表写到satp中。整个翻译过程由硬件MMU自动完成，下图是硬件实现结构图。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_f563c24a349e43ed84fa569a6d63ac6f.jpg"><img alt="" src="../assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_f563c24a349e43ed84fa569a6d63ac6f.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_f563c24a349e43ed84fa569a6d63ac6f.jpg"><img alt="" src="assets/doc/02-risc-v/三、虚拟地址与物理地址概念/images/wp_editor_md_f563c24a349e43ed84fa569a6d63ac6f.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="../使能mmu.html">← 使能MMU</a>
-    <a class="next" href="../linux系统risc-v架构启动流程分析之概述.html">Linux系统RISC-V架构启动流程分析之概述 →</a>
+    <a class="prev" href="../note_page/使能mmu.html">← 使能MMU</a>
+    <a class="next" href="../note_page/linux系统risc-v架构启动流程分析之概述.html">Linux系统RISC-V架构启动流程分析之概述 →</a>
   </div>
 </article>
 
@@ -120,7 +120,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 

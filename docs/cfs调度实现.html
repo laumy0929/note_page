@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CFS调度实现 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -96,7 +96,7 @@
 <p>schduer_tick最终会update_curr来个更新当前进程的相关时间信息，包括进程实际运行的时间runtime，虚拟时间vruntime一级min_vruntime。</p>
 <h3 id="ideal_runtime">ideal_runtime</h3>
 <p>在Linux系统中，为了保证每个进程在一段时间内至少能够运行的机会，系统使用sched_period来表示系统周期，也就是将时间划分成n个sched_period，通常值时6ms，用户可以进行修改。而在这个period周期内，根据各进程的权重来进行瓜分。   Idea_runtime表示每个进程在这个period周期内，可以调度的执行的最长时间，但并不是累计值，比如在period=15ms，进程A的ideal_runtime=6ms，当进程A运行了4ms由于等待某个资源让出了调度，后续获得资源继续运行并不是说进程A只能再运行2ms了，而是运行不超过6ms就行，也就是说ideal_runtime限制的是每次运行不超过的时间，并不算累计值。   在计算ideal_runtime的时候，需要考虑当前进程是否处于任务组内，处于任务组内的进程ideal_runtime相当于是在组内进行按权重划分。在引入任务组后，进程的组织方式可以按照层次来划分，调度实体分为任务调度实体和组调度实体，当然都是使用struct sched_entity来描述。按照层次来划分后，无论调度实体处理哪一个层次，其调度实体ideal_runtime的时间在其平行层次的树中按比例来计算获取，可以简计为   A.ideal_runtime = A.weight / cfs_rqX.load，其中cfs_rqX.load为调度实体所处层级所有进程权重之和。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8394a28d228bf21f49758af95b477365.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_8394a28d228bf21f49758af95b477365.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8394a28d228bf21f49758af95b477365.jpg"><img alt="" src="assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_8394a28d228bf21f49758af95b477365.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="n">tse</span><span class="p">.</span><span class="n">ideal_runtime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tse</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">cfs_rq</span><span class="p">.</span><span class="n">load</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tse</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">tse</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">gse</span><span class="p">.</span><span class="n">weight</span><span class="p">)</span><span class="err">。</span>
 
 <span class="n">tse3</span><span class="p">.</span><span class="n">ideal_runtime</span><span class="o">=</span><span class="w"> </span><span class="n">gse2</span><span class="p">.</span><span class="n">ideal_runtime</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">tse3</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">cfs_rq2</span><span class="p">.</span><span class="n">load</span>
@@ -164,12 +164,12 @@
 <span class="p">}</span>
 </code></pre></div>
 <h2 id="_2">任务创建</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f9b19f68e9ad6ee401fc6020695eb40d.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_f9b19f68e9ad6ee401fc6020695eb40d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f9b19f68e9ad6ee401fc6020695eb40d.jpg"><img alt="" src="assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_f9b19f68e9ad6ee401fc6020695eb40d.jpg"/></a></p>
 <h2 id="_3">任务出入列</h2>
 <h3 id="_4">入就绪队列</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_08781ac4424e92548592fb3d9d53a96b.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_08781ac4424e92548592fb3d9d53a96b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_08781ac4424e92548592fb3d9d53a96b.jpg"><img alt="" src="assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_08781ac4424e92548592fb3d9d53a96b.jpg"/></a></p>
 <h3 id="_5">出就绪队列</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_185c9d02c704f8b3d1572c005e7ebfb8.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_185c9d02c704f8b3d1572c005e7ebfb8.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_185c9d02c704f8b3d1572c005e7ebfb8.jpg"><img alt="" src="assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_185c9d02c704f8b3d1572c005e7ebfb8.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">dequeue_task_fair</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">rq</span><span class="w"> </span><span class="o">*</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">task_struct</span><span class="w"> </span><span class="o">*</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">flags</span><span class="p">)</span>
 <span class="p">{</span>
 <span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="p">;</span>
@@ -242,8 +242,8 @@
 <span class="p">}</span>
 </code></pre></div>
 <h2 id="_6">任务选择</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_d14865d21a77bad52444f698de0083c5.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_d14865d21a77bad52444f698de0083c5.jpg"/></a></p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a63fdfec9aa4c67d50a7cf196edcfed9.jpg"><img alt="" src="../assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_a63fdfec9aa4c67d50a7cf196edcfed9.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_d14865d21a77bad52444f698de0083c5.jpg"><img alt="" src="assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_d14865d21a77bad52444f698de0083c5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a63fdfec9aa4c67d50a7cf196edcfed9.jpg"><img alt="" src="assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_a63fdfec9aa4c67d50a7cf196edcfed9.jpg"/></a></p>
 <h3 id="cfscfs">开启CFS组调度且被抢占的任务是CFS类</h3>
 <div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">task_struct</span><span class="w"> </span><span class="o">*</span>
 <span class="n">pick_next_task_fair</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">rq</span><span class="w"> </span><span class="o">*</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">task_struct</span><span class="w"> </span><span class="o">*</span><span class="n">prev</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">rq_flags</span><span class="w"> </span><span class="o">*</span><span class="n">rf</span><span class="p">)</span>
@@ -408,8 +408,8 @@
 <h2 id="_9">任务切换</h2>
 <p>参考： <a href="https://heapdump.cn/article/2730937">https://heapdump.cn/article/2730937</a></p></div>
   <div class="post-nav">
-    <a class="prev" href="../负载均衡之负载跟踪.html">← 负载均衡之负载跟踪</a>
-    <a class="next" href="../cfs分组调度.html">CFS分组调度 →</a>
+    <a class="prev" href="../note_page/负载均衡之负载跟踪.html">← 负载均衡之负载跟踪</a>
+    <a class="next" href="../note_page/cfs分组调度.html">CFS分组调度 →</a>
   </div>
 </article>
 
@@ -424,7 +424,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="../note_page/assets/site.js"></script>
   </body>
   </html>
 
