@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>workqueue - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -689,8 +689,8 @@
 <p>线程池将进行动态的增减管理worker，当创一个新的wq后，线程池至少会创建一个worker，该worker会挂到pool-&gt;idle_list链表上，当用户调用queue_work或者有另外一个worker处理work导致进入休眠将会触发worker从idle转到running状态进行处理work，当worker从idle进入running中状态时检查是否还有剩余的worker，如果没有了需要动态再创建要给worker，以备后续其他work的运行。处于running状态的worker如果在执行work回调函数时遇到阻塞该worker将进入到休眠状态，唤醒后再次返回到运行状态。当worker处理完线程池pool-&gt;worklist上的所有work时将会进入到idle状态，后台会有一个定时器检查处于idle状态的worker，如果大于1个就进行销毁。 下面是running-&gt;sleep触发另外一个worker运行和worker销毁的流程。</p>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_35b1f784722e9865850a7109043de85d.jpg"><img alt="" src="assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_35b1f784722e9865850a7109043de85d.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="../中断小结.html">← 中断小结</a>
-    <a class="next" href="../软中断和tasklet.html">软中断和tasklet →</a>
+    <a class="prev" href="中断小结.html">← 中断小结</a>
+    <a class="next" href="软中断和tasklet.html">软中断和tasklet →</a>
   </div>
 </article>
 
@@ -705,7 +705,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="assets/site.js"></script>
   </body>
   </html>
 
