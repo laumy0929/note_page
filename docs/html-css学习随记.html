@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HTML+CSS学习随记 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#html">HTML基本结构</a><ul><li><a href="#1">示例1</a></li><li><a href="#2">示例2</a></li></ul></li><li><a href="#html_1">HTML简单入门</a><ul></ul></li><li><a href="#_1">重要概念</a><ul><li><a href="#_2">标签</a></li><li><a href="#_3">标签属性</a></li><li><a href="#_4">元素</a></li></ul></li><li><a href="#_5">乱码问题解决</a><ul></ul></li><li><a href="#_6">常用标签</a><ul><li><a href="#_7">标题标签</a></li><li><a href="#_8">段落标签</a></li><li><a href="#_9">图片标签</a></li><li><a href="#_10">链接标签</a></li><li><a href="#_11">列表标签</a></li><li><a href="#_14">布局标签</a></li></ul></li><li><a href="#_15">常用元素</a><ul><li><a href="#_16">块级元素</a></li><li><a href="#_17">行内元素</a></li></ul></li><li><a href="#css">CSS</a><ul><li><a href="#css_1">CSS的三种方式</a></li><li><a href="#css_2">CSS选择器</a></li><li><a href="#css_3">CSS文本样式</a></li><li><a href="#css_4">CSS盒子模型</a></li><li><a href="#css_5">CSS总结</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>HTML+CSS学习随记</h1>
+  <div class="meta">2024-03-17 · 语言</div>
+  <div class="post-content"><h2 id="html">HTML基本结构</h2>
+<h3 id="1">示例1</h3>
+<div class="codehilite"><pre><span></span><code><span class="cp">&lt;!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\"&gt;</span>
+
+1.这是 HTML 4.01 的文档类型声明，表示该文档遵循 HTML 4.01 标准。它告知浏览器页面的解析方式
+
+<span class="p">&lt;</span><span class="nt">html</span> <span class="na">lang</span><span class="o">=</span><span class="s">\"zh\"</span><span class="p">&gt;</span>
+2.指定文档的主要语言是中文。lang=\"zh\" 对 SEO 和屏幕阅读器有帮助。
+
+3.head部分包含文档的元数据（metadata），如文档字符编码、标题、样式表和脚本等。这部分不会直接显示在网页上，但它影响页面的显示方式和功能。
+<span class="p">&lt;</span><span class="nt">head</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">meta</span> <span class="na">http-equiv</span><span class="o">=</span><span class="s">\"Content-Type\"</span> <span class="na">content</span><span class="o">=</span><span class="s">\"text/html;</span> <span class="na">charset</span><span class="o">=</span><span class="s">UTF-8\"</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">meta</span> <span class="na">name</span><span class="o">=</span><span class="s">\"viewport\"</span> <span class="na">content</span><span class="o">=</span><span class="s">\"width=device-width,</span> <span class="na">initial-scale</span><span class="o">=</span><span class="s">1.0\"</span><span class="p">&gt;</span>
+    3.1 meta标签：用于定义页面的字符集、视口设置、作者信息等。
+    <span class="p">&lt;</span><span class="nt">title</span><span class="p">&gt;</span>网页标题<span class="p">&lt;/</span><span class="nt">title</span><span class="p">&gt;</span>
+    3.2 title标签：设置网页的标题，显示在浏览器的标签栏中。
+    <span class="p">&lt;</span><span class="nt">link</span> <span class="na">rel</span><span class="o">=</span><span class="s">\"stylesheet\"</span> <span class="na">type</span><span class="o">=</span><span class="s">\"text/css\"</span> <span class="na">href</span><span class="o">=</span><span class="s">\"styles.css\"</span><span class="p">&gt;</span>，这种方式是
+    使用的包含外部样式，还可以使用在 <span class="p">&lt;</span><span class="nt">head</span><span class="p">&gt;</span> 中使用 <span class="p">&lt;</span><span class="nt">style</span><span class="p">&gt;</span><span class="w"> </span><span class="nt">标签来包含内部样式</span><span class="err">。</span>
+    3.3 link标签：用于链接外部资源，如 CSS 样式表。
+    <span class="p">&lt;</span><span class="nt">script</span> <span class="na">type</span><span class="o">=</span><span class="s">\"text/javascript\"</span> <span class="na">src</span><span class="o">=</span><span class="s">\"script.js\"</span><span class="p">&gt;&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
+    3.4 script标签：引入外部 JavaScript 文件，或内嵌 JavaScript 代码。
+<span class="p">&lt;/</span><span class="nt">head</span><span class="p">&gt;</span>
+
+4. body部分包含了网页的实际内容，如文本、图片、链接等。所有用户在浏览器中看到的内容都位于body标签内。
+<span class="p">&lt;</span><span class="nt">body</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">div</span> <span class="na">id</span><span class="o">=</span><span class="s">\"header\"</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">h1</span><span class="p">&gt;</span>欢迎访问我的网页<span class="p">&lt;/</span><span class="nt">h1</span><span class="p">&gt;</span>
+    <span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+    4.1 div标签：用于定义网页的不同区域。虽然 HTML4中没有HTML5 的语义化标签（如 <span class="p">&lt;</span><span class="nt">header</span><span class="p">&gt;</span>, <span class="p">&lt;</span><span class="nt">footer</span><span class="p">&gt;</span> 等），但<span class="p">&lt;</span><span class="nt">div</span><span class="p">&gt;</span>是常用的布局元素。
+    4.2 h标签：定义标题，<span class="p">&lt;</span><span class="nt">h1</span><span class="p">&gt;</span> 是最高级别的标题，数字越大，标题级别越低。对于页面结构和 SEO 来说，合理使用这些标签有助于提高页面的可读性和搜索引擎的抓取。
+    <span class="p">&lt;</span><span class="nt">div</span> <span class="na">id</span><span class="o">=</span><span class="s">\"nav\"</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">ul</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">li</span><span class="p">&gt;&lt;</span><span class="nt">a</span> <span class="na">href</span><span class="o">=</span><span class="s">\"#home\"</span><span class="p">&gt;</span>首页<span class="p">&lt;/</span><span class="nt">a</span><span class="p">&gt;&lt;/</span><span class="nt">li</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">li</span><span class="p">&gt;&lt;</span><span class="nt">a</span> <span class="na">href</span><span class="o">=</span><span class="s">\"#about\"</span><span class="p">&gt;</span>关于<span class="p">&lt;/</span><span class="nt">a</span><span class="p">&gt;&lt;/</span><span class="nt">li</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">li</span><span class="p">&gt;&lt;</span><span class="nt">a</span> <span class="na">href</span><span class="o">=</span><span class="s">\"#services\"</span><span class="p">&gt;</span>服务<span class="p">&lt;/</span><span class="nt">a</span><span class="p">&gt;&lt;/</span><span class="nt">li</span><span class="p">&gt;</span>
+        <span class="p">&lt;/</span><span class="nt">ul</span><span class="p">&gt;</span>
+    <span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+    4.3 ul标签：表示无序列表，<span class="p">&lt;</span><span class="nt">li</span><span class="p">&gt;</span> 表示列表项。在HTML4中，常常使用这种方式来创建导航菜单。
+    <span class="p">&lt;</span><span class="nt">div</span> <span class="na">id</span><span class="o">=</span><span class="s">\"content\"</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;</span>这是网页的主体内容。<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
+    <span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+    4.4 p标签：定义段落，通常用于包含一段文本。
+    <span class="p">&lt;</span><span class="nt">div</span> <span class="na">id</span><span class="o">=</span><span class="s">\"footer\"</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;</span>© 2024 我的公司<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
+    <span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">body</span><span class="p">&gt;</span>
+5. 属性：在标签里面的如name,id,src，href这些都是标签的属性。属性是附加在 HTML 元素上的信息，用于修改或指定元素的行为和外观。属性总是写在开始标签内，并且以键值对的形式存在。属性可以控制元素的某些特性（如样式、链接、身份、动作等）。
+
+6. 标签和元素的概念与区别
+6.1 标签是是 HTML 语法中用于定义元素的标记，通常由尖括号包围，并且具有起始标签和结束标签。标签是构成HTML元素的基本单元。
+6.2 元素是由标签、内容、以及可能的属性组成的完整结构。可以认为，标签是元素的一部分，元素包括了标签本身以及它的内容和属性。
+<span class="p">&lt;/</span><span class="nt">html</span><span class="p">&gt;</span>
+</code></pre></div>
+<p>主要构成有：</p>
+<ul>
+<li>文档类型声明!DOCTYPE&gt;</li>
+<li>HTML根元html</li>
+<li>头部head： 包含页面的元数据，例如字符编码、页面标题、样式等。</li>
+<li>主体body：包含网页的实际内容和展示。</li>
+</ul>
+<p>在HTML网页制作中，CSS和JS有着重要的作用。</p>
+<ul>
+<li>CSS主要用于网页的 样式设计 和 布局控制。通过 CSS，开发者可以控制网页的外观，包括字体、颜色、尺寸、位置、布局等。</li>
+<li>JavaScript 是一种 编程语言，主要用于网页的 交互功能 和 动态效果。它使得网页能够响应用户的操作，实现动态内容、表单验证、动画效果等。</li>
+</ul>
+<p>对于CSS 引入有以下3中方法：</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">-</span><span class="w"> </span><span class="nt">内联样式</span><span class="err">：</span><span class="o">&lt;</span><span class="nt">p</span><span class="w"> </span><span class="nt">style</span><span class="o">=</span><span class="err">\"</span><span class="nt">color</span><span class="p">:</span><span class="nd">red</span><span class="o">;</span><span class="err">\"</span><span class="o">&gt;</span>
+<span class="nt">-</span><span class="w"> </span><span class="nt">内嵌样式</span><span class="err">：</span><span class="o">&lt;</span><span class="nt">style</span><span class="o">&gt;</span><span class="w"> </span><span class="nt">标签放在</span><span class="w"> </span><span class="o">&lt;</span><span class="nt">head</span><span class="o">&gt;</span><span class="w"> </span><span class="nt">中</span>
+<span class="nt">-</span><span class="w"> </span><span class="nt">外部样式</span><span class="err">：</span><span class="nt">使用</span><span class="w"> </span><span class="o">&lt;</span><span class="nt">link</span><span class="o">&gt;</span><span class="w"> </span><span class="nt">标签引入</span><span class="w"> </span><span class="p">.</span><span class="nc">css</span><span class="w"> </span><span class="nt">文件</span>
+</code></pre></div>
+<p>对于JavaScript 引入，有以下3中方法：</p>
+<div class="codehilite"><pre><span></span><code>-<span class="w"> </span>内联<span class="w"> </span>JavaScript：直接写在<span class="w"> </span>HTML<span class="w"> </span>标签事件中（如<span class="w"> </span>onclick）
+-<span class="w"> </span>内嵌<span class="w"> </span>JavaScript：<span class="nt">&lt;script&gt;</span><span class="w"> </span>标签放在<span class="w"> </span><span class="nt">&lt;head&gt;</span><span class="w"> </span>或<span class="w"> </span><span class="nt">&lt;body&gt;</span><span class="w"> </span>中
+-<span class="w"> </span>外部<span class="w"> </span>JavaScript：使用<span class="w"> </span><span class="nt">&lt;script</span><span class="w"> </span><span class="na">src=</span><span class="s">\"script.js\"</span><span class="nt">&gt;&lt;/script&gt;</span><span class="w"> </span>引入外部<span class="w"> </span>.js<span class="w"> </span>文件
+</code></pre></div>
+<h3 id="2">示例2</h3>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="err">!</span><span class="n">DOCTYPE</span><span class="w"> </span><span class="n">html</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">html</span><span class="w"> </span><span class="n">lang</span><span class="o">=</span><span class="w">\</span><span class="s2">"en</span><span class="se">\"</span><span class="s2">&gt;</span>
+<span class="o">&lt;</span><span class="n">head</span><span class="o">&gt;</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="n">meta</span><span class="w"> </span><span class="n">charset</span><span class="o">=</span><span class="w">\</span><span class="s2">"UTF-8</span><span class="se">\"</span><span class="s2">&gt;</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="n">meta</span><span class="w"> </span><span class="n">name</span><span class="o">=</span><span class="w">\</span><span class="s2">"viewport</span><span class="se">\"</span><span class="s2"> content=</span><span class="se">\"</span><span class="s2">width=device-width, initial-scale=1.0</span><span class="se">\"</span><span class="s2">&gt;</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="n">title</span><span class="o">&gt;</span><span class="n">HTML4</span><span class="w"> </span><span class="n">示例页面</span><span class="o">&lt;/</span><span class="n">title</span><span class="o">&gt;</span>
+
+<span class="w">    </span><span class="o">&lt;</span><span class="err">!</span><span class="o">--</span><span class="w"> </span><span class="n">内部CSS样式</span><span class="w"> </span><span class="o">--&gt;</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="n">style</span><span class="o">&gt;</span>
+<span class="w">        </span><span class="n">body</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">font</span><span class="o">-</span><span class="n">family</span><span class="p">:</span><span class="w"> </span><span class="n">Arial</span><span class="p">,</span><span class="w"> </span><span class="n">sans</span><span class="o">-</span><span class="n">serif</span><span class="p">;</span>
+<span class="w">            </span><span class="n">background</span><span class="o">-</span><span class="n">color</span><span class="p">:</span><span class="w"> </span><span class="c1">#f4f4f4;</span>
+<span class="w">            </span><span class="n">margin</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">            </span><span class="n">padding</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="n">header</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">background</span><span class="o">-</span><span class="n">color</span><span class="p">:</span><span class="w"> </span><span class="c1">#333;</span>
+<span class="w">            </span><span class="n">color</span><span class="p">:</span><span class="w"> </span><span class="n">white</span><span class="p">;</span>
+<span class="w">            </span><span class="n">text</span><span class="o">-</span><span class="n">align</span><span class="p">:</span><span class="w"> </span><span class="n">center</span><span class="p">;</span>
+<span class="w">            </span><span class="n">padding</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="n">px</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="n">h1</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">font</span><span class="o">-</span><span class="n">size</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="n">em</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="o">.</span><span class="n">container</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">width</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="o">%</span><span class="p">;</span>
+<span class="w">            </span><span class="n">margin</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="n">auto</span><span class="p">;</span>
+<span class="w">            </span><span class="n">padding</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="n">px</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="n">p</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">font</span><span class="o">-</span><span class="n">size</span><span class="p">:</span><span class="w"> </span><span class="mf">1.2</span><span class="n">em</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="o">/*</span><span class="w"> </span><span class="n">外部CSS样式的链接</span><span class="w"> </span><span class="o">*/</span>
+<span class="w">        </span><span class="nd">@import</span><span class="w"> </span><span class="n">url</span><span class="p">(</span><span class="w">\</span><span class="s1">'styles.css</span><span class="se">\'</span><span class="s1">);</span>
+<span class="w">    </span><span class="o">&lt;/</span><span class="n">style</span><span class="o">&gt;</span>
+
+<span class="w">    </span><span class="o">&lt;</span><span class="err">!</span><span class="o">--</span><span class="w"> </span><span class="n">引入外部JavaScript文件</span><span class="w"> </span><span class="o">--&gt;</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="n">script</span><span class="w"> </span><span class="n">src</span><span class="o">=</span><span class="w">\</span><span class="s2">"scripts.js</span><span class="se">\"</span><span class="s2"> type=</span><span class="se">\"</span><span class="s2">text/javascript</span><span class="se">\"</span><span class="s2">&gt;&lt;/script&gt;</span>
+<span class="o">&lt;/</span><span class="n">head</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">body</span><span class="o">&gt;</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="n">header</span><span class="o">&gt;</span>
+<span class="w">        </span><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">HTML4</span><span class="w"> </span><span class="n">示例页面</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
+<span class="w">    </span><span class="o">&lt;/</span><span class="n">header</span><span class="o">&gt;</span>
+
+<span class="w">    </span><span class="o">&lt;</span><span class="n">div</span><span class="w"> </span><span class="n">class</span><span class="o">=</span><span class="w">\</span><span class="s2">"container</span><span class="se">\"</span><span class="s2">&gt;</span>
+<span class="w">        </span><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">欢迎来到我的网站</span><span class="err">！</span><span class="n">这是一个简单的</span><span class="w"> </span><span class="n">HTML4</span><span class="w"> </span><span class="n">示例页面</span><span class="err">。</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="w">        </span><span class="o">&lt;</span><span class="err">!</span><span class="o">--</span><span class="w"> </span><span class="n">有序列表</span><span class="w"> </span><span class="o">--&gt;</span>
+<span class="w">        </span><span class="o">&lt;</span><span class="n">ol</span><span class="o">&gt;</span>
+<span class="w">            </span><span class="o">&lt;</span><span class="n">li</span><span class="o">&gt;</span><span class="n">第一个项目</span><span class="o">&lt;/</span><span class="n">li</span><span class="o">&gt;</span>
+<span class="w">            </span><span class="o">&lt;</span><span class="n">li</span><span class="o">&gt;</span><span class="n">第二个项目</span><span class="o">&lt;/</span><span class="n">li</span><span class="o">&gt;</span>
+<span class="w">            </span><span class="o">&lt;</span><span class="n">li</span><span class="o">&gt;</span><span class="n">第三个项目</span><span class="o">&lt;/</span><span class="n">li</span><span class="o">&gt;</span>
+<span class="w">        </span><span class="o">&lt;/</span><span class="n">ol</span><span class="o">&gt;</span>
+
+<span class="w">        </span><span class="o">&lt;</span><span class="err">!</span><span class="o">--</span><span class="w"> </span><span class="n">表单</span><span class="w"> </span><span class="o">--&gt;</span>
+<span class="w">        </span><span class="o">&lt;</span><span class="n">form</span><span class="w"> </span><span class="n">action</span><span class="o">=</span><span class="w">\</span><span class="s2">"submit_form.php</span><span class="se">\"</span><span class="s2"> method=</span><span class="se">\"</span><span class="s2">post</span><span class="se">\"</span><span class="s2">&gt;</span>
+<span class="w">            </span><span class="o">&lt;</span><span class="n">label</span><span class="w"> </span><span class="k">for</span><span class="o">=</span><span class="w">\</span><span class="s2">"name</span><span class="se">\"</span><span class="s2">&gt;名字：&lt;/label&gt;</span>
+<span class="w">            </span><span class="o">&lt;</span><span class="nb">input</span><span class="w"> </span><span class="nb">type</span><span class="o">=</span><span class="w">\</span><span class="s2">"text</span><span class="se">\"</span><span class="s2"> id=</span><span class="se">\"</span><span class="s2">name</span><span class="se">\"</span><span class="s2"> name=</span><span class="se">\"</span><span class="s2">name</span><span class="se">\"</span><span class="s2"> required&gt;</span>
+<span class="w">            </span><span class="o">&lt;</span><span class="n">br</span><span class="o">&gt;&lt;</span><span class="n">br</span><span class="o">&gt;</span>
+<span class="w">            </span><span class="o">&lt;</span><span class="n">label</span><span class="w"> </span><span class="k">for</span><span class="o">=</span><span class="w">\</span><span class="s2">"email</span><span class="se">\"</span><span class="s2">&gt;邮箱：&lt;/label&gt;</span>
+<span class="w">            </span><span class="o">&lt;</span><span class="nb">input</span><span class="w"> </span><span class="nb">type</span><span class="o">=</span><span class="w">\</span><span class="s2">"email</span><span class="se">\"</span><span class="s2"> id=</span><span class="se">\"</span><span class="s2">email</span><span class="se">\"</span><span class="s2"> name=</span><span class="se">\"</span><span class="s2">email</span><span class="se">\"</span><span class="s2"> required&gt;</span>
+<span class="w">            </span><span class="o">&lt;</span><span class="n">br</span><span class="o">&gt;&lt;</span><span class="n">br</span><span class="o">&gt;</span>
+<span class="w">            </span><span class="o">&lt;</span><span class="n">button</span><span class="w"> </span><span class="nb">type</span><span class="o">=</span><span class="w">\</span><span class="s2">"submit</span><span class="se">\"</span><span class="s2">&gt;提交&lt;/button&gt;</span>
+<span class="w">        </span><span class="o">&lt;/</span><span class="n">form</span><span class="o">&gt;</span>
+
+<span class="w">        </span><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">这是一个链接</span><span class="err">：</span><span class="o">&lt;</span><span class="n">a</span><span class="w"> </span><span class="n">href</span><span class="o">=</span><span class="w">\</span><span class="s2">"https://www.example.com</span><span class="se">\"</span><span class="s2"> target=</span><span class="se">\"</span><span class="s2">_blank</span><span class="se">\"</span><span class="s2">&gt;访问 Example 网站&lt;/a&gt;&lt;/p&gt;</span>
+
+<span class="w">        </span><span class="o">&lt;</span><span class="err">!</span><span class="o">--</span><span class="w"> </span><span class="n">图片展示</span><span class="w"> </span><span class="o">--&gt;</span>
+<span class="w">        </span><span class="o">&lt;</span><span class="n">img</span><span class="w"> </span><span class="n">src</span><span class="o">=</span><span class="w">\</span><span class="s2">"example.jpg</span><span class="se">\"</span><span class="s2"> alt=</span><span class="se">\"</span><span class="s2">示例图片</span><span class="se">\"</span><span class="s2"> width=</span><span class="se">\"</span><span class="s2">300</span><span class="se">\"</span><span class="s2">&gt;</span>
+
+<span class="w">        </span><span class="o">&lt;</span><span class="n">button</span><span class="w"> </span><span class="n">onclick</span><span class="o">=</span><span class="w">\</span><span class="s2">"changeBackgroundColor()</span><span class="se">\"</span><span class="s2">&gt;点击我改变背景色&lt;/button&gt;</span>
+<span class="w">    </span><span class="o">&lt;/</span><span class="n">div</span><span class="o">&gt;</span>
+
+<span class="w">    </span><span class="o">&lt;</span><span class="n">script</span><span class="o">&gt;</span>
+<span class="w">        </span><span class="o">//</span><span class="w"> </span><span class="n">外部JavaScript文件会包含一些交互功能</span>
+<span class="w">        </span><span class="n">function</span><span class="w"> </span><span class="n">changeBackgroundColor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">document</span><span class="o">.</span><span class="n">body</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">backgroundColor</span><span class="w"> </span><span class="o">=</span><span class="w"> \</span><span class="s1">'#ffcccc</span><span class="se">\'</span><span class="s1">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="o">&lt;/</span><span class="n">script</span><span class="o">&gt;</span>
+<span class="o">&lt;/</span><span class="n">body</span><span class="o">&gt;</span>
+<span class="o">&lt;/</span><span class="n">html</span><span class="o">&gt;</span>
+</code></pre></div>
+<h2 id="html_1">HTML简单入门</h2>
+<p>超文本标记语言</p>
+<div class="codehilite"><pre><span></span><code><span class="mf">1.</span><span class="w"> </span><span class="n">标题</span>
+
+<span class="mf">1.1</span><span class="w"> </span><span class="n">一级标题</span>
+
+<span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="w"> </span><span class="n">xxxx</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="o">/</span><span class="n">h1</span><span class="o">&gt;</span>
+
+<span class="mf">1.2</span><span class="w"> </span><span class="n">二级标题</span>
+
+<span class="o">&lt;</span><span class="n">h2</span><span class="o">&gt;</span><span class="w"> </span><span class="n">xxxx</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="o">/</span><span class="n">h2</span><span class="o">&gt;</span>
+
+<span class="mf">2.</span><span class="n">段落</span>
+
+<span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="w"> </span><span class="n">xxxx</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="o">/</span><span class="n">p</span><span class="o">&gt;</span>
+
+<span class="mf">3.</span><span class="n">插入图片</span>
+
+<span class="n">绝对地址方式</span><span class="err">：</span><span class="o">&lt;</span><span class="n">img</span><span class="w"> </span><span class="n">src</span><span class="o">=</span><span class="err">\</span><span class="s">"路径/xxx.jpg</span><span class="se">\"</span><span class="s">&gt;  ---效率更高点</span>
+<span class="n">相对地址方式</span><span class="err">：</span><span class="o">&lt;</span><span class="n">img</span><span class="w"> </span><span class="n">src</span><span class="o">=</span><span class="err">\</span><span class="s">"路径/xxx.jpg</span><span class="se">\"</span><span class="s"> /&gt;</span>
+</code></pre></div>
+<h2 id="_1">重要概念</h2>
+<h3 id="_2">标签</h3>
+<p>从哪里开始，哪里结束</p>
+<div class="codehilite"><pre><span></span><code><span class="n">单标签</span><span class="err">：</span><span class="n">开始</span><span class="w"> </span><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="err">，</span><span class="w"> </span><span class="n">结束</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
+<span class="n">双标签</span><span class="err">：</span><span class="n">格式</span><span class="o">&lt;</span><span class="n">img</span><span class="w"> </span><span class="n">src</span><span class="o">=</span><span class="err">\</span><span class="s">"xxx/xxx.jpg</span><span class="se">\"</span><span class="s"> /&gt;, /结束标签</span>
+</code></pre></div>
+<h3 id="_3">标签属性</h3>
+<p>标签要设置的属性</p>
+<div class="codehilite"><pre><span></span><code><span class="n">标签属性</span><span class="err">：</span><span class="w">    </span><span class="o">&lt;</span><span class="n">img</span><span class="w"> </span><span class="n">src</span><span class="o">=</span><span class="err">\</span><span class="s">"xxx.jpg</span><span class="se">\"</span><span class="s"> /&gt;, src就是属性</span>
+<span class="n">id属性</span><span class="err">：</span><span class="w">     </span><span class="o">&lt;</span><span class="n">p</span><span class="w"> </span><span class="n">id</span><span class="o">=</span><span class="err">\</span><span class="s">"zansan</span><span class="se">\"</span><span class="s">&gt;,可用于区分这个标签与其他标签</span>
+<span class="n">class属性</span><span class="err">：</span><span class="w">  </span><span class="o">&lt;</span><span class="n">p</span><span class="w"> </span><span class="n">class</span><span class="o">=</span><span class="err">\</span><span class="s">"xxx</span><span class="se">\"</span><span class="s">&gt;,用于分类，常用CSS搭配使用。</span>
+<span class="n">title属性</span><span class="err">：</span><span class="w"> </span><span class="o">&lt;</span><span class="n">button</span><span class="w"> </span><span class="n">title</span><span class="o">=</span><span class="err">\</span><span class="s">"Click me</span><span class="se">\"</span><span class="s">&gt;Submit&lt;/button&gt; 描述了元素的额外信息 (作为工具条使用)</span>
+<span class="n">style属性</span><span class="err">：</span><span class="n">规定元素的行内样式</span><span class="err">（</span><span class="kr">inline</span><span class="w"> </span><span class="n">style</span><span class="err">）</span>
+</code></pre></div>
+<h3 id="_4">元素</h3>
+<p>由标签、内容、以及可能的属性组成的完整结构。可以认为，标签是元素的一部分，元素包括了标签本身以及它的内容和属性。元素以开始标签起始，结束标签终止。下面整个就是一个元素。</p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="w"> </span><span class="n">xxx</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="o">/</span><span class="n">h1</span><span class="o">&gt;</span>
+</code></pre></div>
+<h2 id="_5">乱码问题解决</h2>
+<p>编码、解码，网页乱码，查看文档源码乱码，UTF-8/ANSI/unicode,编码和解码格式要对应，否则显示异常,告诉浏览器当前使用的编码方式，如UTF-8。</p>
+<h2 id="_6">常用标签</h2>
+<p>不同的标签，属性不一样，但是有一些公共属性，如id，class。</p>
+<h3 id="_7">标题标签</h3>
+<p>下面是标题标签样式。</p>
+<div class="codehilite"><pre><span></span><code><span class="w">  </span><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">xxx</span><span class="o">&lt;</span><span class="w"> </span><span class="o">/</span><span class="n">h1</span><span class="o">&gt;</span>
+<span class="w">  </span><span class="o">&lt;</span><span class="n">h2</span><span class="o">&gt;</span><span class="n">xxx</span><span class="o">&lt;</span><span class="w"> </span><span class="o">/</span><span class="n">h2</span><span class="o">&gt;</span>
+<span class="w">  </span><span class="o">&lt;</span><span class="n">h3</span><span class="o">&gt;</span><span class="n">xxx</span><span class="o">&lt;</span><span class="w"> </span><span class="o">/</span><span class="n">h3</span><span class="o">&gt;</span>
+<span class="w">  </span><span class="o">&lt;</span><span class="n">h4</span><span class="o">&gt;</span><span class="n">xxx</span><span class="o">&lt;</span><span class="w"> </span><span class="o">/</span><span class="n">h4</span><span class="o">&gt;</span>
+<span class="w">  </span><span class="o">&lt;</span><span class="n">h5</span><span class="o">&gt;</span><span class="n">xxx</span><span class="o">&lt;</span><span class="w"> </span><span class="o">/</span><span class="n">h5</span><span class="o">&gt;</span>
+</code></pre></div>
+<h3 id="_8">段落标签</h3>
+<p>下面是段落标签</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;p&gt;</span><span class="w"> </span>xxx<span class="w"> </span><span class="nt">&lt;/p&gt;</span>
+</code></pre></div>
+<h3 id="_9">图片标签</h3>
+<div class="codehilite"><pre><span></span><code>&lt;img src=\"xxx\" alt=\"xxxx\"&gt;
+</code></pre></div>
+<p>alt表示图片无法显示时，就显示什么文字；另外作用还可以告诉搜索引擎，图片内容是什么。</p>
+<h3 id="_10">链接标签</h3>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;a</span><span class="w"> </span><span class="na">href=</span><span class="s">\"https://www.baidu.com\"</span><span class="nt">&gt;</span>百度<span class="nt">&lt;/a&gt;</span>
+</code></pre></div>
+<h3 id="_11">列表标签</h3>
+<h4 id="_12">有序列表</h4>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;ol&gt;</span>
+<span class="w">    </span><span class="nt">&lt;li&gt;</span><span class="w"> </span><span class="nt">&lt;/li&gt;</span>
+<span class="w">    </span><span class="nt">&lt;li&gt;</span><span class="w"> </span><span class="nt">&lt;/li&gt;</span>
+<span class="nt">&lt;/ol&gt;</span>
+</code></pre></div>
+<h4 id="_13">无序列表</h4>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;ul&gt;</span>
+<span class="w">    </span><span class="nt">&lt;li&gt;</span><span class="w"> </span><span class="nt">&lt;/li&gt;</span>
+<span class="nt">&lt;/ul&gt;</span>
+</code></pre></div>
+<h3 id="_14">布局标签</h3>
+<h4 id="div">div</h4>
+<p>div是一种块级元素（block-level element），用于对文档进行分组并添加样式或结构。div是“division”的缩写，表示页面中的一个逻辑分区或区域。它本身没有特定的语义含义，主要用于布局和样式设计。</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;div</span><span class="w"> </span><span class="na">id=</span><span class="s">\"container\"</span><span class="w"> </span><span class="na">style=</span><span class="s">\"width:500px\"</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;div</span><span class="w"> </span><span class="na">id=</span><span class="s">\"header1\"</span><span class="w"> </span><span class="na">style=</span><span class="s">\"background-color:#FDDDDD;\"</span><span class="nt">&gt;</span>
+<span class="w">        </span><span class="nt">&lt;p</span><span class="w"> </span><span class="na">style=</span><span class="s">\"margin-bottom:0;\"</span><span class="nt">&gt;</span>标题<span class="nt">&lt;/p&gt;</span>
+<span class="w">    </span><span class="nt">&lt;/div&gt;</span>
+<span class="w">    </span><span class="nt">&lt;div</span><span class="w"> </span><span class="na">id=</span><span class="s">\"menu\"</span><span class="w"> </span><span class="na">style=</span><span class="s">\"background-color:#AFD700;height:200px;width:100px;float:left;\"</span><span class="nt">&gt;</span>
+<span class="w">        </span><span class="nt">&lt;b&gt;</span>菜单<span class="nt">&lt;/b&gt;</span>
+<span class="w">    </span><span class="nt">&lt;/div&gt;</span>
+<span class="w">    </span><span class="nt">&lt;div</span><span class="w"> </span><span class="na">id=</span><span class="s">\"content\"</span><span class="w"> </span><span class="na">style=</span><span class="s">\"background-color:#EEEEEE;height:200px;width:400px;float:left;\"</span><span class="nt">&gt;</span>正文<span class="nt">&lt;/div&gt;</span>
+<span class="w">    </span><span class="nt">&lt;div</span><span class="w"> </span><span class="na">id=</span><span class="s">\"footer1\"</span><span class="w"> </span><span class="na">style=</span><span class="s">\"background-color:#FFA500;clear:both;text-align:center;\"</span><span class="nt">&gt;</span>Footer<span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+</code></pre></div>
+<p>示例效果如下： <a href="\" title="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_fd78c12748178efbf3a6f8d92d48ebba.jpg\"><img alt='\"\"' src="\" title="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_fd78c12748178efbf3a6f8d92d48ebba.jpg\"/></a></p>
+<h4 id="span">span</h4>
+<p>span标签是一种内联元素（inline element），用于对文档中的文本或部分内容进行分组，通常是为了应用样式或附加特定的属性。与 div 标签不同，span不会自动创建新的行，因此适合用于不影响文档流的情况下包裹文本或其他内联元素。</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;p&gt;</span>这是一个<span class="w"> </span>
+<span class="w">    </span><span class="nt">&lt;span</span><span class="w"> </span><span class="na">style=</span><span class="s">\"font-weight:bold\"</span><span class="nt">&gt;</span>网页<span class="nt">&lt;/span&gt;</span><span class="w"> </span>的<span class="w"> </span>
+<span class="w">    </span><span class="nt">&lt;span</span><span class="w"> </span><span class="na">style=</span><span class="s">\"font-style:italic\"</span><span class="nt">&gt;</span>测试<span class="nt">&lt;/span&gt;</span>，
+<span class="w">    </span>这是我的
+<span class="w">    </span><span class="nt">&lt;span</span><span class="w"> </span><span class="na">style=</span><span class="s">\"background-color:yellow\"</span><span class="nt">&gt;</span>博客<span class="nt">&lt;/span&gt;</span>
+<span class="w">    </span><span class="nt">&lt;a</span><span class="w"> </span><span class="na">href=</span><span class="s">\"https://www.laumy.tech\"</span><span class="nt">&gt;</span>
+<span class="w">        </span><span class="nt">&lt;span</span><span class="w"> </span><span class="na">style=</span><span class="s">\"color:red;</span><span class="w"> </span><span class="err">text-decoration:underline\"</span><span class="nt">&gt;</span>Laumy的技术栈<span class="nt">&lt;/span&gt;</span>
+<span class="w">    </span><span class="nt">&lt;/a&gt;</span>
+<span class="nt">&lt;/p&gt;</span>
+</code></pre></div>
+<p>示例如下： <a href="\" title="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_6bb3047c786723bba2d0fc3c51068fdb.jpg\"><img alt='\"\"' src="\" title="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_6bb3047c786723bba2d0fc3c51068fdb.jpg\"/></a></p>
+<h2 id="_15">常用元素</h2>
+<h3 id="_16">块级元素</h3>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;p&gt;</span>xxx<span class="nt">&lt;/p&gt;</span><span class="w"> </span>可以换行
+
+<span class="nt">&lt;div&gt;&lt;/div&gt;</span>
+</code></pre></div>
+<h3 id="_17">行内元素</h3>
+<div class="codehilite"><pre><span></span><code>&lt;strong&gt;xxx&lt;strong&gt;突出内容
+</code></pre></div>
+<p>注意的包含规则：</p>
+<ul>
+<li>
+<p>元素之间时可以相互嵌套</p>
+</li>
+<li>
+<p>块级元素可以包含其他的行内元素</p>
+</li>
+<li>
+<p>行内元素只能包含数据和其他行内元素</p>
+</li>
+<li>
+<p>p元素不要包含其他块级元素</p>
+</li>
+</ul>
+<p>参考：https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element</p>
+<h2 id="css">CSS</h2>
+<p>想要对某个内容做样式，就需要先找到着力点，也就是要先选中内容；若有块元素标签如p等，就可以在属性直接描述，要是没有的话就用span包起来。</p>
+<p>CSS的语法如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">选择器</span><span class="p">{</span>
+<span class="w">    </span><span class="err">属性名:</span><span class="w"> </span><span class="err">属性值</span><span class="p">;</span>
+<span class="w">    </span><span class="err">属性名:</span><span class="w"> </span><span class="err">属性值</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>选择器代表页面上的某类元素，选择器后一定是大括号。属性名后必须用冒号隔开，属性值后用分号（最后一个属性可以不用分号）。属性名和冒号之间最好不要有空格（经验）。如果一个属性有多个值的话，那么多个值用 空格 隔开。</p>
+<p>（1）用span标签把内容包起来,表示要处理的内容，然后用属性如style描述。</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;span</span><span class="w"> </span><span class="na">style=</span><span class="s">\"font-weight:bold\"</span><span class="nt">&gt;</span><span class="w"> </span><span class="nt">&lt;/span&gt;</span>
+</code></pre></div>
+<p>（2）p元素中的样式，如</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;p</span><span class="w"> </span><span class="na">style=</span><span class="s">\"xxxx\"</span><span class="nt">&gt;</span><span class="w"> </span><span class="nt">&lt;/p&gt;</span>
+</code></pre></div>
+<p>（3）用class归类，在head内容中统一处理</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="p">&lt;</span><span class="nt">html</span> <span class="na">lang</span><span class="o">=</span><span class="s">\"en\"</span><span class="p">&gt;</span>
+<span class="p">&lt;</span><span class="nt">head</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">style</span><span class="p">&gt;</span>
+<span class="w">        </span><span class="p">.</span><span class="nc">jiacu</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">font-weight</span><span class="p">:</span><span class="kc">bold</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">&lt;/</span><span class="nt">style</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">head</span><span class="p">&gt;</span>
+<span class="p">&lt;</span><span class="nt">body</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">p</span> <span class="na">class</span><span class="o">=</span><span class="s">\"jiacu\"</span><span class="p">&gt;</span> xxxxx <span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">p</span> <span class="na">class</span><span class="o">=</span><span class="s">\"jiacu\"</span><span class="p">&gt;</span> xxxxx <span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">body</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">html</span><span class="p">&gt;</span>
+</code></pre></div>
+<h3 id="css_1">CSS的三种方式</h3>
+<div class="codehilite"><pre><span></span><code><span class="mf">1.</span><span class="w"> </span><span class="n">内联样式</span><span class="err">（</span><span class="n">style标签属性</span><span class="err">）：</span><span class="o">&lt;</span><span class="n">p</span><span class="w"> </span><span class="n">style</span><span class="o">=</span><span class="err">\</span><span class="s">"color:red;\"</span><span class="o">&gt;</span>
+<span class="mf">2.</span><span class="w"> </span><span class="n">内嵌样式</span><span class="err">（</span><span class="n">head</span><span class="o">+</span><span class="w"> </span><span class="n">style</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">class的方式</span><span class="err">）：</span><span class="o">&lt;</span><span class="n">style</span><span class="o">&gt;</span><span class="w"> </span><span class="n">标签放在</span><span class="w"> </span><span class="o">&lt;</span><span class="n">head</span><span class="o">&gt;</span><span class="w"> </span><span class="n">中</span>
+<span class="mf">3.</span><span class="w"> </span><span class="n">外部样式</span><span class="err">：</span><span class="n">使用</span><span class="w"> </span><span class="o">&lt;</span><span class="n">link</span><span class="o">&gt;</span><span class="w"> </span><span class="n">标签引入</span><span class="w"> </span><span class="mf">.</span><span class="n">css</span><span class="w"> </span><span class="n">文件</span>
+<span class="w">    </span><span class="n">引用外部CSS文件的方式</span>
+<span class="w">    </span><span class="err">（</span><span class="mf">1</span><span class="err">）</span><span class="n">创建一个xxx</span><span class="mf">.</span><span class="n">css</span>
+<span class="w">        </span><span class="err">@</span><span class="n">charset</span><span class="w"> </span><span class="err">\</span><span class="s">"UTF-8\"</span><span class="p">;</span>
+<span class="w">        </span><span class="mf">.</span><span class="n">jiacu</span><span class="w"> </span><span class="err">{</span>
+<span class="w">            </span><span class="n">font</span><span class="o">-</span><span class="n">weight</span><span class="p">:</span><span class="n">bold</span>
+<span class="w">        </span><span class="err">}</span>
+<span class="w">    </span><span class="p">(</span><span class="mf">2</span><span class="p">)</span><span class="w"> </span><span class="n">在html文件中引用</span>
+<span class="w">        </span><span class="o">&lt;</span><span class="n">link</span><span class="w"> </span><span class="n">rel</span><span class="o">=</span><span class="err">\</span><span class="s">"stylesheet\"</span><span class="w"> </span><span class="n">href</span><span class="o">=</span><span class="err">\</span><span class="s">"http:xxxx/xxx.css\"</span><span class="o">&gt;</span>
+</code></pre></div>
+<h3 id="css_2">CSS选择器</h3>
+<h4 id="">id选择器</h4>
+<p>id 选择器可以为标有特定id 的HTML元素指定特定的样式。HTML元素以id属性来设置id选择器,CSS 中 id 选择器以 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\" 来定义。以下的样式规则应用于元素属性 id=\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"para1\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\":</p>
+<div class="codehilite"><pre><span></span><code><span class="p">#</span><span class="nn">para1</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">text-align</span><span class="p">:</span><span class="kc">center</span><span class="p">;</span>
+<span class="w">    </span><span class="k">color</span><span class="p">:</span><span class="kc">red</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><a href="\" title="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_6260950c5217a3c492f1e08729bac483.jpg\"><img alt='\"\"' src="\" title="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_6260950c5217a3c492f1e08729bac483.jpg\"/></a></p>
+<p>注意id不要以数字开头，有些浏览器有兼容性问题。</p>
+<h4 id="class">class选择器</h4>
+<div class="codehilite"><pre><span></span><code><span class="na">.center</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nl">text-align:</span><span class="nf">center</span><span class="c1">;</span>
+<span class="err">}</span>
+</code></pre></div>
+<p>class 选择器用于描述一组元素的样式，class 选择器有别于id选择器，class可以在多个元素中使用。class 选择器在 HTML 中以 class 属性表示, 在 CSS 中，类选择器以一个点 . 号显示：在以下的例子中，所有拥有 center 类的 HTML 元素均为居中。</p>
+<p><a href="\" title="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_5a8677cb76292ba898767a755f509d10.jpg\"><img alt='\"\"' src="\" title="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_5a8677cb76292ba898767a755f509d10.jpg\"/></a></p>
+<h4 id="_18">通用选择器</h4>
+<div class="codehilite"><pre><span></span><code>    p {  ---选中所有的p元素
+        font-style:italic
+    }
+</code></pre></div>
+<h4 id="_19">通配符*选择器</h4>
+<div class="codehilite"><pre><span></span><code><span class="o">*</span><span class="p">{</span>
+<span class="w">    </span><span class="k">margin-left</span><span class="p">:</span><span class="mi">0</span><span class="kt">px</span><span class="p">;</span>
+<span class="w">    </span><span class="k">margin-top</span><span class="p">:</span><span class="mi">0</span><span class="kt">px</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>通用选择器，将匹配任何标签。不建议使用，IE有些版本不支持，大网站增加客户端负担。效率不高，如果页面上的标签越多，效率越低，所以页面上不能出现这个选择器。</p>
+<h4 id="_20">后代选择器</h4>
+<p>通过指定元素的后代关系选择 HTML 元素。后代选择器使用空格分隔元素名称。如下代码，div p 选择器将选择所有在 div 元素内的 p 元素。</p>
+<div class="codehilite"><pre><span></span><code>样式
+div<span class="w"> </span>p<span class="w"> </span>{
+<span class="w">  </span>font-weight:<span class="w"> </span>bold;
+}
+
+body代码
+<span class="nt">&lt;div</span><span class="w"> </span><span class="na">class=</span><span class="s">\"container\"</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;p</span><span class="w"> </span><span class="na">class=</span><span class="s">\"top-left\"</span><span class="w"> </span><span class="na">id=</span><span class="s">\"device-id\"</span><span class="nt">&gt;&lt;/p&gt;</span>
+<span class="w">    </span><span class="nt">&lt;p</span><span class="w"> </span><span class="na">class=</span><span class="s">\"top-right\"</span><span class="w"> </span><span class="na">id=</span><span class="s">\"status\"</span><span class="nt">&gt;</span>waiting<span class="nt">&lt;/p&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+
+上面的div<span class="w"> </span>p只对div中的p有效。
+</code></pre></div>
+<h4 id="_21">伪类选择器</h4>
+<p>CSS 伪类选择器（Pseudo-classes）用于选中元素的特定状态或特征，而不是通过常规的元素类型、类名或 ID 来选择。伪类使得你能够更精确地应用样式，比如当用户悬停在元素上、输入框为空、或元素处于被选中状态时，才应用样式。伪类通常以 : 符号开始。下面列出了一些常见的 CSS 伪类选择器及其使用方法。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">a</span><span class="o">:</span><span class="n">link</span><span class="w"> </span><span class="o">{</span><span class="n">color</span><span class="o">:</span><span class="err">#</span><span class="n">FF0000</span><span class="o">;}</span><span class="w"> </span><span class="cm">/* 未访问的链接 */</span>
+<span class="n">a</span><span class="o">:</span><span class="n">visited</span><span class="w"> </span><span class="o">{</span><span class="n">color</span><span class="o">:</span><span class="err">#</span><span class="mi">00</span><span class="n">FF00</span><span class="o">;}</span><span class="w"> </span><span class="cm">/* 已访问的链接 */</span>
+<span class="n">a</span><span class="o">:</span><span class="n">hover</span><span class="w"> </span><span class="o">{</span><span class="n">color</span><span class="o">:</span><span class="err">#</span><span class="n">FF00FF</span><span class="o">;}</span><span class="w"> </span><span class="cm">/* 鼠标划过链接 */</span>
+<span class="n">a</span><span class="o">:</span><span class="n">active</span><span class="w"> </span><span class="o">{</span><span class="n">color</span><span class="o">:</span><span class="err">#</span><span class="mi">0000</span><span class="n">FF</span><span class="o">;}</span><span class="w"> </span><span class="cm">/* 已选中的链接 */</span>
+</code></pre></div>
+<h3 id="css_3">CSS文本样式</h3>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="p">.</span><span class="nc">xxx</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="err">color：red；</span><span class="w"> </span><span class="err">--颜色</span>
+<span class="w">        </span><span class="k">font-size</span><span class="p">:</span><span class="mi">12</span><span class="kt">px</span><span class="p">;</span><span class="w"> </span><span class="err">--大小</span>
+<span class="w">        </span><span class="k">font-weight</span><span class="p">:</span><span class="kc">normal</span><span class="w"> </span><span class="o">--</span><span class="err">粗细</span>
+<span class="w">        </span><span class="kc">text</span><span class="o">-</span><span class="n">decoration</span><span class="err">：</span><span class="kc">underline</span><span class="p">;</span><span class="w"> </span><span class="err">--画线，如下划线</span>
+<span class="w">        </span><span class="k">line-height</span><span class="p">:</span><span class="mi">20</span><span class="kt">px</span><span class="p">;</span><span class="w"> </span><span class="err">--行高</span>
+<span class="w">        </span><span class="k">font-family</span><span class="p">:</span><span class="err">\'</span><span class="n">Arial</span><span class="w"> </span><span class="n">Narrow</span><span class="err">\'</span><span class="p">;</span><span class="w"> </span><span class="err">字体格式</span>
+<span class="w">    </span><span class="p">}</span>
+</code></pre></div>
+<h3 id="css_4">CSS盒子模型</h3>
+<p>浏览器把html元素当成一个一个盒子，对一个盒子来设置其样式。</p>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="p">.</span><span class="nc">test</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">border-top</span><span class="p">:</span><span class="mi">2</span><span class="kt">px</span><span class="w"> </span><span class="kc">solid</span><span class="w"> </span><span class="kc">blue</span><span class="p">;</span>
+<span class="w">        </span><span class="k">border-left</span><span class="p">:</span><span class="mi">3</span><span class="kt">px</span><span class="w"> </span><span class="kc">solid</span><span class="w"> </span><span class="kc">green</span><span class="p">;</span>
+<span class="w">        </span><span class="k">border-right</span><span class="p">:</span><span class="mi">3</span><span class="kt">px</span><span class="w"> </span><span class="kc">solid</span><span class="w"> </span><span class="kc">yellow</span><span class="p">;</span>
+<span class="w">        </span><span class="k">border-bottom</span><span class="p">:</span><span class="mi">2</span><span class="kt">px</span><span class="w">  </span><span class="kc">dashed</span><span class="w"> </span><span class="kc">red</span><span class="p">;</span>
+<span class="w">        </span><span class="k">padding-top</span><span class="p">:</span><span class="mi">10</span><span class="kt">px</span><span class="p">;</span>
+<span class="w">        </span><span class="err">......</span>
+<span class="w">    </span><span class="p">}</span>
+</code></pre></div>
+<h3 id="css_5">CSS总结</h3>
+<ul>
+<li>CSS样式和html标签总结</li>
+<li>选中要样式的内容，选中方法有 标签，盒子。</li>
+<li>标签的作用：逻辑结构的作用，控制支点的作用（标识出来）</li>
+<li>span和div像是购物袋的作用，打包标识起来。</li>
+</ul>
+<p>参考：</p>
+<p><a href="\" title="https://www.runoob.com/css/css-id-class.html\">https://www.runoob.com/css/css-id-class.html</a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/risc-v汇编指令.html">← RISC-V汇编指令</a>
+    <a class="next" href="/javascript笔记.html">Javascript笔记 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

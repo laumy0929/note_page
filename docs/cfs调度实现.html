@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CFS调度实现 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">时间计算</a><ul><li><a href="#vruntimeruntime">vruntime与runtime</a></li><li><a href="#ideal_runtime">ideal_runtime</a></li></ul></li><li><a href="#_2">任务创建</a><ul></ul></li><li><a href="#_3">任务出入列</a><ul><li><a href="#_4">入就绪队列</a></li><li><a href="#_5">出就绪队列</a></li></ul></li><li><a href="#_6">任务选择</a><ul><li><a href="#cfscfs">开启CFS组调度且被抢占的任务是CFS类</a></li><li><a href="#cfscfs_1">未开启CFS组调度或被抢占的任务不是CFS调度类</a></li><li><a href="#_7">没有要运行的任务</a></li><li><a href="#_8">小结</a></li></ul></li><li><a href="#_9">任务切换</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>CFS调度实现</h1>
+  <div class="meta">2023-04-02 · linux</div>
+  <div class="post-content"><h2 id="_1">时间计算</h2>
+<h3 id="vruntimeruntime">vruntime与runtime</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">update_curr</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_entity</span><span class="w"> </span><span class="o">*</span><span class="n">curr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">curr</span><span class="p">;</span>
+<span class="w">    </span><span class="n">u64</span><span class="w"> </span><span class="n">now</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rq_clock_task</span><span class="p">(</span><span class="n">rq_of</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">));</span>
+<span class="w">    </span><span class="n">u64</span><span class="w"> </span><span class="n">delta_exec</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="o">!</span><span class="n">curr</span><span class="p">))</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">//实际运行时间 = 当前时刻 减去上次执行时刻</span>
+<span class="w">    </span><span class="n">delta_exec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">now</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">curr</span><span class="o">-&gt;</span><span class="n">exec_start</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">((</span><span class="n">s64</span><span class="p">)</span><span class="n">delta_exec</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">))</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">//重新更新开始执行时刻</span>
+<span class="w">    </span><span class="n">curr</span><span class="o">-&gt;</span><span class="n">exec_start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">now</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">schedstat_set</span><span class="p">(</span><span class="n">curr</span><span class="o">-&gt;</span><span class="n">statistics</span><span class="p">.</span><span class="n">exec_max</span><span class="p">,</span>
+<span class="w">              </span><span class="n">max</span><span class="p">(</span><span class="n">delta_exec</span><span class="p">,</span><span class="w"> </span><span class="n">curr</span><span class="o">-&gt;</span><span class="n">statistics</span><span class="p">.</span><span class="n">exec_max</span><span class="p">));</span>
+
+<span class="w">    </span><span class="c1">//累计进程实际运行的时间</span>
+<span class="w">    </span><span class="n">curr</span><span class="o">-&gt;</span><span class="n">sum_exec_runtime</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">delta_exec</span><span class="p">;</span>
+<span class="n">schedstat_add</span><span class="p">(</span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">exec_clock</span><span class="p">,</span><span class="w"> </span><span class="n">delta_exec</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">//累计计算进程的虚拟时间，公式vruntime = delta_exec*（nice_0_weight/weight）</span>
+<span class="n">curr</span><span class="o">-&gt;</span><span class="n">vruntime</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">calc_delta_fair</span><span class="p">(</span><span class="n">delta_exec</span><span class="p">,</span><span class="w"> </span><span class="n">curr</span><span class="p">);</span>
+
+<span class="c1">//更新min_vruntime</span>
+<span class="w">    </span><span class="n">update_min_vruntime</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">entity_is_task</span><span class="p">(</span><span class="n">curr</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">task_struct</span><span class="w"> </span><span class="o">*</span><span class="n">curtask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">task_of</span><span class="p">(</span><span class="n">curr</span><span class="p">);</span>
+
+<span class="w">        </span><span class="n">trace_sched_stat_runtime</span><span class="p">(</span><span class="n">curtask</span><span class="p">,</span><span class="w"> </span><span class="n">delta_exec</span><span class="p">,</span><span class="w"> </span><span class="n">curr</span><span class="o">-&gt;</span><span class="n">vruntime</span><span class="p">);</span>
+<span class="w">        </span><span class="n">cgroup_account_cputime</span><span class="p">(</span><span class="n">curtask</span><span class="p">,</span><span class="w"> </span><span class="n">delta_exec</span><span class="p">);</span>
+<span class="w">        </span><span class="n">account_group_exec_runtime</span><span class="p">(</span><span class="n">curtask</span><span class="p">,</span><span class="w"> </span><span class="n">delta_exec</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">account_cfs_rq_runtime</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="n">delta_exec</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>schduer_tick最终会update_curr来个更新当前进程的相关时间信息，包括进程实际运行的时间runtime，虚拟时间vruntime一级min_vruntime。</p>
+<h3 id="ideal_runtime">ideal_runtime</h3>
+<p>在Linux系统中，为了保证每个进程在一段时间内至少能够运行的机会，系统使用sched_period来表示系统周期，也就是将时间划分成n个sched_period，通常值时6ms，用户可以进行修改。而在这个period周期内，根据各进程的权重来进行瓜分。   Idea_runtime表示每个进程在这个period周期内，可以调度的执行的最长时间，但并不是累计值，比如在period=15ms，进程A的ideal_runtime=6ms，当进程A运行了4ms由于等待某个资源让出了调度，后续获得资源继续运行并不是说进程A只能再运行2ms了，而是运行不超过6ms就行，也就是说ideal_runtime限制的是每次运行不超过的时间，并不算累计值。   在计算ideal_runtime的时候，需要考虑当前进程是否处于任务组内，处于任务组内的进程ideal_runtime相当于是在组内进行按权重划分。在引入任务组后，进程的组织方式可以按照层次来划分，调度实体分为任务调度实体和组调度实体，当然都是使用struct sched_entity来描述。按照层次来划分后，无论调度实体处理哪一个层次，其调度实体ideal_runtime的时间在其平行层次的树中按比例来计算获取，可以简计为   A.ideal_runtime = A.weight / cfs_rqX.load，其中cfs_rqX.load为调度实体所处层级所有进程权重之和。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8394a28d228bf21f49758af95b477365.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_8394a28d228bf21f49758af95b477365.jpg"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="n">tse</span><span class="p">.</span><span class="n">ideal_runtime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tse</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">cfs_rq</span><span class="p">.</span><span class="n">load</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tse</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">tse</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">gse</span><span class="p">.</span><span class="n">weight</span><span class="p">)</span><span class="err">。</span>
+
+<span class="n">tse3</span><span class="p">.</span><span class="n">ideal_runtime</span><span class="o">=</span><span class="w"> </span><span class="n">gse2</span><span class="p">.</span><span class="n">ideal_runtime</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">tse3</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">cfs_rq2</span><span class="p">.</span><span class="n">load</span>
+<span class="n">gse2</span><span class="p">.</span><span class="n">ideal_runtime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gse</span><span class="p">.</span><span class="n">ideal_runtime</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">gse2</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">cfs_rq1</span><span class="p">.</span><span class="n">load</span>
+<span class="n">gse</span><span class="p">.</span><span class="n">ideal_runtime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">period</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">gse</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">cfs_rq0</span><span class="p">.</span><span class="n">load</span>
+
+<span class="n">tse3</span><span class="p">.</span><span class="n">ideal_runtime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">period</span><span class="w"> </span><span class="o">*</span>
+<span class="n">gse</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">cfs_rq0</span><span class="p">.</span><span class="n">load</span><span class="w"> </span><span class="o">*</span>
+<span class="n">gse2</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">cfs_rq1</span><span class="p">.</span><span class="n">load</span><span class="w"> </span><span class="o">*</span>
+<span class="w"> </span><span class="n">tse3</span><span class="p">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">cfs_rq2</span><span class="p">.</span><span class="n">load</span>
+</code></pre></div>
+<p>由上公式，period表示当前的运行周期的总时间，根据以上公式，因为都是相乘（A_B_C与C_B_A一样），所以计算调度实体的ideal_runtime可以从下往上进计算。   对于tse3处于最底层级L2，所以其权重先计算period * tse3.weight / cfs_rq2.load得到C，然后计算C_gse2.weight / cfs_rq1.load得到B，最后再计算B_gse.weight / cfs_rq0.load得到最终tse3的ideal_runtime。   对于tse处于最高层级L0，也可以从下往上计算，只不过上面没有了，因此就只遍历一次得到结果ideal_runtime = gse.weight / cfs_rq0.load。   在软件上的实现也就变得简单很多了，调度实体se中有一个成员parent指向其父实体，如果parent为空表示没有父实体，也就处于最高层级，不存在任务组内，因此在代码中只要根据se从下往上遍历即可。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="nf">sched_slice</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_entity</span><span class="w"> </span><span class="o">*</span><span class="n">se</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">nr_running</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">nr_running</span><span class="p">;</span>
+<span class="w">    </span><span class="n">u64</span><span class="w"> </span><span class="n">slice</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sched_feat</span><span class="p">(</span><span class="n">ALT_PERIOD</span><span class="p">))</span>
+<span class="w">        </span><span class="n">nr_running</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rq_of</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">cfs</span><span class="p">.</span><span class="n">h_nr_running</span><span class="p">;</span><span class="w">  </span><span class="n">当前层级tse与gse个数之和</span>
+
+<span class="w">    </span><span class="n">slice</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__sched_period</span><span class="p">(</span><span class="n">nr_running</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="o">!</span><span class="n">se</span><span class="o">-&gt;</span><span class="n">on_rq</span><span class="p">);</span><span class="w">    </span><span class="n">一个周期的运行时间period</span>
+
+<span class="w">    </span><span class="n">for_each_sched_entity</span><span class="p">(</span><span class="n">se</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">load_weight</span><span class="w"> </span><span class="o">*</span><span class="n">load</span><span class="p">;</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">load_weight</span><span class="w"> </span><span class="n">lw</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">cfs_rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq_of</span><span class="p">(</span><span class="n">se</span><span class="p">);</span>
+<span class="w">        </span><span class="n">load</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="o">!</span><span class="n">se</span><span class="o">-&gt;</span><span class="n">on_rq</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">lw</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">;</span>
+
+<span class="w">            </span><span class="n">update_load_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">lw</span><span class="p">,</span><span class="w"> </span><span class="n">se</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">.</span><span class="n">weight</span><span class="p">);</span>
+<span class="w">            </span><span class="n">load</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">lw</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="c1">//slice=slice * (se-&gt;load.weight / se-&gt;cfs_rq-&gt;load.weight)</span>
+<span class="w">        </span><span class="c1">//根据权重比例逐级往上计算分配到的物理时间。如果不是属于组任务，则只有一级。</span>
+<span class="w">        </span><span class="n">slice</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__calc_delta</span><span class="p">(</span><span class="n">slice</span><span class="p">,</span><span class="w"> </span><span class="n">se</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">.</span><span class="n">weight</span><span class="p">,</span><span class="w"> </span><span class="n">load</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sched_feat</span><span class="p">(</span><span class="n">BASE_SLICE</span><span class="p">))</span>
+<span class="w">        </span><span class="n">slice</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="n">slice</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="n">u64</span><span class="p">)</span><span class="n">sysctl_sched_min_granularity</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">slice</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>在设置抢占调度标志章节系统会调用scheduler_tick周期性的检测任务是否超过运行时间，如果超过了就会设置抢占标志位，让出调度权。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span>
+<span class="nf">check_preempt_tick</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_entity</span><span class="w"> </span><span class="o">*</span><span class="n">curr</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">ideal_runtime</span><span class="p">,</span><span class="w"> </span><span class="n">delta_exec</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_entity</span><span class="w"> </span><span class="o">*</span><span class="n">se</span><span class="p">;</span>
+<span class="w">    </span><span class="n">s64</span><span class="w"> </span><span class="n">delta</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">skip_preempt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">ideal_runtime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sched_slice</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="n">curr</span><span class="p">);</span><span class="w"> </span><span class="n">计算当前进程一个周期内可以运行的时间</span><span class="err">。</span>
+<span class="n">delta_exec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">curr</span><span class="o">-&gt;</span><span class="n">sum_exec_runtime</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">curr</span><span class="o">-&gt;</span><span class="n">prev_sum_exec_runtime</span><span class="p">;</span><span class="w"> </span><span class="n">实际运行时间</span><span class="err">。</span>
+<span class="n">如果运行时间超过了一个周期内可调度的时间</span><span class="err">，</span><span class="n">则设置可抢占标志</span><span class="err">。</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">delta_exec</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">ideal_runtime</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">resched_curr</span><span class="p">(</span><span class="n">rq_of</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">));</span>
+<span class="w">        </span><span class="n">clear_buddies</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="n">curr</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="p">......</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="_2">任务创建</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f9b19f68e9ad6ee401fc6020695eb40d.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_f9b19f68e9ad6ee401fc6020695eb40d.jpg"/></a></p>
+<h2 id="_3">任务出入列</h2>
+<h3 id="_4">入就绪队列</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_08781ac4424e92548592fb3d9d53a96b.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_08781ac4424e92548592fb3d9d53a96b.jpg"/></a></p>
+<h3 id="_5">出就绪队列</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_185c9d02c704f8b3d1572c005e7ebfb8.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_185c9d02c704f8b3d1572c005e7ebfb8.jpg"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">dequeue_task_fair</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">rq</span><span class="w"> </span><span class="o">*</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">task_struct</span><span class="w"> </span><span class="o">*</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">flags</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_entity</span><span class="w"> </span><span class="o">*</span><span class="n">se</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">p</span><span class="o">-&gt;</span><span class="n">se</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">task_sleep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">DEQUEUE_SLEEP</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">idle_h_nr_running</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">task_has_idle_policy</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">was_sched_idle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sched_idle_rq</span><span class="p">(</span><span class="n">rq</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">util_est_dequeue</span><span class="p">(</span><span class="o">&amp;</span><span class="n">rq</span><span class="o">-&gt;</span><span class="n">cfs</span><span class="p">,</span><span class="w"> </span><span class="n">p</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//迭代遍历每个调度实体，其中se是当前迭代的调度实体</span>
+<span class="w">    </span><span class="n">for_each_sched_entity</span><span class="p">(</span><span class="n">se</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">cfs_rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq_of</span><span class="p">(</span><span class="n">se</span><span class="p">);</span><span class="w"> </span><span class="c1">//获取se所属的CFS实时队列cfs_rq</span>
+<span class="w">        </span><span class="n">dequeue_entity</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="n">se</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span><span class="w"> </span><span class="c1">//从CFS队列中取出当前的调度实体。</span>
+
+<span class="w">        </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">h_nr_running</span><span class="o">--</span><span class="p">;</span><span class="w"> </span><span class="c1">//减少实时队列正在运行的任务数量</span>
+<span class="w">        </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">idle_h_nr_running</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="n">idle_h_nr_running</span><span class="p">;</span><span class="w"> </span><span class="c1">//减少空闲空闲状态下的任务数量</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_rq_is_idle</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">))</span><span class="w"> </span><span class="c1">//如果实时队列变为空闲状态</span>
+<span class="w">            </span><span class="n">idle_h_nr_running</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* end evaluation on encountering a throttled cfs_rq */</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_rq_throttled</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">))</span><span class="w"> </span><span class="c1">//如果实时队列被限制，则直接结束处理。</span>
+<span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">dequeue_throttle</span><span class="p">;</span>
+<span class="w">        </span><span class="c1">//如果实时队列的负载权重大于0，则说明实时队列还有其他调度实体，将调度实体</span>
+<span class="w">        </span><span class="c1">//更新为其父调度实体，并设置接下来任务选择偏向于从当前实时队列中选择任务。    </span>
+<span class="w">        </span><span class="cm">/* Don't dequeue parent if it has other entities besides us */</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">.</span><span class="n">weight</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="cm">/* Avoid re-evaluating load for this entity: */</span>
+<span class="w">            </span><span class="n">se</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parent_entity</span><span class="p">(</span><span class="n">se</span><span class="p">);</span><span class="w"> </span><span class="c1">//获取父调度实体</span>
+<span class="w">            </span><span class="cm">/*</span>
+<span class="cm">             * Bias pick_next to pick a task from this cfs_rq, as</span>
+<span class="cm">             * p is sleeping when it is within its sched_slice.</span>
+<span class="cm">             */</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">task_sleep</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">se</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">throttled_hierarchy</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">))</span>
+<span class="w">                </span><span class="n">set_next_buddy</span><span class="p">(</span><span class="n">se</span><span class="p">);</span><span class="w"> </span><span class="c1">//设置下一个调度实体</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">flags</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">DEQUEUE_SLEEP</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">trace_android_rvh_dequeue_task_fair</span><span class="p">(</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">flags</span><span class="p">);</span>
+<span class="w">    </span><span class="n">for_each_sched_entity</span><span class="p">(</span><span class="n">se</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">cfs_rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq_of</span><span class="p">(</span><span class="n">se</span><span class="p">);</span>
+<span class="w">       </span><span class="c1">//更新CFS实时队列的负载平均值</span>
+<span class="w">        </span><span class="n">update_load_avg</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="n">se</span><span class="p">,</span><span class="w"> </span><span class="n">UPDATE_TG</span><span class="p">);</span>
+<span class="w">        </span><span class="n">se_update_runnable</span><span class="p">(</span><span class="n">se</span><span class="p">);</span><span class="c1">//更新调度实体的可运行状态</span>
+<span class="w">        </span><span class="n">update_cfs_group</span><span class="p">(</span><span class="n">se</span><span class="p">);</span><span class="c1">//更新CFS调度组的信息</span>
+
+<span class="w">        </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">h_nr_running</span><span class="o">--</span><span class="p">;</span>
+<span class="w">        </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">idle_h_nr_running</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="n">idle_h_nr_running</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_rq_is_idle</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">))</span>
+<span class="w">            </span><span class="n">idle_h_nr_running</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* end evaluation on encountering a throttled cfs_rq */</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_rq_throttled</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">))</span>
+<span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">dequeue_throttle</span><span class="p">;</span>
+
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="cm">/* At this point se is NULL and we are at root level*/</span>
+<span class="w">    </span><span class="n">sub_nr_running</span><span class="p">(</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* balance early to pull high priority tasks */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="o">!</span><span class="n">was_sched_idle</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">sched_idle_rq</span><span class="p">(</span><span class="n">rq</span><span class="p">)))</span>
+<span class="w">        </span><span class="n">rq</span><span class="o">-&gt;</span><span class="n">next_balance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">jiffies</span><span class="p">;</span>
+
+<span class="nl">dequeue_throttle</span><span class="p">:</span>
+<span class="w">    </span><span class="n">util_est_update</span><span class="p">(</span><span class="o">&amp;</span><span class="n">rq</span><span class="o">-&gt;</span><span class="n">cfs</span><span class="p">,</span><span class="w"> </span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">task_sleep</span><span class="p">);</span>
+<span class="w">    </span><span class="n">hrtick_update</span><span class="p">(</span><span class="n">rq</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="_6">任务选择</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_d14865d21a77bad52444f698de0083c5.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_d14865d21a77bad52444f698de0083c5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a63fdfec9aa4c67d50a7cf196edcfed9.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/6-cfs调度实现/images/wp_editor_md_a63fdfec9aa4c67d50a7cf196edcfed9.jpg"/></a></p>
+<h3 id="cfscfs">开启CFS组调度且被抢占的任务是CFS类</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">task_struct</span><span class="w"> </span><span class="o">*</span>
+<span class="n">pick_next_task_fair</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">rq</span><span class="w"> </span><span class="o">*</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">task_struct</span><span class="w"> </span><span class="o">*</span><span class="n">prev</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">rq_flags</span><span class="w"> </span><span class="o">*</span><span class="n">rf</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="c1">//prev表示当前rq上正在运行的，被抢占的task。</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">cfs_rq</span><span class="w"> </span><span class="o">*</span><span class="n">cfs_rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">rq</span><span class="o">-&gt;</span><span class="n">cfs</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_entity</span><span class="w"> </span><span class="o">*</span><span class="n">se</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">task_struct</span><span class="w"> </span><span class="o">*</span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">new_tasks</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">repick</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+
+<span class="nl">again</span><span class="p">:</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">sched_fair_runnable</span><span class="p">(</span><span class="n">rq</span><span class="p">))</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">idle</span><span class="p">;</span>
+
+<span class="cp">#ifdef CONFIG_FAIR_GROUP_SCHED </span><span class="c1">//组调度处理</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">prev</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">prev</span><span class="o">-&gt;</span><span class="n">sched_class</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">fair_sched_class</span><span class="p">)</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">simple</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">//如果被抢占task不属于cfs，则跳转到simple处理。</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Because of the set_next_buddy() in dequeue_task_fair() it is rather</span>
+<span class="cm">     * likely that a next task is from the same cgroup as the current.</span>
+<span class="cm">     *</span>
+<span class="cm">     * Therefore attempt to avoid putting and setting the entire cgroup</span>
+<span class="cm">     * hierarchy, only change the part that actually changes.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="k">do</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_entity</span><span class="w"> </span><span class="o">*</span><span class="n">curr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">curr</span><span class="p">;</span>
+<span class="w">        </span><span class="cm">/*</span>
+<span class="cm">         * Since we got here without doing put_prev_entity() we also</span>
+<span class="cm">         * have to consider cfs_rq-&gt;curr. If it is still a runnable</span>
+<span class="cm">         * entity, update_curr() will update its vruntime, otherwise</span>
+<span class="cm">         * forget we've ever seen it.</span>
+<span class="cm">         */</span>
+<span class="w">        </span><span class="c1">//如果当前cfs_rq队列中存在正在运行的调度实体，则需要更新时间，并检查当前</span>
+<span class="w">        </span><span class="c1">//cfs_rq上的时间片是否使用完（开启带宽控制），如果使用完，那么cfs_rq上所有的//任务都不能再调度，跳转simple处理。</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">curr</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">curr</span><span class="o">-&gt;</span><span class="n">on_rq</span><span class="p">)</span>
+<span class="w">                </span><span class="n">update_curr</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">);</span><span class="w"> </span><span class="c1">//更新时间</span>
+<span class="w">            </span><span class="k">else</span>
+<span class="w">                </span><span class="n">curr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">             </span><span class="c1">//检查当前cfs_rq队列runtime是否还有剩余（cfs_rq-&gt;runtime_remaining&gt;0）</span>
+<span class="c1">//3.4.4.1描述，如果没有剩余，那么cfs_rq下所有的任务将不再允许调度。</span>
+<span class="w">             </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="n">check_cfs_rq_runtime</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">)))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">cfs_rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">rq</span><span class="o">-&gt;</span><span class="n">cfs</span><span class="p">;</span>
+
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">cfs_rq</span><span class="o">-&gt;</span><span class="n">nr_running</span><span class="p">)</span>
+<span class="w">                    </span><span class="k">goto</span><span class="w"> </span><span class="n">idle</span><span class="p">;</span>
+
+<span class="w">                </span><span class="k">goto</span><span class="w"> </span><span class="n">simple</span><span class="p">;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="c1">//挑选下一个调度实体，选择红黑树最左边的</span>
+<span class="w">        </span><span class="n">se</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pick_next_entity</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="n">curr</span><span class="p">);</span>
+<span class="w">        </span><span class="n">cfs_rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">group_cfs_rq</span><span class="p">(</span><span class="n">se</span><span class="p">);</span><span class="w"> </span><span class="c1">//当前的调度实体是一个任务组,se-&gt;my_q !=NULL</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">);</span><span class="w"> </span><span class="c1">//如果是一个任务组，则继续从该任务组从挑选合适的任务</span>
+
+<span class="w">    </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">task_of</span><span class="p">(</span><span class="n">se</span><span class="p">);</span><span class="w"> </span><span class="c1">//获取当前调度实体对应的task_struct。</span>
+<span class="w">    </span><span class="n">trace_android_rvh_replace_next_task_fair</span><span class="p">(</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">se</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">repick</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span><span class="w"> </span><span class="n">prev</span><span class="p">);</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Since we haven't yet done put_prev_entity and if the selected task</span>
+<span class="cm">     * is a different task than we started out with, try and touch the</span>
+<span class="cm">     * least amount of cfs_rqs.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">prev</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">p</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="c1">//被抢占的任务与当前挑选要允许的任务不同。</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">sched_entity</span><span class="w"> </span><span class="o">*</span><span class="n">pse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">prev</span><span class="o">-&gt;</span><span class="n">se</span><span class="p">;</span><span class="w"> </span><span class="c1">//获取被抢占任务的调度实体。</span>
+<span class="w">        </span><span class="c1">//循环遍历，直到将要运行的调度实体与被抢占的调度实体或父实体在同一级</span>
+<span class="w">        </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">cfs_rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">is_same_group</span><span class="p">(</span><span class="n">se</span><span class="p">,</span><span class="w"> </span><span class="n">pse</span><span class="p">)))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kt">int</span><span class="w"> </span><span class="n">se_depth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">se</span><span class="o">-&gt;</span><span class="n">depth</span><span class="p">;</span><span class="w"> </span><span class="c1">//获取将要运行的调度实体所在层次</span>
+<span class="w">            </span><span class="kt">int</span><span class="w"> </span><span class="n">pse_depth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pse</span><span class="o">-&gt;</span><span class="n">depth</span><span class="p">;</span><span class="c1">//获取将被抢占任务调度实体所在层次</span>
+
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">se_depth</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">pse_depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="c1">//要运行的调度实体层次比被抢占的要浅（在上一级）</span>
+<span class="w">                </span><span class="n">put_prev_entity</span><span class="p">(</span><span class="n">cfs_rq_of</span><span class="p">(</span><span class="n">pse</span><span class="p">),</span><span class="w"> </span><span class="n">pse</span><span class="p">);</span><span class="w"> </span>
+<span class="c1">//将其调度实体调整重新入队（运行的时候是不在就绪队列上的，不能调度了，//因此需要加入到就绪队列）</span>
+<span class="w">                </span><span class="n">pse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parent_entity</span><span class="p">(</span><span class="n">pse</span><span class="p">);</span>
+<span class="c1">//找到其父调度实体，继续循环跟当前要运行的调度实体在同一级</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">se_depth</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">pse_depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="c1">//要运行的调度实体层次比被抢占的要深（在下一级）</span>
+<span class="w">                </span><span class="n">set_next_entity</span><span class="p">(</span><span class="n">cfs_rq_of</span><span class="p">(</span><span class="n">se</span><span class="p">),</span><span class="w"> </span><span class="n">se</span><span class="p">);</span><span class="w"> </span>
+<span class="c1">//设置将要执行的调度实体，主要动作是将当前将要调度的实体出队，要调度的实//体不应该在保存在就绪队列上，而是存储在cfs-&gt;curr上。</span>
+<span class="w">                </span><span class="n">se</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parent_entity</span><span class="p">(</span><span class="n">se</span><span class="p">);</span><span class="w"> </span><span class="c1">//指向其父调度实体</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="c1">//到此时，已经找到将要调度的实体与被抢占的调度实体同一级的父调度实体</span>
+<span class="w">        </span><span class="c1">//为什么要找将要调度实体与被抢占的实体的父/祖所在同一层级的了，是因为</span>
+<span class="w">        </span><span class="c1">//调度是从上往下的，其任务组中的任务实体要能够被调度，那必须要让其父</span>
+<span class="w">        </span><span class="c1">//拿到调度权。</span>
+<span class="w">        </span><span class="n">put_prev_entity</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="n">pse</span><span class="p">);</span><span class="w"> </span><span class="c1">//将被抢占的调度实体（可能是父）重新入队</span>
+<span class="w">        </span><span class="n">set_next_entity</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="n">se</span><span class="p">);</span><span class="c1">//设置当前的调度实体为下一个将要运行调度实体。</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">goto</span><span class="w"> </span><span class="n">done</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="cfscfs_1">未开启CFS组调度或被抢占的任务不是CFS调度类</h3>
+<div class="codehilite"><pre><span></span><code><span class="nl">simple</span><span class="p">:</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">prev</span><span class="p">)</span>
+<span class="w">        </span><span class="n">put_prev_task</span><span class="p">(</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="n">prev</span><span class="p">);</span>
+<span class="c1">//将被抢占的进程重新放回就绪队列中，运行的进程是放在cfs_rq-&gt;curr上，不在就绪队列上。</span>
+<span class="w">    </span><span class="n">trace_android_rvh_replace_next_task_fair</span><span class="p">(</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">se</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">repick</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">,</span><span class="w"> </span><span class="n">prev</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">repick</span><span class="p">)</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">done</span><span class="p">;</span>
+
+<span class="k">do</span><span class="w"> </span><span class="p">{</span>
+<span class="w">       </span><span class="c1">//从cfs_rq中重新挑选下一个调度实体</span>
+<span class="w">        </span><span class="n">se</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pick_next_entity</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+<span class="w">       </span><span class="c1">//将挑选的调度实体设置未将要运行的进程并移除就绪队列</span>
+<span class="w">        </span><span class="n">set_next_entity</span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">,</span><span class="w"> </span><span class="n">se</span><span class="p">);</span>
+<span class="w">       </span><span class="c1">//判断当前的调度实体是任务组调度实体，如果是则在任务组cfs_rq查找调度实体。</span>
+<span class="w">        </span><span class="n">cfs_rq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">group_cfs_rq</span><span class="p">(</span><span class="n">se</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">cfs_rq</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">task_of</span><span class="p">(</span><span class="n">se</span><span class="p">);</span>
+
+<span class="nl">done</span><span class="p">:</span><span class="w"> </span><span class="n">__maybe_unused</span><span class="p">;</span>
+<span class="cp">#ifdef CONFIG_SMP</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Move the next running task to the front of</span>
+<span class="cm">     * the list, so our cfs_tasks list becomes MRU</span>
+<span class="cm">     * one.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">list_move</span><span class="p">(</span><span class="o">&amp;</span><span class="n">p</span><span class="o">-&gt;</span><span class="n">se</span><span class="p">.</span><span class="n">group_node</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">rq</span><span class="o">-&gt;</span><span class="n">cfs_tasks</span><span class="p">);</span>
+<span class="cp">#endif</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">hrtick_enabled_fair</span><span class="p">(</span><span class="n">rq</span><span class="p">))</span>
+<span class="w">        </span><span class="n">hrtick_start_fair</span><span class="p">(</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="n">p</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">update_misfit_status</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">rq</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">p</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="_7">没有要运行的任务</h3>
+<div class="codehilite"><pre><span></span><code><span class="nl">idle</span><span class="p">:</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">rf</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">new_tasks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">newidle_balance</span><span class="p">(</span><span class="n">rq</span><span class="p">,</span><span class="w"> </span><span class="n">rf</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Because newidle_balance() releases (and re-acquires) rq-&gt;lock, it is</span>
+<span class="cm">     * possible for any higher priority task to appear. In that case we</span>
+<span class="cm">     * must re-start the pick_next_entity() loop.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">new_tasks</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">RETRY_TASK</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">new_tasks</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">again</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * rq is about to be idle, check if we need to update the</span>
+<span class="cm">     * lost_idle_time of clock_pelt</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">update_idle_rq_clock_pelt</span><span class="p">(</span><span class="n">rq</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="_8">小结</h3>
+<p>任务的选择分为三种情况：开了组调度且被抢占的任务是CFS类，未开组调度或被抢占的任务不是CFS类，没有任务可运行。   挑选了下一个要运行的任务调用set_next_entity来设置并且把被抢占的任务调用put_prev_entity重新入队。set_next_entity和put_prev_entity两个函数可以看出是一对，当设置要运行的运行时，任务将会从就绪队列出队，用cfs_rq-&gt;curr来指向当前正在运行的任务，但是这里需要注意的时出队调用的时__dequeue_entity直接从红黑树中移除，而不是调用dequeue_entity，再去更新时间、计算负载贡献等等，这里尤其要注意的是se-&gt;on_rq这个变量，在dequeue_entity该变量se-&gt;on_rq=0，表示任务出队，而set_next_entity直接调用__dequeue_entity该值se-&gt;on_rq不会变，而是se-&gt;on_rq=1，当前正在运行的任务即使从红黑树中被移除的，但是se-&gt;on_rq依旧是1，所以该任务并不是完全意义的出队列，因此se-&gt;on_rq=1意味着任务是runnable+running（runnable表示任务处于就绪队列中，running表示任务正在运行），这对于后续负载计算的时候影响较大。put_per_entity要做的时候就是将被抢占的任务再次入队与set_next_entity所做事情相对应。</p>
+<h2 id="_9">任务切换</h2>
+<p>参考： <a href="https://heapdump.cn/article/2730937">https://heapdump.cn/article/2730937</a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/负载均衡之负载跟踪.html">← 负载均衡之负载跟踪</a>
+    <a class="next" href="/cfs分组调度.html">CFS分组调度 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

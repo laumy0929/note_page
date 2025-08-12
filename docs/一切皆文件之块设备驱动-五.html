@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>一切皆文件之块设备驱动（五） - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">实验环境</a><ul><li><a href="#_2">准备</a></li><li><a href="#_3">步骤</a></li></ul></li><li><a href="#_4">块设备带文件系统方式读写</a><ul><li><a href="#_5">写数据</a></li><li><a href="#_6">读数据</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>一切皆文件之块设备驱动（五）</h1>
+  <div class="meta">2023-06-04 · linux</div>
+  <div class="post-content"><h2 id="_1">实验环境</h2>
+<h3 id="_2">准备</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">kernel</span><span class="w"> </span><span class="n">version</span><span class="o">:</span><span class="w"> </span><span class="n">linux</span><span class="w"> </span><span class="mf">5.15</span>
+
+<span class="n">kernel</span><span class="w"> </span><span class="n">module</span><span class="o">:</span><span class="w"> </span>
+
+<span class="w">    </span><span class="n">块设备</span><span class="err">：</span><span class="n">simpleblk</span><span class="p">.</span><span class="n">ko</span>
+<span class="w">    </span><span class="n">文件系统</span><span class="err">：</span><span class="n">simplefs</span><span class="p">.</span><span class="n">ko</span>
+
+<span class="n">application</span><span class="err">：</span>
+<span class="w">    </span><span class="n">制作文件系统</span><span class="err">：</span><span class="n">mkfs</span><span class="p">.</span><span class="n">simplefs</span>
+</code></pre></div>
+<h3 id="_3">步骤</h3>
+<div class="codehilite"><pre><span></span><code><span class="mf">1.</span><span class="n">加载块设备驱动</span><span class="err">：</span><span class="n">insmod</span><span class="w"> </span><span class="n">simpleblk</span><span class="p">.</span><span class="n">ko</span>
+<span class="mf">2.</span><span class="n">加载文件系统</span><span class="err">：</span><span class="n">insmod</span><span class="w"> </span><span class="n">simplefs</span><span class="p">.</span><span class="n">ko</span>
+<span class="mf">3.</span><span class="n">查看文件系统类型</span><span class="err">：</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">filesystems</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">grep</span><span class="w"> </span><span class="n">simplefs</span>
+<span class="mf">4.</span><span class="n">格式化块设备为simplefs</span><span class="err">：</span><span class="p">.</span><span class="o">/</span><span class="n">mkfs</span><span class="p">.</span><span class="n">simplefs</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sblkdev1</span>
+<span class="mf">5.</span><span class="n">挂载文件系统</span><span class="err">：</span>
+<span class="w">    </span><span class="mf">5.1</span><span class="n">创建挂载目录</span><span class="err">：</span><span class="n">mkdir</span><span class="w"> </span><span class="n">simplefs</span>
+<span class="w">    </span><span class="mf">5.2</span><span class="n">格式化为simplefs</span><span class="err">：</span><span class="n">mount</span><span class="w"> </span><span class="o">-</span><span class="n">t</span><span class="w"> </span><span class="n">simplefs</span><span class="w"> </span><span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">sblkdev1</span><span class="w"> </span><span class="o">/</span><span class="n">simplefs</span>
+</code></pre></div>
+<h2 id="_4">块设备带文件系统方式读写</h2>
+<h3 id="_5">写数据</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_2f196a7cbc45e506672b1e90458d7272.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（五）/images/wp_editor_md_2f196a7cbc45e506672b1e90458d7272.jpg"/></a></p>
+<p>有具体文件系统的写与上一章节无文件系统的写主要的区别是，def_blk_fops和def_blk_aops依次替换为simplefs_file_ops和simplefs_aops。前者直接裸写方式使用了系统注册实现的bdev文件系统，而后者主要使用的是自定义注册的文件系统，在流程上没有太大的差异。数据打包成bio递交到块设备层后就一样的实现了，这里就不再赘述了。</p>
+<h3 id="_6">读数据</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_96f7f0c106723963dfc3689bc3554c2a.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（五）/images/wp_editor_md_96f7f0c106723963dfc3689bc3554c2a.jpg"/></a></p>
+<p>读数据也是类似，def_blk_fops和def_blk_aops依次替换为simplefs_file_ops和simplefs_aops。主要流程上与上一章节无太大差异。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/一切皆文件之块设备驱动-四.html">← 一切皆文件之块设备驱动（四）</a>
+    <a class="next" href="/一切皆文件之块设备驱动-二.html">一切皆文件之块设备驱动（二） →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

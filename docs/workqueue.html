@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>workqueue - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#api">API接口</a><ul></ul></li><li><a href="#_1">数据结构</a><ul></ul></li><li><a href="#_2">初始化</a><ul><li><a href="#workqueue-early-init">workqueue early init</a></li><li><a href="#workqueue-init">workqueue init</a></li></ul></li><li><a href="#_3">创建工作队列</a><ul></ul></li><li><a href="#_4">调度工作运行</a><ul><li><a href="#_5">触发调度</a></li><li><a href="#_6">执行调度</a></li></ul></li><li><a href="#_7">线程池动态管理</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>workqueue</h1>
+  <div class="meta">2023-03-05 · linux</div>
+  <div class="post-content"><h2 id="api">API接口</h2>
+<p>初始化</p>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DECLARE_WORK(n, f)</td>
+<td>静态定义一个work，实际就是定义一个struct work_struct的全局变量。</td>
+</tr>
+<tr>
+<td>DECLARE_DELAYED_WORK(_work, _func)</td>
+<td>静态定义一个work，与上面的区别就是work可以在指定时间之后再由线程来执行。</td>
+</tr>
+<tr>
+<td>INIT_WORK(_work, _func)</td>
+<td>可以动态的分配一个struct work_struct，但是调用该函数进行初始化。</td>
+</tr>
+<tr>
+<td>INIT_DELAYED_WORK(_work, _func)</td>
+<td>动态分配，延迟work执行。</td>
+</tr>
+</tbody>
+</table>
+<p>触发执行</p>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>schedule_work(struct work_struct *work)</td>
+<td>调度一个work运行，会将work挂入到默认workqueue(system_wq)中运行。</td>
+</tr>
+<tr>
+<td>queue_work(struct workqueue_struct *wq,struct work_struct *work)</td>
+<td>调度一个work在指定的workqueue上运行。</td>
+</tr>
+<tr>
+<td>queue_delayed_work(struct workqueue_struct*wq,struct delayed_work *dwork,unsigned long delay)</td>
+<td>延迟一段时间调度一个work在指定的workqueue上运行。</td>
+</tr>
+</tbody>
+</table>
+<p>schedule_work实际上也是调用queue_work，将其wq指定为system_wq，在workqueue_init_early进行初始化工作队列时会默认创建几个workqueue。</p>
+<p>创建workqueue</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>create_workqueue(name)</td>
+<td>创建一个普通的workqueue，该workqueue将在每个cpu上都创建一个worker thread，后文会描述。</td>
+</tr>
+<tr>
+<td>create_freezable_workqueue(name)</td>
+<td>在suspend的时候不冻结内核线程的worker thread</td>
+</tr>
+<tr>
+<td>create_singlethread_workqueue(name)</td>
+<td>只有一个thread，所有的work在thread中排队运行。</td>
+</tr>
+<tr>
+<td>cstruct workqueue_struct *alloc_workqueue(const char *fmt,unsigned int flags,int max_active, ...)</td>
+<td>最原始的分配函数，上面三个函数都会调用到该函数，其中第三个参数是工作队列中当前能够运行的最大work数量，当大于该值其work将会被添加到未激活的链表中等待运行的work完成后才能运行。上面三个函数的max_active都是1,因此work都是排队运行的，因此要并行work使用alloc_workqueue来创建。</td>
+</tr>
+</tbody>
+</table>
+<p>除了系统定义的几个默认workqueue，用户可以调用上面的函数自己创建workqueue，对于queue_work来说一般用就可以指定使用自己创建的workqueue。</p>
+<h2 id="_1">数据结构</h2>
+<p><a href="http://8.134.108.235/wp-content/uploads/2023/11/wp_editor_md_c819144f78a2488094de7ae1c6fcde74.jpg"><img alt="" src="images/wp_editor_md_c819144f78a2488094de7ae1c6fcde74.jpg"/></a></p>
+<p>workqueue涉及到几个重要的数据结构，可以结合下面的图来进行理解。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_66ba0133a9799ad0f14a278b7a3d6358.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_66ba0133a9799ad0f14a278b7a3d6358.jpg"/></a></p>
+<ul>
+<li>work_struct: “任务项”，也可以称为工作，填充了用户实际要处理函数任务。初始化后的work将会被添加到worker_pool中链表上。</li>
+<li>workqueue_struct：“项目”；任务由那个工作队列负责运行，即可理解为任务所属“项目”，“项目”是多个任务的集合。一个工作队列可以处理多个任务。系统在初始化时默认创建了一些工作队列如system_wq,system_highpri_wq等，用户也可以调用alloc_workqueue来创建一个工作队列。系统定义了一个全局的链表workqueues，所有的工作队列都连接到该链表上。</li>
+<li>worker:“工人”；每一个worker对应一个task，该worker上可能挂接着多个等待处理的任务。</li>
+<li>worker_pool:“工厂”；一个“工厂”里面多个“工人”，工厂还没被触发的任务都挂在worklist链表上。</li>
+<li>pool_workqueue:“厂长”；建立workqueue_struct和pool_workqueue的联系。</li>
+</ul>
+<p>workqueue是把work推迟到一个内核线程中去执行，结合上面的数据结构关系具体描述就是：一个项目（workqueue）上可以处理很多个工作（work)，这些项目（workqueue）的工作（work)交给工厂负责人（pool_wokerqueue）协调到一个工厂（woker_pool）去生产，工厂（worker_pool）中当收到要启动处理工作（work）时，就安排一个工人（worker）去执行工作（work）。</p>
+<p>worker_pool是管理了多个worker,每个worker对应一个task。因此我们也称worker_pool为线程池。线程池的线程数量是可以动态分配或移除。线程池可以分为与特定CPU绑定的线程池和没有绑定的线程池两类。</p>
+<ul>
+<li>Bound 线程池：这种线程池根据优先级分为高低两类，分别用来处理高优先级和低优先级的任务。绑定的线程池在系统中使用全局数组定义好了，DEFINE_PER_CPU_SHARED_ALIGNED(struct worker_pool [NR_STD_WORKER_POOLS], cpu_worker_pools), 取决于cpu的数量，根据高低优先级那么如果有n个cpu，那么就对应有2n个worker_pool。</li>
+<li>Unbound线程池：这类线程池可以运行在任意cpu上，其worker_pool是动态创建的，创建worker_pool时会判断其线程池熟悉，如线程优先级nice，如果属性一样就再重复创建，共有一个线程池。</li>
+</ul>
+<p>worker_pool线程池与workqueue是没有直接联系的，当用户创建一个workqueue只是选择一个或多个线程池而已，对于bound类型的线程池，每个cpu有两个线程池对于高低优先级；对应unbound类型线程池，根据属性动态创建线程池。创建线程池后，默认情况下线程池会创建一个worker 线程来处理work，随着work数量的提交，woker_pool动态的调整worker来应对work数量。 后续约定workqueue简写wq；worker_pool简写pool，也称为线程池；pool_workqueue简写pwq；</p>
+<h2 id="_2">初始化</h2>
+<p>workqueue初始化分为两个阶段，分别为早期workqueue_init_early和workqueue_init。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b3c939d6f6f43c427a05211704227723.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_b3c939d6f6f43c427a05211704227723.jpg"/></a></p>
+<h3 id="workqueue-early-init">workqueue early init</h3>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">workqueue_init_early</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">std_nice</span><span class="p">[</span><span class="n">NR_STD_WORKER_POOLS</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">-20</span><span class="w"> </span><span class="p">};</span>
+<span class="n">pwq_cache</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KMEM_CACHE</span><span class="p">(</span><span class="n">pool_workqueue</span><span class="p">,</span><span class="w"> </span><span class="n">SLAB_PANIC</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="o">!</span><span class="n">alloc_cpumask_var</span><span class="p">(</span><span class="o">&amp;</span><span class="n">wq_unbound_cpumask</span><span class="p">,</span><span class="w"> </span><span class="n">GFP_KERNEL</span><span class="p">));</span>
+<span class="w">    </span><span class="n">cpumask_copy</span><span class="p">(</span><span class="n">wq_unbound_cpumask</span><span class="p">,</span><span class="w"> </span><span class="n">housekeeping_cpumask</span><span class="p">(</span><span class="n">hk_flags</span><span class="p">));</span>
+
+<span class="w">    </span><span class="c1">//静态为每个cpu创建两个线程池，用于处理高优先级和普通优先级的work。</span>
+<span class="w">    </span><span class="n">for_each_possible_cpu</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">worker_pool</span><span class="w"> </span><span class="o">*</span><span class="n">pool</span><span class="p">;</span>
+<span class="w">        </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">        </span><span class="c1">//为每个cpu定义了一个静态的worker_pool[2]，这里遍历数组进行初始化，设定线程池运行的cpu、nice值以及所属node节点。其中nice值会有差别，依次为0和-20，这就决定了，这两个线程池的优先级运行优先级是不同的。</span>
+<span class="w">        </span><span class="n">for_each_cpu_worker_pool</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span><span class="w"> </span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">init_worker_pool</span><span class="p">(</span><span class="n">pool</span><span class="p">));</span><span class="w"> </span>
+<span class="c1">//初始化worker_pool，分配struct workqueue_attrs</span>
+<span class="w">            </span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">cpu</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cpu</span><span class="p">;</span>
+<span class="w">            </span><span class="n">cpumask_copy</span><span class="p">(</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">attrs</span><span class="o">-&gt;</span><span class="n">cpumask</span><span class="p">,</span><span class="w"> </span><span class="n">cpumask_of</span><span class="p">(</span><span class="n">cpu</span><span class="p">));</span>
+<span class="w">            </span><span class="c1">//设置要运行的cpu，线程池是绑定在cpu上的。</span>
+<span class="w">            </span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">attrs</span><span class="o">-&gt;</span><span class="n">nice</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std_nice</span><span class="p">[</span><span class="n">i</span><span class="o">++</span><span class="p">];</span><span class="w"> </span><span class="c1">//设置线程的优先级</span>
+<span class="w">            </span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cpu_to_node</span><span class="p">(</span><span class="n">cpu</span><span class="p">);</span><span class="w"> </span><span class="c1">//设置所属node节点</span>
+
+<span class="w">            </span><span class="c1">//分配worker pool id</span>
+<span class="w">            </span><span class="n">mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">wq_pool_mutex</span><span class="p">);</span>
+<span class="w">            </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">worker_pool_assign_id</span><span class="p">(</span><span class="n">pool</span><span class="p">));</span>
+<span class="w">            </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">wq_pool_mutex</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="c1">//除了静态为每个cpu创建两个线程池外，还可以创建跟cpu不绑定的线程池，线程池将会//动态的创建，这里先分配线程池的属性。</span>
+
+<span class="w">    </span><span class="c1">//动态创建的线程池又分为两类，分别是跟node节点绑定的线程池和跟node节点不绑定</span>
+<span class="c1">//且线程池中任务运行按顺序执行的工作队列。</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">NR_STD_WORKER_POOLS</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">workqueue_attrs</span><span class="w"> </span><span class="o">*</span><span class="n">attrs</span><span class="p">;</span>
+<span class="w">        </span><span class="c1">//用于Per-node 线程池的属性创建</span>
+<span class="w">        </span><span class="n">BUG_ON</span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">attrs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_workqueue_attrs</span><span class="p">()));</span><span class="w"> </span><span class="c1">//分配一个workqueue_attrs。</span>
+<span class="w">        </span><span class="n">attrs</span><span class="o">-&gt;</span><span class="n">nice</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std_nice</span><span class="p">[</span><span class="n">i</span><span class="p">];</span><span class="w"> </span><span class="c1">//也有两个优先级，因此每个节点至少也会创建两个线程池</span>
+<span class="w">        </span><span class="n">unbound_std_wq_attrs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">attrs</span><span class="p">;</span><span class="c1">//属性赋值到全局变量中保存。</span>
+
+<span class="w">        </span><span class="cm">/*</span>
+<span class="cm">         * An ordered wq should have only one pwq as ordering is</span>
+<span class="cm">         * guaranteed by max_active which is enforced by pwqs.</span>
+<span class="cm">         * Turn off NUMA so that dfl_pwq is used for all nodes.</span>
+<span class="cm">         */</span>
+<span class="w">        </span><span class="c1">//用于工作队列中任务顺序执行线程池属性创建</span>
+<span class="w">        </span><span class="n">BUG_ON</span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">attrs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_workqueue_attrs</span><span class="p">()));</span>
+<span class="w">        </span><span class="n">attrs</span><span class="o">-&gt;</span><span class="n">nice</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std_nice</span><span class="p">[</span><span class="n">i</span><span class="p">];</span><span class="w"> </span><span class="c1">//高低优先级的线程池</span>
+<span class="w">        </span><span class="n">attrs</span><span class="o">-&gt;</span><span class="n">no_numa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w"> </span><span class="c1">//与节点无关</span>
+<span class="w">        </span><span class="n">ordered_wq_attrs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">attrs</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">//系统将默认创建几个工作队列。</span>
+<span class="w">    </span><span class="n">system_wq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_workqueue</span><span class="p">(</span><span class="s">"events"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">system_highpri_wq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_workqueue</span><span class="p">(</span><span class="s">"events_highpri"</span><span class="p">,</span><span class="w"> </span><span class="n">WQ_HIGHPRI</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">system_long_wq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_workqueue</span><span class="p">(</span><span class="s">"events_long"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">system_unbound_wq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_workqueue</span><span class="p">(</span><span class="s">"events_unbound"</span><span class="p">,</span><span class="w"> </span><span class="n">WQ_UNBOUND</span><span class="p">,</span>
+<span class="w">                        </span><span class="n">WQ_UNBOUND_MAX_ACTIVE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">system_freezable_wq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_workqueue</span><span class="p">(</span><span class="s">"events_freezable"</span><span class="p">,</span>
+<span class="w">                          </span><span class="n">WQ_FREEZABLE</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">system_power_efficient_wq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_workqueue</span><span class="p">(</span><span class="s">"events_power_efficient"</span><span class="p">,</span>
+<span class="w">                          </span><span class="n">WQ_POWER_EFFICIENT</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">system_freezable_power_efficient_wq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc_workqueue</span><span class="p">(</span><span class="s">"events_freezable_power_efficient"</span><span class="p">,</span>
+<span class="w">                          </span><span class="n">WQ_FREEZABLE</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">WQ_POWER_EFFICIENT</span><span class="p">,</span>
+<span class="w">                          </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="o">!</span><span class="n">system_wq</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="n">system_highpri_wq</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="n">system_long_wq</span><span class="w"> </span><span class="o">||</span>
+<span class="w">           </span><span class="o">!</span><span class="n">system_unbound_wq</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="n">system_freezable_wq</span><span class="w"> </span><span class="o">||</span>
+<span class="w">           </span><span class="o">!</span><span class="n">system_power_efficient_wq</span><span class="w"> </span><span class="o">||</span>
+<span class="w">           </span><span class="o">!</span><span class="n">system_freezable_power_efficient_wq</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>在workqueue_init_early的初始化过程中，先初始化每个cpu上的线程池，在系统中为每个cpu上静态定义每个cpu上定义了一个struct worker_pool cpu_worker_pools[2]的数组(DEFINE_PER_CPU_SHARED_ALIGNED(struct worker_pool [NR_STD_WORKER_POOLS], cpu_worker_pools))，即每个cpu上有两个线程池，分别用于高优先级和低优先级。 除了为每个CPU绑定两个高低优先级的线程池外，还可以动态的创建线程池，动态创建的线程池可分为跟内存node绑定和跟node节点不绑定且工作队列中的任务顺序执行，所以系统先为没有绑定cpu类型的线程池先分配好属性，存储在unbound_std_wq_attrs[2]和ordered_wq_attrs[2]中，从属性的数组定义也可以看出，每一类也有两个线程池对应的是高优先级和普通优先级。</p>
+<h3 id="workqueue-init">workqueue init</h3>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">workqueue_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">workqueue_struct</span><span class="w"> </span><span class="o">*</span><span class="n">wq</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">worker_pool</span><span class="w"> </span><span class="o">*</span><span class="n">pool</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">cpu</span><span class="p">,</span><span class="w"> </span><span class="n">bkt</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * It\'d be simpler to initialize NUMA in workqueue_init_early() but</span>
+<span class="cm">     * CPU to node mapping may not be available that early on some</span>
+<span class="cm">     * archs such as power and arm64. As per-cpu pools created</span>
+<span class="cm">     * previously could be missing node hint and unbound pools NUMA</span>
+<span class="cm">     * affinity, fix them up.</span>
+<span class="cm">     *</span>
+<span class="cm">     * Also, while iterating workqueues, create rescuers if requested.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="c1">//对numa的wq初始化，嵌入式设备一般只有一个node，所以对于numa的我们暂不深入</span>
+<span class="w">    </span><span class="n">wq_numa_init</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">wq_pool_mutex</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">for_each_possible_cpu</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">for_each_cpu_worker_pool</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span><span class="w"> </span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cpu_to_node</span><span class="p">(</span><span class="n">cpu</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">list_for_each_entry</span><span class="p">(</span><span class="n">wq</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">workqueues</span><span class="p">,</span><span class="w"> </span><span class="n">list</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">wq_update_unbound_numa</span><span class="p">(</span><span class="n">wq</span><span class="p">,</span><span class="w"> </span><span class="n">smp_processor_id</span><span class="p">(),</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span>
+<span class="w">        </span><span class="n">WARN</span><span class="p">(</span><span class="n">init_rescuer</span><span class="p">(</span><span class="n">wq</span><span class="p">),</span>
+<span class="w">             </span><span class="err">\</span><span class="s">"workqueue: failed to create early rescuer for %s</span><span class="se">\"</span><span class="s">,</span>
+<span class="w">             </span><span class="n">wq</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">wq_pool_mutex</span><span class="p">);</span>
+<span class="w">    </span><span class="n">遍历CPU</span><span class="err">，</span><span class="n">为每个绑定cpu的线程池创建一个worker</span>
+<span class="w">    </span><span class="cm">/* create the initial workers */</span>
+<span class="w">    </span><span class="n">for_each_online_cpu</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">for_each_cpu_worker_pool</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span><span class="w"> </span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">flags</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="o">~</span><span class="n">POOL_DISASSOCIATED</span><span class="p">;</span>
+<span class="w">            </span><span class="n">BUG_ON</span><span class="p">(</span><span class="o">!</span><span class="n">create_worker</span><span class="p">(</span><span class="n">pool</span><span class="p">));</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">   </span><span class="c1">//为unbound类型的创建一个线程池？</span>
+<span class="w">    </span><span class="n">hash_for_each</span><span class="p">(</span><span class="n">unbound_pool_hash</span><span class="p">,</span><span class="w"> </span><span class="n">bkt</span><span class="p">,</span><span class="w"> </span><span class="n">pool</span><span class="p">,</span><span class="w"> </span><span class="n">hash_node</span><span class="p">)</span>
+<span class="w">        </span><span class="n">BUG_ON</span><span class="p">(</span><span class="o">!</span><span class="n">create_worker</span><span class="p">(</span><span class="n">pool</span><span class="p">));</span>
+
+<span class="w">    </span><span class="n">wq_online</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">    </span><span class="n">wq_watchdog_init</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="_3">创建工作队列</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1ccdb0e599edf5672277bbf0d36a0714.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_1ccdb0e599edf5672277bbf0d36a0714.jpg"/></a></p>
+<p>创建工作队列主要的工作就是确定好工作队列使用的线程池（worker_pool），工作队列分为BOUND CPU类型和UNBOUND CPU类型。用户可以调用create_workqueue、create_freezable_workqueue以及create_singlethread_workqueue等API接口来创建队列，这些API接口最终都会调用alloc_workqueue来实现，只不过每个函数传入的参数是不一样的，对于后两个函数就是UNBOUND类型，同时create_singlethread_workqueue还是ORDERED类型，该类型的工作队列表示其所处理的工作都是按顺序排队运行的。 在解释创建工作队列的流程前我们再来说明下workqueue、pool_workqueue、worker_pool之间的关系。worker_pool是线程的集合，可以实际处理任务的，挂在workqueue上的工作最终都会交由worker_pool来处理，但是workqueue和worker_pool并没有直接一对一的关系，而是多对多的关系，可以理解要生产的产品和工厂是解耦的，工厂是一个共享的池子，因此要做一个产品（workqueue）和工厂产线生产（worker_pool）之间的联系需要个中间人来张罗，所以pool_workqueue就是这中间人，用于确定制作这个产品选择那个工厂。 Workqueue如何获取到worker_pool? （1）对于bound workqueue，是每个cpu都绑定了两个高优先级和普通优先级的线程池，这些cpu上的线程池都是共享的，因此对于workqueue需要为每个cpu的每个线程池分配一个pool_workqueue来对应到线程池，即该workqueue需要分配2*cpu个数的pool_workqueue，pool_workqueue与worker_pool是一一对应的关系。在alloc_workqueue调用alloc_percpu来分配pwq，然后遍历每个cpu获取到worker_pool，建立器pwq,wq,pool之间的联系。 （2）对于unbound workqueue，就稍微复杂些因为workqueue要找的线程池没有与cpu进行绑定，不像bound workqueue定义好了worker_pool，所以了workqueue需要动态的分配创建pwq，pool。而unbound workqueue又分为两种类型排队运行的工作队列和标准的工作队列，排队运行的工作队列所有的工作将排队依次运行而标准的工作队列意味这可并发。两种类型的队列属性分别存储在ordered_wq_attrs[]和unbound_std_wq_attrs[]两个数组中。当检查到workqueue是unbound类型后，就调用apply_workqueue_attrs分别传入不同的属性创建线程池。 A.unbound std类型：与内存节点node有关联，将会为每个node节点创建高优先级和普通优先级的线程池，之所以这么做是因为不同的node节点之间切会带来性能损耗，因此每个node都创建2个线程池。 B.unbound ordered类型：与内存节点node没有关联了，多个同一优先级的workqueue共享一个worker_pool。</p>
+<p><a href="http://8.134.108.235/wp-content/uploads/2023/11/wp_editor_md_66ba0133a9799ad0f14a278b7a3d6358.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_66ba0133a9799ad0f14a278b7a3d6358.jpg"/></a></p>
+<h2 id="_4">调度工作运行</h2>
+<h3 id="_5">触发调度</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_287cf369c9fc86074e86585182ac7c09.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_287cf369c9fc86074e86585182ac7c09.jpg"/></a></p>
+<p>触发调度最后都会调用到_queue_work来执行，只是根据不同的场景有不同的参数可选择配置。对于常用的queue_work(struct workqueue_struct *wq,struct work_struct *work)来说是将work递交到指定的wq来运行，一般用户自己创建的wq，而schedule_work(struct work_struct *work)只有一个参数，将work递交到默认的system_wq来运行，queue_work和schedule_work递交的work在wq中处理，都不绑定cpu，这里的绑定不是WQ_UNBOUND,WQ_UNBOUND和WORK_CPU_UNBOUND是有区别的，WQ_UNBOUND确定WQ的类型是normal Per-CPU worker_pool还是unbound worker_pool，确定了WQ的类型才使用WORK_CPU_UNBOUND进一部分确定work是否要绑定cpu运行。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">__queue_work</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">cpu</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">workqueue_struct</span><span class="w"> </span><span class="o">*</span><span class="n">wq</span><span class="p">,</span>
+<span class="w">             </span><span class="k">struct</span><span class="w"> </span><span class="nc">work_struct</span><span class="w"> </span><span class="o">*</span><span class="n">work</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">pool_workqueue</span><span class="w"> </span><span class="o">*</span><span class="n">pwq</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">worker_pool</span><span class="w"> </span><span class="o">*</span><span class="n">last_pool</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w"> </span><span class="o">*</span><span class="n">worklist</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">work_flags</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">req_cpu</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cpu</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * While a work item is PENDING &amp;&amp; off queue, a task trying to</span>
+<span class="cm">     * steal the PENDING will busy-loop waiting for it to either get</span>
+<span class="cm">     * queued or lose PENDING.  Grabbing PENDING and queueing should</span>
+<span class="cm">     * happen with IRQ disabled.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">lockdep_assert_irqs_disabled</span><span class="p">();</span>
+
+<span class="w">    </span><span class="cm">/* if draining, only works from the same workqueue are allowed */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="n">wq</span><span class="o">-&gt;</span><span class="n">flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">__WQ_DRAINING</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">        </span><span class="n">WARN_ON_ONCE</span><span class="p">(</span><span class="o">!</span><span class="n">is_chained_work</span><span class="p">(</span><span class="n">wq</span><span class="p">)))</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="n">rcu_read_lock</span><span class="p">();</span>
+<span class="nl">retry</span><span class="p">:</span>
+<span class="cm">/* pwq which will be used unless @work is executing elsewhere */</span>
+<span class="c1">//先判断wq unbound还是bound，如果是unbound，那么cpu选择的范围需要根据node</span>
+<span class="c1">//节点来限制，如果是bound那么cpu就限定了。</span>
+<span class="c1">//WQ_UNBOUND用于区分是wq是bound类型还是未bound类型，WORK_CPU_UNBOUND</span>
+<span class="c1">//用于进一步限定woker_pool线程池是否指定选择那一个cpu。</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">wq</span><span class="o">-&gt;</span><span class="n">flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">WQ_UNBOUND</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">req_cpu</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">WORK_CPU_UNBOUND</span><span class="p">)</span><span class="w"> </span>
+<span class="w">            </span><span class="n">cpu</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">wq_select_unbound_cpu</span><span class="p">(</span><span class="n">raw_smp_processor_id</span><span class="p">());</span>
+<span class="w">        </span><span class="c1">//unbound类型，cpu也没有绑定，则选择一个cpu，优先选择本地cpu。</span>
+<span class="w">        </span><span class="n">pwq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">unbound_pwq_by_node</span><span class="p">(</span><span class="n">wq</span><span class="p">,</span><span class="w"> </span><span class="n">cpu_to_node</span><span class="p">(</span><span class="n">cpu</span><span class="p">));</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">req_cpu</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">WORK_CPU_UNBOUND</span><span class="p">)</span>
+<span class="w">            </span><span class="n">cpu</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">raw_smp_processor_id</span><span class="p">();</span>
+<span class="w">        </span><span class="c1">//如果req_cpu类型是WORK_CPU_UNBOUND,那么也是选择当前代码运行的cpu</span>
+<span class="w">        </span><span class="n">pwq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">per_cpu_ptr</span><span class="p">(</span><span class="n">wq</span><span class="o">-&gt;</span><span class="n">cpu_pwqs</span><span class="p">,</span><span class="w"> </span><span class="n">cpu</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * If @work was previously on a different pool, it might still be</span>
+<span class="cm">     * running there, in which case the work needs to be queued on that</span>
+<span class="cm">     * pool to guarantee non-reentrancy.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="c1">//查询work是否已经在线程池内了</span>
+<span class="n">last_pool</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_work_pool</span><span class="p">(</span><span class="n">work</span><span class="p">);</span>
+<span class="c1">//如果work已经在线程池中，且当前所在的worker_pool与获取的worker_pool不是同一个</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">last_pool</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">last_pool</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">pool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">worker</span><span class="w"> </span><span class="o">*</span><span class="n">worker</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">raw_spin_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">last_pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<span class="w">        </span><span class="c1">//查询work对应的挂到那个worker上</span>
+<span class="w">        </span><span class="n">worker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">find_worker_executing_work</span><span class="p">(</span><span class="n">last_pool</span><span class="p">,</span><span class="w"> </span><span class="n">work</span><span class="p">);</span>
+<span class="w">        </span><span class="c1">//如果当前的worker所在的wq和请求的wq相同，则获取当前运行worker的pwq，//相当于前面获取的pwq被覆盖更新了，这样做的目的是防止work被重复放到不同的</span>
+<span class="w">        </span><span class="c1">//线程池中处理，也就是说当一个work被某一个线程池中接受处理后，一直需要等待//其处理完毕，不能更换另外另外一个线程池worker_pool。</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">worker</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_pwq</span><span class="o">-&gt;</span><span class="n">wq</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">wq</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">pwq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_pwq</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="cm">/* meh... not running there, queue here */</span>
+<span class="w">            </span><span class="n">raw_spin_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">last_pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<span class="w">            </span><span class="n">raw_spin_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">raw_spin_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * pwq is determined and locked.  For unbound pools, we could have</span>
+<span class="cm">     * raced with pwq release and it could already be dead.  If its</span>
+<span class="cm">     * refcnt is zero, repeat pwq selection.  Note that pwqs never die</span>
+<span class="cm">     * without another pwq replacing it in the numa_pwq_tbl or while</span>
+<span class="cm">     * work items are executing on it, so the retrying is guaranteed to</span>
+<span class="cm">     * make forward-progress.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="o">!</span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">refcnt</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">wq</span><span class="o">-&gt;</span><span class="n">flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">WQ_UNBOUND</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">raw_spin_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<span class="w">            </span><span class="n">cpu_relax</span><span class="p">();</span>
+<span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">retry</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="cm">/* oops */</span>
+<span class="w">        </span><span class="n">WARN_ONCE</span><span class="p">(</span><span class="nb">true</span><span class="p">,</span><span class="w"> </span><span class="err">\</span><span class="s">"workqueue: per-cpu pwq for %s on cpu%d has 0 refcnt</span><span class="se">\"</span><span class="s">,</span>
+<span class="w">              </span><span class="n">wq</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">cpu</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="cm">/* pwq determined, queue */</span>
+<span class="w">    </span><span class="n">trace_workqueue_queue_work</span><span class="p">(</span><span class="n">req_cpu</span><span class="p">,</span><span class="w"> </span><span class="n">pwq</span><span class="p">,</span><span class="w"> </span><span class="n">work</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">WARN_ON</span><span class="p">(</span><span class="o">!</span><span class="n">list_empty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">work</span><span class="o">-&gt;</span><span class="n">entry</span><span class="p">)))</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">out</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">nr_in_flight</span><span class="p">[</span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">work_color</span><span class="p">]</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="n">work_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">work_color_to_flags</span><span class="p">(</span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">work_color</span><span class="p">);</span>
+<span class="c1">//如果work运行的数量还没有超过限制，则获取pwq对应pool的worklist，也就是说后面</span>
+<span class="c1">//会将work加入到该work中，如果数量超了则挂到临时pwq未激活的链表上。</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">likely</span><span class="p">(</span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">nr_active</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">max_active</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">trace_workqueue_activate_work</span><span class="p">(</span><span class="n">work</span><span class="p">);</span>
+<span class="w">        </span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">nr_active</span><span class="o">++</span><span class="p">;</span>
+<span class="w">        </span><span class="n">worklist</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">worklist</span><span class="p">;</span>
+<span class="w">        </span><span class="c1">//获取到的worklist如果上面没有工作，则更新时间。</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">list_empty</span><span class="p">(</span><span class="n">worklist</span><span class="p">))</span>
+<span class="w">            </span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">watchdog_ts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">jiffies</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">work_flags</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="n">WORK_STRUCT_INACTIVE</span><span class="p">;</span>
+<span class="w">        </span><span class="n">worklist</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">inactive_works</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="n">debug_work_activate</span><span class="p">(</span><span class="n">work</span><span class="p">);</span>
+<span class="c1">//将work插入到worklist上。</span>
+<span class="w">    </span><span class="n">insert_work</span><span class="p">(</span><span class="n">pwq</span><span class="p">,</span><span class="w"> </span><span class="n">work</span><span class="p">,</span><span class="w"> </span><span class="n">worklist</span><span class="p">,</span><span class="w"> </span><span class="n">work_flags</span><span class="p">);</span>
+
+<span class="nl">out</span><span class="p">:</span>
+<span class="w">    </span><span class="n">raw_spin_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<span class="w">    </span><span class="n">rcu_read_unlock</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">insert_work</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">pool_workqueue</span><span class="w"> </span><span class="o">*</span><span class="n">pwq</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">work_struct</span><span class="w"> </span><span class="o">*</span><span class="n">work</span><span class="p">,</span>
+<span class="w">            </span><span class="k">struct</span><span class="w"> </span><span class="nc">list_head</span><span class="w"> </span><span class="o">*</span><span class="n">head</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">extra_flags</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">worker_pool</span><span class="w"> </span><span class="o">*</span><span class="n">pool</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">pool</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/* record the work call stack in order to print it in KASAN reports */</span>
+<span class="w">    </span><span class="n">kasan_record_aux_stack_noalloc</span><span class="p">(</span><span class="n">work</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//设置flag，并将work添加到worklist链表上</span>
+<span class="w">    </span><span class="cm">/* we own @work, set data and link */</span>
+<span class="w">    </span><span class="n">set_work_pwq</span><span class="p">(</span><span class="n">work</span><span class="p">,</span><span class="w"> </span><span class="n">pwq</span><span class="p">,</span><span class="w"> </span><span class="n">extra_flags</span><span class="p">);</span>
+<span class="w">    </span><span class="n">list_add_tail</span><span class="p">(</span><span class="o">&amp;</span><span class="n">work</span><span class="o">-&gt;</span><span class="n">entry</span><span class="p">,</span><span class="w"> </span><span class="n">head</span><span class="p">);</span>
+<span class="w">    </span><span class="n">get_pwq</span><span class="p">(</span><span class="n">pwq</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Ensure either wq_worker_sleeping() sees the above</span>
+<span class="cm">     * list_add_tail() or we see zero nr_running to avoid workers lying</span>
+<span class="cm">     * around lazily while there are works to be processed.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">smp_mb</span><span class="p">();</span>
+<span class="w">    </span><span class="c1">//如果没有空闲的worker了，则唤醒一个新的worker运行。</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">__need_more_worker</span><span class="p">(</span><span class="n">pool</span><span class="p">))</span>
+<span class="w">        </span><span class="n">wake_up_worker</span><span class="p">(</span><span class="n">pool</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">wake_up_worker</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">worker_pool</span><span class="w"> </span><span class="o">*</span><span class="n">pool</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">   </span><span class="c1">//从pool的idle_list上获取一个worker，触发运行。</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">worker</span><span class="w"> </span><span class="o">*</span><span class="n">worker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">first_idle_worker</span><span class="p">(</span><span class="n">pool</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">likely</span><span class="p">(</span><span class="n">worker</span><span class="p">))</span>
+<span class="w">        </span><span class="n">wake_up_process</span><span class="p">(</span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">task</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="_6">执行调度</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_67df566b6acca29b854416345bba05f5.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_67df566b6acca29b854416345bba05f5.jpg"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">worker_thread</span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">__worker</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">worker</span><span class="w"> </span><span class="o">*</span><span class="n">worker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__worker</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">worker_pool</span><span class="w"> </span><span class="o">*</span><span class="n">pool</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">pool</span><span class="p">;</span>
+
+<span class="cm">/* tell the scheduler that this is a workqueue worker */</span>
+<span class="c1">//通知调度器，这是一个worker</span>
+<span class="w">    </span><span class="n">set_pf_worker</span><span class="p">(</span><span class="nb">true</span><span class="p">);</span>
+<span class="nl">woke_up</span><span class="p">:</span>
+<span class="w">    </span><span class="n">raw_spin_lock_irq</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+
+<span class="cm">/* am I supposed to die? */</span>
+<span class="c1">//判断该worker是否要退出？</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">WORKER_DIE</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">raw_spin_unlock_irq</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<span class="w">        </span><span class="n">WARN_ON_ONCE</span><span class="p">(</span><span class="o">!</span><span class="n">list_empty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">entry</span><span class="p">));</span>
+<span class="w">        </span><span class="n">set_pf_worker</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+
+<span class="w">        </span><span class="n">set_task_comm</span><span class="p">(</span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">task</span><span class="p">,</span><span class="w"> </span><span class="err">\</span><span class="s">"kworker/dying</span><span class="se">\"</span><span class="s">);</span>
+<span class="w">        </span><span class="n">ida_free</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">worker_ida</span><span class="p">,</span><span class="w"> </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">id</span><span class="p">);</span>
+<span class="w">        </span><span class="n">worker_detach_from_pool</span><span class="p">(</span><span class="n">worker</span><span class="p">);</span>
+<span class="w">        </span><span class="n">kfree</span><span class="p">(</span><span class="n">worker</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="c1">//离开idle状态，被唤醒之前都是idle状态</span>
+<span class="w">    </span><span class="n">worker_leave_idle</span><span class="p">(</span><span class="n">worker</span><span class="p">);</span>
+<span class="nl">recheck</span><span class="p">:</span>
+<span class="c1">//检查线程池上是否有work要处理并且当前没有正在运行的worker了则进行处理，否则</span>
+<span class="c1">//进入休眠状态。</span>
+<span class="w">    </span><span class="cm">/* no more worker necessary? */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">need_more_worker</span><span class="p">(</span><span class="n">pool</span><span class="p">))</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">sleep</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">//如果pool上的idle worker数量为0，则创建一个worker备用</span>
+<span class="w">    </span><span class="cm">/* do we need to manage? */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="o">!</span><span class="n">may_start_working</span><span class="p">(</span><span class="n">pool</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">manage_workers</span><span class="p">(</span><span class="n">worker</span><span class="p">))</span>
+<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">recheck</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * -&gt;scheduled list can only be filled while a worker is</span>
+<span class="cm">     * preparing to process a work or actually processing it.</span>
+<span class="cm">     * Make sure nobody diddled with it while I was sleeping.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">WARN_ON_ONCE</span><span class="p">(</span><span class="o">!</span><span class="n">list_empty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">scheduled</span><span class="p">));</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Finish PREP stage.  We\'re guaranteed to have at least one idle</span>
+<span class="cm">     * worker or that someone else has already assumed the manager</span>
+<span class="cm">     * role.  This is where @worker starts participating in concurrency</span>
+<span class="cm">     * management if applicable and concurrency management is restored</span>
+<span class="cm">     * after being rebound.  See rebind_workers() for details.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">worker_clr_flags</span><span class="p">(</span><span class="n">worker</span><span class="p">,</span><span class="w"> </span><span class="n">WORKER_PREP</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">WORKER_REBOUND</span><span class="p">);</span>
+
+<span class="k">do</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//从线程池pool-&gt;worklist上的获取一个work</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">work_struct</span><span class="w"> </span><span class="o">*</span><span class="n">work</span><span class="w"> </span><span class="o">=</span>
+<span class="w">            </span><span class="n">list_first_entry</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">worklist</span><span class="p">,</span>
+<span class="w">                     </span><span class="k">struct</span><span class="w"> </span><span class="nc">work_struct</span><span class="p">,</span><span class="w"> </span><span class="n">entry</span><span class="p">);</span>
+
+<span class="w">        </span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">watchdog_ts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">jiffies</span><span class="p">;</span>
+<span class="w">        </span><span class="c1">//如果work不是linked，这里的link指的是有关联的work？</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">likely</span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="o">*</span><span class="n">work_data_bits</span><span class="p">(</span><span class="n">work</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">WORK_STRUCT_LINKED</span><span class="p">)))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="cm">/* optimization path, not strictly necessary */</span>
+<span class="w">            </span><span class="c1">//处理work</span>
+<span class="w">            </span><span class="n">process_one_work</span><span class="p">(</span><span class="n">worker</span><span class="p">,</span><span class="w"> </span><span class="n">work</span><span class="p">);</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="o">!</span><span class="n">list_empty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">scheduled</span><span class="p">)))</span>
+<span class="w">                </span><span class="n">process_scheduled_works</span><span class="p">(</span><span class="n">worker</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="c1">//特殊的work，先将其插入到worker-&gt;scheduled上，然后调度一起运行。</span>
+<span class="w">            </span><span class="n">move_linked_works</span><span class="p">(</span><span class="n">work</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">scheduled</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+<span class="w">            </span><span class="n">process_scheduled_works</span><span class="p">(</span><span class="n">worker</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">keep_working</span><span class="p">(</span><span class="n">pool</span><span class="p">));</span>
+<span class="c1">//一直循环，直到pool-&gt;worklist上链表的work处理完成。</span>
+
+<span class="w">    </span><span class="n">worker_set_flags</span><span class="p">(</span><span class="n">worker</span><span class="p">,</span><span class="w"> </span><span class="n">WORKER_PREP</span><span class="p">);</span>
+<span class="nl">sleep</span><span class="p">:</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * pool-&gt;lock is held and there\'s no work to process and no need to</span>
+<span class="cm">     * manage, sleep.  Workers are woken up only while holding</span>
+<span class="cm">     * pool-&gt;lock or from local cpu, so setting the current state</span>
+<span class="cm">     * before releasing pool-&gt;lock is enough to prevent losing any</span>
+<span class="cm">     * event.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="c1">//处理完了，继续进入idle状态</span>
+<span class="w">    </span><span class="n">worker_enter_idle</span><span class="p">(</span><span class="n">worker</span><span class="p">);</span>
+<span class="w">    </span><span class="n">__set_current_state</span><span class="p">(</span><span class="n">TASK_IDLE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">raw_spin_unlock_irq</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+<span class="w">    </span><span class="n">schedule</span><span class="p">();</span>
+<span class="w">    </span><span class="k">goto</span><span class="w"> </span><span class="n">woke_up</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">process_one_work</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">worker</span><span class="w"> </span><span class="o">*</span><span class="n">worker</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">work_struct</span><span class="w"> </span><span class="o">*</span><span class="n">work</span><span class="p">)</span>
+<span class="n">__releases</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">)</span>
+<span class="n">__acquires</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">pool_workqueue</span><span class="w"> </span><span class="o">*</span><span class="n">pwq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_work_pwq</span><span class="p">(</span><span class="n">work</span><span class="p">);</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">worker_pool</span><span class="w"> </span><span class="o">*</span><span class="n">pool</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">pool</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">cpu_intensive</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">wq</span><span class="o">-&gt;</span><span class="n">flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">WQ_CPU_INTENSIVE</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">work_data</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">worker</span><span class="w"> </span><span class="o">*</span><span class="n">collision</span><span class="p">;</span>
+<span class="cp">#ifdef CONFIG_LOCKDEP</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * It is permissible to free the struct work_struct from</span>
+<span class="cm">     * inside the function that is called from it, this we need to</span>
+<span class="cm">     * take into account for lockdep too.  To avoid bogus \"held</span>
+<span class="cm">     * lock freed\" warnings as well as problems when looking into</span>
+<span class="cm">     * work-&gt;lockdep_map, make a copy and use that here.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">lockdep_map</span><span class="w"> </span><span class="n">lockdep_map</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">lockdep_copy_map</span><span class="p">(</span><span class="o">&amp;</span><span class="n">lockdep_map</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">work</span><span class="o">-&gt;</span><span class="n">lockdep_map</span><span class="p">);</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="cm">/* ensure we\'re on the correct CPU */</span>
+<span class="w">    </span><span class="n">WARN_ON_ONCE</span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">POOL_DISASSOCIATED</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">             </span><span class="n">raw_smp_processor_id</span><span class="p">()</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">cpu</span><span class="p">);</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * A single work shouldn\'t be executed concurrently by</span>
+<span class="cm">     * multiple workers on a single cpu.  Check whether anyone is</span>
+<span class="cm">     * already processing the work.  If so, defer the work to the</span>
+<span class="cm">     * currently executing one.</span>
+<span class="cm">     */</span>
+<span class="w">   </span><span class="c1">//检查work已经在其他worker上执行，则将work放入对应的worker-&gt;scheduled中延后执行</span>
+<span class="w">    </span><span class="n">collision</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">find_worker_executing_work</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span><span class="w"> </span><span class="n">work</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="n">collision</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">move_linked_works</span><span class="p">(</span><span class="n">work</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">collision</span><span class="o">-&gt;</span><span class="n">scheduled</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="c1">//将要执行的work更新为当前要运行的work</span>
+<span class="w">    </span><span class="cm">/* claim and dequeue */</span>
+<span class="w">    </span><span class="n">debug_work_deactivate</span><span class="p">(</span><span class="n">work</span><span class="p">);</span>
+<span class="w">    </span><span class="n">hash_add</span><span class="p">(</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">busy_hash</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">hentry</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">)</span><span class="n">work</span><span class="p">);</span>
+<span class="w">    </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_work</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">work</span><span class="p">;</span>
+<span class="w">    </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_func</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">work</span><span class="o">-&gt;</span><span class="n">func</span><span class="p">;</span>
+<span class="w">    </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_pwq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pwq</span><span class="p">;</span>
+<span class="w">    </span><span class="n">work_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">work_data_bits</span><span class="p">(</span><span class="n">work</span><span class="p">);</span>
+<span class="w">    </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_work_color</span><span class="p">(</span><span class="n">work_data</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Record wq name for cmdline and debug reporting, may get</span>
+<span class="cm">     * overridden through set_worker_desc().</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">strscpy</span><span class="p">(</span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">desc</span><span class="p">,</span><span class="w"> </span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">wq</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">WORKER_DESC_LEN</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">list_del_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">work</span><span class="o">-&gt;</span><span class="n">entry</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * CPU intensive works don\'t participate in concurrency management.</span>
+<span class="cm">     * They\'re the scheduler\'s responsibility.  This takes @worker out</span>
+<span class="cm">     * of concurrency management and the next code block will chain</span>
+<span class="cm">     * execution of the pending work items.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="c1">//如果当前cpu是密集型，则设置一个标志位</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="n">cpu_intensive</span><span class="p">))</span>
+<span class="w">        </span><span class="n">worker_set_flags</span><span class="p">(</span><span class="n">worker</span><span class="p">,</span><span class="w"> </span><span class="n">WORKER_CPU_INTENSIVE</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Wake up another worker if necessary.  The condition is always</span>
+<span class="cm">     * false for normal per-cpu workers since nr_running would always</span>
+<span class="cm">     * be &gt;= 1 at this point.  This is used to chain execution of the</span>
+<span class="cm">     * pending work items for WORKER_NOT_RUNNING workers such as the</span>
+<span class="cm">     * UNBOUND and CPU_INTENSIVE ones.</span>
+<span class="cm">     */</span>
+<span class="c1">//再次检查，是否需要wake up另外的worker，对于normal per-cpu worker总不会触发，</span>
+<span class="c1">//主要针对unbound 和 cpu 密集型</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">need_more_worker</span><span class="p">(</span><span class="n">pool</span><span class="p">))</span>
+<span class="w">        </span><span class="n">wake_up_worker</span><span class="p">(</span><span class="n">pool</span><span class="p">);</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Record the last pool and clear PENDING which should be the last</span>
+<span class="cm">     * update to @work.  Also, do this inside @pool-&gt;lock so that</span>
+<span class="cm">     * PENDING and queued state changes happen together while IRQ is</span>
+<span class="cm">     * disabled.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">set_work_pool_and_clear_pending</span><span class="p">(</span><span class="n">work</span><span class="p">,</span><span class="w"> </span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">id</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">raw_spin_unlock_irq</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">lock_map_acquire</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">wq</span><span class="o">-&gt;</span><span class="n">lockdep_map</span><span class="p">);</span>
+<span class="w">    </span><span class="n">lock_map_acquire</span><span class="p">(</span><span class="o">&amp;</span><span class="n">lockdep_map</span><span class="p">);</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Strictly speaking we should mark the invariant state without holding</span>
+<span class="cm">     * any locks, that is, before these two lock_map_acquire()\'s.</span>
+<span class="cm">     *</span>
+<span class="cm">     * However, that would result in:</span>
+<span class="cm">     *</span>
+<span class="cm">     *   A(W1)</span>
+<span class="cm">     *   WFC(C)</span>
+<span class="cm">     *      A(W1)</span>
+<span class="cm">     *      C(C)</span>
+<span class="cm">     *</span>
+<span class="cm">     * Which would create W1-&gt;C-&gt;W1 dependencies, even though there is no</span>
+<span class="cm">     * actual deadlock possible. There are two solutions, using a</span>
+<span class="cm">     * read-recursive acquire on the work(queue) \'locks\', but this will then</span>
+<span class="cm">     * hit the lockdep limitation on recursive locks, or simply discard</span>
+<span class="cm">     * these locks.</span>
+<span class="cm">     *</span>
+<span class="cm">     * AFAICT there is no possible deadlock scenario between the</span>
+<span class="cm">     * flush_work() and complete() primitives (except for single-threaded</span>
+<span class="cm">     * workqueues), so hiding them isn\'t a problem.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">lockdep_invariant_state</span><span class="p">(</span><span class="nb">true</span><span class="p">);</span>
+<span class="n">trace_workqueue_execute_start</span><span class="p">(</span><span class="n">work</span><span class="p">);</span>
+<span class="c1">//执行work函数</span>
+<span class="w">    </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_func</span><span class="p">(</span><span class="n">work</span><span class="p">);</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * While we must be careful to not use \"work\" after this, the trace</span>
+<span class="cm">     * point will only record its address.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">trace_workqueue_execute_end</span><span class="p">(</span><span class="n">work</span><span class="p">,</span><span class="w"> </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_func</span><span class="p">);</span>
+<span class="w">    </span><span class="n">lock_map_release</span><span class="p">(</span><span class="o">&amp;</span><span class="n">lockdep_map</span><span class="p">);</span>
+<span class="w">    </span><span class="n">lock_map_release</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pwq</span><span class="o">-&gt;</span><span class="n">wq</span><span class="o">-&gt;</span><span class="n">lockdep_map</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="n">in_atomic</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">lockdep_depth</span><span class="p">(</span><span class="n">current</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pr_err</span><span class="p">(</span><span class="err">\</span><span class="s">"BUG: workqueue leaked lock or atomic: %s/0x%08x/%d</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span>
+<span class="w">               </span><span class="err">\</span><span class="s">"     last function: %ps</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,</span>
+<span class="w">               </span><span class="n">current</span><span class="o">-&gt;</span><span class="n">comm</span><span class="p">,</span><span class="w"> </span><span class="n">preempt_count</span><span class="p">(),</span><span class="w"> </span><span class="n">task_pid_nr</span><span class="p">(</span><span class="n">current</span><span class="p">),</span>
+<span class="w">               </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_func</span><span class="p">);</span>
+<span class="w">        </span><span class="n">debug_show_held_locks</span><span class="p">(</span><span class="n">current</span><span class="p">);</span>
+<span class="w">        </span><span class="n">dump_stack</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * The following prevents a kworker from hogging CPU on !PREEMPTION</span>
+<span class="cm">     * kernels, where a requeueing work item waiting for something to</span>
+<span class="cm">     * happen could deadlock with stop_machine as such work item could</span>
+<span class="cm">     * indefinitely requeue itself while all other CPUs are trapped in</span>
+<span class="cm">     * stop_machine. At the same time, report a quiescent RCU state so</span>
+<span class="cm">     * the same condition doesn\'t freeze RCU.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">cond_resched</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">raw_spin_lock_irq</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pool</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* clear cpu intensive status */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="n">cpu_intensive</span><span class="p">))</span>
+<span class="w">        </span><span class="n">worker_clr_flags</span><span class="p">(</span><span class="n">worker</span><span class="p">,</span><span class="w"> </span><span class="n">WORKER_CPU_INTENSIVE</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* tag the worker for identification in schedule() */</span>
+<span class="w">    </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">last_func</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_func</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/* we\'re done with it, release */</span>
+<span class="w">    </span><span class="n">hash_del</span><span class="p">(</span><span class="o">&amp;</span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">hentry</span><span class="p">);</span>
+<span class="w">    </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_work</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">    </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_func</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">    </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_pwq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">    </span><span class="n">worker</span><span class="o">-&gt;</span><span class="n">current_color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">INT_MAX</span><span class="p">;</span>
+<span class="n">pwq_dec_nr_in_flight</span><span class="p">(</span><span class="n">pwq</span><span class="p">,</span><span class="w"> </span><span class="n">work_data</span><span class="p">);</span>
+<span class="c1">//pwq-&gt;nr_active--,判断是否要处理延时队列，</span>
+<span class="c1">//将此前pwq-&gt;inactive_works添加到pool-&gt;worklist</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>总结：工作队列可以分为3种，Per CPU，Unbound，Ordered（属于unbound的一种） - Per CPU： create_workequeue(name)，创建的WQ使用的线程池是使用Per - CPU静态定义的线程池，每个CPU有两个线程池，分别对于高优先级和低优先级。当触发queue_work时，如果没有指定cpu，则将work递交给当前运行cpu的线程池。该类型的wq，同一个work不能同时递交到多个线程池上运行，同时在一个线程池中也不能同时有多个worker来运行，work一旦选定worker将需要在该worker上运行结束；不同的work可以递交到不同的线程池，这样会在不同的cpu上并发执行。 - Unbound：create_freezable_workqueue(name)，创建的WQ使用的线程池动态创建的，会优先选择当前代码运行的cpu，获取到对应的node节点，然后查询当前node节点上是否有线程池，如果有则递交到该线程池处理，如果没有则新建一个线程池。对应这种类型的wq是需要考虑功耗的，在选择cpu时会尽可能的选择当前运行的cpu，让已经休眠的cpu尽可能的保持休眠，毕竟cpu从休眠到唤醒会有更大功耗消耗。如果没有NUMA的架构，那么就只有一个dfl默认的线程池。 - Ordered：create_singlethread_workqueue(name)，该类型的wq也是unbound的一种，只不过该工作队列只有一个线程池，这样可以保证工作队列的工作可以顺序运行，也就是说在该wq上的work是没法并发运行的，只能排队运行。</p>
+<h2 id="_7">线程池动态管理</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_f99de8b370923ccfa3fe2f769611a779.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_f99de8b370923ccfa3fe2f769611a779.jpg"/></a></p>
+<p>线程池将进行动态的增减管理worker，当创一个新的wq后，线程池至少会创建一个worker，该worker会挂到pool-&gt;idle_list链表上，当用户调用queue_work或者有另外一个worker处理work导致进入休眠将会触发worker从idle转到running状态进行处理work，当worker从idle进入running中状态时检查是否还有剩余的worker，如果没有了需要动态再创建要给worker，以备后续其他work的运行。处于running状态的worker如果在执行work回调函数时遇到阻塞该worker将进入到休眠状态，唤醒后再次返回到运行状态。当worker处理完线程池pool-&gt;worklist上的所有work时将会进入到idle状态，后台会有一个定时器检查处于idle状态的worker，如果大于1个就进行销毁。 下面是running-&gt;sleep触发另外一个worker运行和worker销毁的流程。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_35b1f784722e9865850a7109043de85d.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_35b1f784722e9865850a7109043de85d.jpg"/></a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/中断小结.html">← 中断小结</a>
+    <a class="next" href="/软中断和tasklet.html">软中断和tasklet →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

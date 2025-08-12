@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RTSP视频传输示例代码分析 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">数据结构</a><ul><li><a href="#samplertspcontext">SampleRtspContext</a></li><li><a href="#samplertspconfig">SampleRtspConfig</a></li><li><a href="#_2">编码流</a></li></ul></li><li><a href="#_3">初始化启动</a><ul><li><a href="#_4">初始化上下文参数</a></li><li><a href="#mpp">MPP初始化</a></li><li><a href="#vipp">创建VIPP通道和虚拟通道</a></li><li><a href="#venc">创建VENC编码通道</a></li><li><a href="#mux">创建MUX通道</a></li><li><a href="#_5">通道绑定</a></li><li><a href="#_6">使能虚拟与编码通道</a></li><li><a href="#_7">创建获取编码流线程</a></li></ul></li><li><a href="#_8">编码流获取与处理</a><ul><li><a href="#spspps">获取SPS和PPS</a></li><li><a href="#rtsp">开启RTSP</a></li><li><a href="#rtsp_1">循环获取编码流并发送到RTSP</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>RTSP视频传输示例代码分析</h1>
+  <div class="meta">2024-11-17 · linux</div>
+  <div class="post-content"><p>数据流通路： CSI -&gt; ISP -&gt; VIPP -&gt; VirChn -&gt; VENC</p>
+<ul>
+<li>CSI：表示物理 Camera Signal Input Pasrse Device 的接口。CSI 可以选择连接任意一个 ISP。最多支持 3 个 CSI。</li>
+<li>ISP：表示物理 ISP。ISP 可以选择连接任意多个 VIPP。最多支持 5 个 ISP。</li>
+<li>VIPP：表示物理 Scale + OSD + Mask 通道。每个 VIPP 配合一个 DMA 输出一路 Video 给到 DDR。最多支持 16 个 VIPP。</li>
+<li>VirChn：表示 VI 虚通道。每个物理通道最多虚拟 4 个虚通道输出。默认情况下推荐使用一个物理通道和一个虚通道来采集视频数据。虚拟通道的图像属性是物理通道的复制品。</li>
+<li>VENC:编码通道，支持多路实时编码，且每路编码独立，编码协议和编码 pro‑file 可以不同。VENC 模块的输入源包括两类：用户态读取图像文件向编码模块发送数据；视频输入（VI）模块采集的图像直接发送到编码模块。</li>
+</ul>
+<h2 id="_1">数据结构</h2>
+<h3 id="samplertspcontext">SampleRtspContext</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">SampleRtspContext</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">SampleRtspCmdLineParam</span><span class="w"> </span><span class="n">mCmdLinePara</span><span class="p">;</span><span class="w"> </span><span class="c1">//rtsp命令行的参数路径 -path指定的。</span>
+<span class="w">    </span><span class="n">SampleRtspConfig</span><span class="w"> </span><span class="n">mConfigPara</span><span class="p">;</span><span class="w"> </span><span class="c1">//rtsp的配置</span>
+
+<span class="w">    </span><span class="n">cdx_sem_t</span><span class="w"> </span><span class="n">mSemExit</span><span class="p">;</span><span class="w"> </span><span class="c1">//信号量？</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mbExitFlag</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">BOOL</span><span class="w"> </span><span class="n">mMainIspRunFlag</span><span class="p">;</span>
+<span class="w">    </span><span class="n">BOOL</span><span class="w"> </span><span class="n">mSubIspRunFlag</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">//先将mConfigPara从文件中读取出来，然后分别写到下面。</span>
+<span class="w">    </span><span class="n">VencStreamContext</span><span class="w"> </span><span class="n">mMainStream</span><span class="p">;</span><span class="w"> </span><span class="c1">//主码流的参数</span>
+<span class="w">    </span><span class="n">VencStreamContext</span><span class="w"> </span><span class="n">mSubStream</span><span class="p">;</span><span class="w"> </span><span class="c1">//子码流的参数</span>
+<span class="w">    </span><span class="n">VencStreamContext</span><span class="w"> </span><span class="n">mSubLapseStream</span><span class="p">;</span><span class="w"> </span><span class="c1">//缩时录影码流参数</span>
+
+<span class="w">    </span><span class="n">pthread_t</span><span class="w"> </span><span class="n">mWbYuvThreadId</span><span class="p">;</span>
+<span class="p">}</span><span class="n">SampleRtspContext</span><span class="p">;</span>
+</code></pre></div>
+<p>SampleRtspContext结构体主要用于rtsp sample函数之间的参数传递。</p>
+<h3 id="samplertspconfig">SampleRtspConfig</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">SampleRtspConfig</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="c1">// main stream</span>
+<span class="w">    </span><span class="n">ISP_DEV</span><span class="w"> </span><span class="n">mMainIsp</span><span class="p">;</span><span class="w"> </span><span class="c1">//</span>
+<span class="w">    </span><span class="n">VI_DEV</span><span class="w"> </span><span class="n">mMainVipp</span><span class="p">;</span><span class="w"> </span><span class="c1">//指定vipp设备号，默认为0，表示vipp0</span>
+<span class="w">    </span><span class="n">VI_CHN</span><span class="w"> </span><span class="n">mMainViChn</span><span class="p">;</span><span class="w"> </span><span class="c1">//指定vi虚拟通道号，默认为0，表示vich0</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mMainSrcWidth</span><span class="p">;</span><span class="w"> </span><span class="c1">//指定原始视频的宽度</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mMainSrcHeight</span><span class="p">;</span><span class="w"> </span><span class="c1">//指定原始视频的高度</span>
+<span class="w">    </span><span class="n">PIXEL_FORMAT_E</span><span class="w"> </span><span class="n">mMainPixelFormat</span><span class="p">;</span><span class="w"> </span><span class="c1">//指定像素格式，YUV类型：NV21，YU12，NV12。LBC压缩类似：aw_lbc_2_0x,aw_lbc_2_5x, aw_lbc_1_5x, aw_lbc_1_0x)。</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mMainWdrEnable</span><span class="p">;</span><span class="w"> </span><span class="c1">//指定是否开启WDR，默认为0不开。</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mMainViBufNum</span><span class="p">;</span><span class="c1">//指定VI的buffer个数，仅堆离线编码有效。</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mMainSrcFrameRate</span><span class="p">;</span><span class="c1">//指定vipp采集的帧率，单位：fps。</span>
+<span class="w">    </span><span class="n">VENC_CHN</span><span class="w"> </span><span class="n">mMainVEncChn</span><span class="p">;</span><span class="c1">//指定VE通道号</span>
+<span class="w">    </span><span class="n">PAYLOAD_TYPE_E</span><span class="w"> </span><span class="n">mMainEncodeType</span><span class="p">;</span><span class="c1">//指定编码格式，如H.264，H.265</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mMainEncodeWidth</span><span class="p">;</span><span class="c1">//编码码流的视频宽度</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mMainEncodeHeight</span><span class="p">;</span><span class="c1">//编码码流的视频高度</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mMainEncodeFrameRate</span><span class="p">;</span><span class="c1">//编码视频的帧率，fps</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mMainEncodeBitrate</span><span class="p">;</span><span class="c1">//编码的码率，bps</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">mMainFilePath</span><span class="p">[</span><span class="n">MAX_FILE_PATH_SIZE</span><span class="p">];</span><span class="c1">//编码码流存放的路径，若不指定则不会保存文件。</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mMainOnlineEnable</span><span class="p">;</span><span class="c1">//是否开启在线编码，0表示不开启表示离线编码。</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mMainOnlineShareBufNum</span><span class="p">;</span><span class="c1">//在线编码共享的buffer个数。</span>
+<span class="w">    </span><span class="n">BOOL</span><span class="w"> </span><span class="n">mMainEncppEnable</span><span class="p">;</span><span class="w"> </span><span class="c1">//是否禁用encpp新通路？？？</span>
+
+<span class="w">    </span><span class="c1">// sub stream 子码流</span>
+<span class="w">    </span><span class="n">ISP_DEV</span><span class="w"> </span><span class="n">mSubIsp</span><span class="p">;</span><span class="w"> </span>
+<span class="w">    </span><span class="n">VI_DEV</span><span class="w"> </span><span class="n">mSubVipp</span><span class="p">;</span>
+<span class="w">    </span><span class="n">VI_CHN</span><span class="w"> </span><span class="n">mSubViChn</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubSrcWidth</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubSrcHeight</span><span class="p">;</span>
+<span class="w">    </span><span class="n">PIXEL_FORMAT_E</span><span class="w"> </span><span class="n">mSubPixelFormat</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubWdrEnable</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubViBufNum</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubSrcFrameRate</span><span class="p">;</span>
+<span class="w">    </span><span class="n">VENC_CHN</span><span class="w"> </span><span class="n">mSubVEncChn</span><span class="p">;</span>
+<span class="w">    </span><span class="n">PAYLOAD_TYPE_E</span><span class="w"> </span><span class="n">mSubEncodeType</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubEncodeWidth</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubEncodeHeight</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubEncodeFrameRate</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubEncodeBitrate</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">mSubFilePath</span><span class="p">[</span><span class="n">MAX_FILE_PATH_SIZE</span><span class="p">];</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubEncppSharpAttenCoefPer</span><span class="p">;</span>
+<span class="w">    </span><span class="n">BOOL</span><span class="w"> </span><span class="n">mSubVippCropEnable</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubVippCropRectX</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubVippCropRectY</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubVippCropRectWidth</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubVippCropRectHeight</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubOnlineEnable</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubOnlineShareBufNum</span><span class="p">;</span>
+<span class="w">    </span><span class="n">BOOL</span><span class="w"> </span><span class="n">mSubEncppEnable</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// sub lapse stream //缩时录影，将较长的录影压缩变短的拍摄技术</span>
+<span class="w">    </span><span class="n">VI_DEV</span><span class="w"> </span><span class="n">mSubLapseVipp</span><span class="p">;</span><span class="w"> </span><span class="c1">//指定VIPP通道</span>
+<span class="w">    </span><span class="n">VI_CHN</span><span class="w"> </span><span class="n">mSubLapseViChn</span><span class="p">;</span><span class="w"> </span><span class="c1">//指定vi虚拟通道</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubLapseSrcWidth</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubLapseSrcHeight</span><span class="p">;</span>
+<span class="w">    </span><span class="n">PIXEL_FORMAT_E</span><span class="w"> </span><span class="n">mSubLapsePixelFormat</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubLapseWdrEnable</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubLapseViBufNum</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubLapseSrcFrameRate</span><span class="p">;</span>
+<span class="w">    </span><span class="n">VENC_CHN</span><span class="w"> </span><span class="n">mSubLapseVEncChn</span><span class="p">;</span>
+<span class="w">    </span><span class="n">PAYLOAD_TYPE_E</span><span class="w"> </span><span class="n">mSubLapseEncodeType</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubLapseEncodeWidth</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubLapseEncodeHeight</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubLapseEncodeFrameRate</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubLapseEncodeBitrate</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">mSubLapseFilePath</span><span class="p">[</span><span class="n">MAX_FILE_PATH_SIZE</span><span class="p">];</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubLapseEncppSharpAttenCoefPer</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mSubLapseTime</span><span class="p">;</span>
+<span class="w">    </span><span class="n">BOOL</span><span class="w"> </span><span class="n">mSubLapseEncppEnable</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// isp and ve linkage</span>
+<span class="w">    </span><span class="n">BOOL</span><span class="w"> </span><span class="n">mIspAndVeLinkageEnable</span><span class="p">;</span>
+<span class="w">    </span><span class="n">BOOL</span><span class="w"> </span><span class="n">mCameraAdaptiveMovingAndStaticEnable</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mVencLensMovingMaxQp</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// wb yuv</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mWbYuvEnable</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mWbYuvBufNum</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mWbYuvScalerRatio</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mWbYuvStartIndex</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mWbYuvTotalCnt</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mWbYuvStreamChn</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">mWbYuvFilePath</span><span class="p">[</span><span class="n">MAX_FILE_PATH_SIZE</span><span class="p">];</span>
+<span class="w">    </span><span class="c1">// rtsp</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mRtspNetType</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mStreamBufSize</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// others</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">mTestDuration</span><span class="p">;</span><span class="w">  </span><span class="c1">//unit:s, 0 means infinite.</span>
+<span class="p">}</span><span class="n">SampleRtspConfig</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="_2">编码流</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">VENC_STREAM_S</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">VENC_PACK_S</span><span class="w">       </span><span class="o">*</span><span class="n">mpPack</span><span class="p">;</span><span class="w">      </span><span class="cm">/*stream pack attribute*/</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w">      </span><span class="n">mPackCount</span><span class="p">;</span><span class="w">  </span><span class="cm">/*the pack number of one frame stream*/</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w">      </span><span class="n">mSeq</span><span class="p">;</span><span class="w">       </span><span class="cm">/*the list number of stream*/</span>
+
+<span class="w">    </span><span class="k">union</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="n">VENC_STREAM_INFO_H264_S</span><span class="w">  </span><span class="n">mH264Info</span><span class="p">;</span><span class="w">   </span><span class="cm">/*the stream info of h264*/</span>
+<span class="w">        </span><span class="n">VENC_STREAM_INFO_JPEG_S</span><span class="w">  </span><span class="n">mJpegInfo</span><span class="p">;</span><span class="w">    </span><span class="cm">/*the stream info of jpeg*/</span>
+<span class="w">        </span><span class="n">VENC_STREAM_INFO_MPEG4_S</span><span class="w"> </span><span class="n">mMpeg4Info</span><span class="p">;</span><span class="w">    </span><span class="cm">/*the stream info of mpeg4*/</span>
+<span class="w">        </span><span class="n">VENC_STREAM_INFO_H265_S</span><span class="w">  </span><span class="n">mH265Info</span><span class="p">;</span><span class="w">     </span><span class="cm">/*the stream info of h265*/</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">}</span><span class="n">VENC_STREAM_S</span><span class="p">;</span>
+
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">VENC_PACK_S</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="c1">//unsigned int   mPhyAddr;  /*the physics address of stream*/</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w">   </span><span class="o">*</span><span class="n">mpAddr0</span><span class="p">;</span><span class="w">   </span><span class="cm">/*the virtual address of stream*/</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w">   </span><span class="o">*</span><span class="n">mpAddr1</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w">   </span><span class="o">*</span><span class="n">mpAddr2</span><span class="p">;</span><span class="w">  </span><span class="c1">//for jpeg encoder, jpeg encoder may use three buffer to store mainPicture and thumbPicture.</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w">   </span><span class="n">mLen0</span><span class="p">;</span><span class="w">      </span><span class="cm">/*the length of stream*/</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w">   </span><span class="n">mLen1</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w">   </span><span class="n">mLen2</span><span class="p">;</span>
+
+<span class="w">    </span><span class="kt">uint64_t</span><span class="w">   </span><span class="n">mPTS</span><span class="p">;</span><span class="w">           </span><span class="cm">/*PTS*/</span>
+<span class="w">    </span><span class="n">BOOL</span><span class="w">  </span><span class="n">mbFrameEnd</span><span class="p">;</span><span class="w">         </span><span class="cm">/*frame end？*/</span>
+
+<span class="w">    </span><span class="n">VENC_DATA_TYPE_U</span><span class="w">  </span><span class="n">mDataType</span><span class="p">;</span><span class="w">                     </span><span class="cm">/*the type of stream*/</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w">   </span><span class="n">mOffset</span><span class="p">;</span>
+
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">mDataNum</span><span class="p">;</span>
+<span class="w">    </span><span class="n">VENC_PACK_INFO_S</span><span class="w"> </span><span class="n">mPackInfo</span><span class="p">[</span><span class="mi">8</span><span class="p">];</span>
+<span class="p">}</span><span class="n">VENC_PACK_S</span><span class="p">;</span>
+</code></pre></div>
+<h2 id="_3">初始化启动</h2>
+<h3 id="_4">初始化上下文参数</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">分配一个SampleRtspContext结构体</span>
+<span class="n">SampleRtspContext</span><span class="w"> </span><span class="o">*</span><span class="n">pContext</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">SampleRtspContext</span><span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="n">SampleRtspContext</span><span class="p">));</span>
+<span class="n">gpSampleRtspContext</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pContext</span><span class="p">;</span>
+<span class="n">memset</span><span class="p">(</span><span class="n">pContext</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">SampleRtspContext</span><span class="p">));</span>
+<span class="n">cdx_sem_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mSemExit</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+
+<span class="n">处理命令行的参数</span><span class="err">，</span><span class="n">主要是将</span><span class="o">-</span><span class="n">path的路径参数存储到pCmdLinePara</span><span class="o">-&gt;</span><span class="n">mConfigFilePath中</span><span class="err">。</span>
+<span class="n">ParseCmdLine</span><span class="p">(</span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="n">argv</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mCmdLinePara</span><span class="p">)</span>
+
+<span class="n">解析</span><span class="o">-</span><span class="n">path中配置文件的参数</span><span class="err">，</span><span class="n">将其加载到pContext</span><span class="o">-&gt;</span><span class="n">mConfigPara结构体中</span><span class="err">。</span>
+<span class="n">loadSampleConfig</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mConfigPara</span><span class="p">,</span><span class="w"> </span><span class="n">pConfigFilePath</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="mpp">MPP初始化</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">配置系统控制参数</span><span class="err">，</span><span class="n">有什么用了</span><span class="err">？？？</span>
+<span class="n">MPP_SYS_CONF_S</span><span class="w"> </span><span class="n">stSysConf</span><span class="p">;</span>
+<span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">stSysConf</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">MPP_SYS_CONF_S</span><span class="p">));</span>
+<span class="n">stSysConf</span><span class="p">.</span><span class="n">nAlignWidth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="p">;</span>
+<span class="n">AW_MPI_SYS_SetConf</span><span class="p">(</span><span class="o">&amp;</span><span class="n">stSysConf</span><span class="p">);</span>
+
+<span class="n">MPP接口初始化</span>
+<span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AW_MPI_SYS_Init</span><span class="p">();</span>
+
+<span class="n">配置主码流的参数</span><span class="err">，</span>
+<span class="n">configMainStream</span><span class="p">(</span><span class="n">pContext</span><span class="p">);</span>
+<span class="n">AW_MPI_VI_CreateVipp</span><span class="p">(</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mVipp</span><span class="p">);</span>
+<span class="n">AW_MPI_VI_SetVippAttr</span><span class="p">(</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mVipp</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mViAttr</span><span class="p">);</span>
+</code></pre></div>
+<h3 id="vipp">创建VIPP通道和虚拟通道</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">配置主码流的参数</span><span class="err">，</span>
+<span class="n">configMainStream</span><span class="p">(</span><span class="n">pContext</span><span class="p">);</span>
+<span class="n">AW_MPI_VI_CreateVipp</span><span class="p">(</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mVipp</span><span class="p">);</span>
+<span class="n">AW_MPI_VI_SetVippAttr</span><span class="p">(</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mVipp</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mViAttr</span><span class="p">);</span>
+
+<span class="n">创建VIPP通道</span><span class="err">、</span><span class="n">VIPP虚拟通道</span><span class="err">，</span><span class="n">同时初始化ISP</span><span class="err">，</span><span class="n">使能VIPP</span><span class="err">。</span>
+<span class="n">configMainStream</span><span class="p">(</span><span class="n">pContext</span><span class="p">);</span><span class="w"> </span><span class="c1">//将路径中配置文件参数写到&amp;pContext-&gt;mMainStream中</span>
+<span class="n">AW_MPI_VI_CreateVipp</span><span class="p">(</span><span class="n">pContext</span><span class="err">‑</span><span class="o">&gt;</span><span class="n">mViDev</span><span class="p">);</span><span class="c1">//创建VIPP</span>
+<span class="n">AW_MPI_VI_SetVippAttr</span><span class="p">(</span><span class="n">pContext</span><span class="err">‑</span><span class="o">&gt;</span><span class="n">mViDev</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pContext</span><span class="err">‑</span><span class="o">&gt;</span><span class="n">mViAttr</span><span class="p">);</span><span class="c1">//设置VIPP的参数</span>
+<span class="n">AW_MPI_ISP_Run</span><span class="p">(</span><span class="n">pContext</span><span class="err">‑</span><span class="o">&gt;</span><span class="n">mIspDev</span><span class="p">);</span><span class="c1">//初始化ISP运行</span>
+<span class="n">AW_MPI_VI_CreateVirChn</span><span class="p">(</span><span class="n">pContext</span><span class="err">‑</span><span class="o">&gt;</span><span class="n">mViDev</span><span class="p">,</span><span class="w"> </span><span class="n">pContext</span><span class="err">‑</span><span class="o">&gt;</span><span class="n">mViChn</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">stVirChnAttr</span><span class="p">);</span>
+<span class="n">AW_MPI_VI_RegisterCallback</span><span class="p">(</span><span class="n">pContext</span><span class="err">‑</span><span class="o">&gt;</span><span class="n">mViDev</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">cbInfo</span><span class="p">);</span><span class="c1">//创建VIPP虚拟通道</span>
+<span class="n">AW_MPI_VI_EnableVipp</span><span class="p">(</span><span class="n">pContext</span><span class="err">‑</span><span class="o">&gt;</span><span class="n">mViDev</span><span class="p">);</span><span class="c1">//使能VIPP</span>
+</code></pre></div>
+<h3 id="venc">创建VENC编码通道</h3>
+<p>创建编码通道，适用什么编码格式，在pContext-&gt;mMainStream.mVEncChnAttr中进行设定，如适用h264编码，则VeAttr.Type=PT_H264</p>
+<div class="codehilite"><pre><span></span><code><span class="n">设置编码参数</span><span class="p">,</span><span class="n">创建VENC编码通道</span>
+<span class="n">AW_MPI_VENC_CreateChn</span><span class="p">(</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mVEncChn</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mVEncChnAttr</span><span class="p">);</span>
+<span class="n">AW_MPI_VENC_SetRcParam</span><span class="p">(</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mVEncChn</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mVEncRcParam</span><span class="p">);</span>
+<span class="n">AW_MPI_VENC_RegisterCallback</span><span class="p">(</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mVEncChn</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">cbInfo</span><span class="p">);</span><span class="c1">//注册一个回调</span>
+<span class="n">配置ISPVE联动</span><span class="err">。</span>
+<span class="n">AW_MPI_VENC_EnableIspVeLink</span><span class="p">(</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mVEncChn</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">stIspVeLinkAttr</span><span class="p">);</span>
+</code></pre></div>
+<h3 id="mux">创建MUX通道</h3>
+<p>略</p>
+<h3 id="_5">通道绑定</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">将VI虚拟通道和VENC通道绑定</span><span class="err">。</span>
+<span class="n">AW_MPI_SYS_Bind</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ViChn</span><span class="p">,</span><span class="o">&amp;</span><span class="n">VeChn</span><span class="p">);</span>
+</code></pre></div>
+<h3 id="_6">使能虚拟与编码通道</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">启动VI虚拟通道</span><span class="err">、</span><span class="n">venc通道</span><span class="err">。</span>
+<span class="n">AW_MPI_VI_EnableVirChn</span><span class="p">(</span><span class="n">pContext</span><span class="err">‑</span><span class="o">&gt;</span><span class="n">mViDev</span><span class="p">,</span><span class="w"> </span><span class="n">pContext</span><span class="err">‑</span><span class="o">&gt;</span><span class="n">mViChn</span><span class="p">);</span>
+<span class="n">AW_MPI_VENC_StartRecvPic</span><span class="p">(</span><span class="n">pContext</span><span class="err">‑</span><span class="o">&gt;</span><span class="n">mVeChn</span><span class="p">);</span>
+</code></pre></div>
+<h3 id="_7">创建获取编码流线程</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pthread_create</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">.</span><span class="n">mStreamThreadId</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span>
+<span class="w">        </span><span class="n">getVencStreamThread</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mMainStream</span><span class="p">);</span>
+<span class="n">创建一个接收线程</span><span class="err">，</span><span class="n">用于接收视频流</span>
+</code></pre></div>
+<h2 id="_8">编码流获取与处理</h2>
+<h3 id="spspps">获取SPS和PPS</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">VencHeaderData</span><span class="w"> </span><span class="n">stSpsPpsInfo</span><span class="p">;</span>
+<span class="n">AW_MPI_VENC_GetH264SpsPpsInfo</span><span class="p">(</span><span class="n">pStreamContext</span><span class="o">-&gt;</span><span class="n">mVEncChn</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">stSpsPpsInfo</span><span class="p">);</span>
+
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pStreamContext</span><span class="o">-&gt;</span><span class="n">mFile</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">fwrite</span><span class="p">(</span><span class="n">stSpsPpsInfo</span><span class="p">.</span><span class="n">pBuffer</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span>
+<span class="w">           </span><span class="n">stSpsPpsInfo</span><span class="p">.</span><span class="n">nLength</span><span class="p">,</span><span class="w"> </span><span class="n">pStreamContext</span><span class="o">-&gt;</span><span class="n">mFile</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>SPS保存着视频内容的规格参数，包括视频高度、视频宽度、帧率等等。PPS保存着视频帧的编码参数，包括熵编码模式、切片分割类型、初始量化参数、色度量化参数等等。需要获取到这些参数解码器才能解码。如果配置文件中要将编码数据写入文件，则先将SPS和PPS写入。</p>
+<h3 id="rtsp">开启RTSP</h3>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">rtsp_start</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">id</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">id</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">RTSP_SERVER_CHANNEL_NUM</span><span class="p">)</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="n">printf</span><span class="p">(</span><span class="err">\\\</span><span class="s">"%s,%d: invalid id %d &gt;= %d</span><span class="se">\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\</span><span class="s">n</span><span class="se">\\\"</span><span class="s">, __func__,__LINE__, id, RTSP_SERVER_CHANNEL_NUM);</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">TinyServer</span><span class="w"> </span><span class="o">*</span><span class="n">rtsp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gpRtspContext</span><span class="p">[</span><span class="n">id</span><span class="p">];</span>
+<span class="w">    </span><span class="n">MediaStream</span><span class="w"> </span><span class="o">*</span><span class="n">stream</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gpRtspStream</span><span class="p">[</span><span class="n">id</span><span class="p">];</span>
+
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">url_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">stream</span><span class="o">-&gt;</span><span class="n">streamURL</span><span class="p">();</span>
+<span class="w">    </span><span class="n">rtsp</span><span class="o">-&gt;</span><span class="n">runWithNewThread</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="rtsp_1">循环获取编码流并发送到RTSP</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">while</span><span class="p">(</span><span class="o">!</span><span class="n">pContext</span><span class="o">-&gt;</span><span class="n">mbExitFlag</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//获取编码流程</span>
+<span class="w">    </span><span class="n">AW_MPI_VENC_GetStream</span><span class="p">(</span><span class="n">pStreamContext</span><span class="o">-&gt;</span><span class="n">mVEncChn</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">stVencStream</span><span class="p">,</span><span class="w"> </span><span class="n">nMilliSec</span><span class="p">)</span>
+<span class="w">    </span><span class="c1">//如果配置文件使能了要写入文件，则写入。0/1/2区别？</span>
+<span class="w">    </span><span class="n">fwrite</span><span class="p">(</span><span class="n">stVencStream</span><span class="p">.</span><span class="n">mpPack</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">mpAddr0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">           </span><span class="n">stVencStream</span><span class="p">.</span><span class="n">mpPack</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">mLen0</span><span class="p">,</span><span class="w"> </span><span class="n">pStreamContext</span><span class="o">-&gt;</span><span class="n">mFile</span><span class="p">)</span>
+<span class="w">    </span><span class="n">fwrite</span><span class="p">(</span><span class="n">stVencStream</span><span class="p">.</span><span class="n">mpPack</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">mpAddr1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">           </span><span class="n">stVencStream</span><span class="p">.</span><span class="n">mpPack</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">mLen1</span><span class="p">,</span><span class="w"> </span><span class="n">pStreamContext</span><span class="o">-&gt;</span><span class="n">mFile</span><span class="p">)</span>
+<span class="w">    </span><span class="n">fwrite</span><span class="p">(</span><span class="n">stVencStream</span><span class="p">.</span><span class="n">mpPack</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">mpAddr2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">           </span><span class="n">stVencStream</span><span class="p">.</span><span class="n">mpPack</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">mLen2</span><span class="p">,</span><span class="w"> </span><span class="n">pStreamContext</span><span class="o">-&gt;</span><span class="n">mFile</span><span class="p">)</span>
+
+<span class="w">    </span><span class="n">写入sps</span><span class="o">/</span><span class="n">pps到stream_buf中</span>
+<span class="w">    </span><span class="n">memcpy</span><span class="p">(</span><span class="n">stream_buf</span><span class="p">,</span><span class="w"> </span><span class="n">stSpsPpsInfo</span><span class="p">.</span><span class="n">pBuffer</span><span class="p">,</span><span class="w"> </span><span class="n">stSpsPpsInfo</span><span class="p">.</span><span class="n">nLength</span><span class="p">);</span>
+<span class="w">    </span><span class="n">len</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">stSpsPpsInfo</span><span class="p">.</span><span class="n">nLength</span>
+<span class="w">    </span><span class="n">frame_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">RTSP_FRAME_DATA_TYPE_I</span><span class="err">；</span>
+
+<span class="w">    </span><span class="n">写入编码流到stream_buf中</span><span class="err">，</span><span class="n">同样会判断对用的mpPackp</span><span class="o">-&gt;</span><span class="n">mLenx若大于0</span><span class="err">，</span><span class="n">依次拷贝</span>
+<span class="w">    </span><span class="n">memcpy</span><span class="p">(</span><span class="n">stream_buf</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">len</span><span class="p">,</span><span class="w"> </span><span class="n">stVencStream</span><span class="p">.</span><span class="n">mpPack</span><span class="o">-&gt;</span><span class="n">mpAddr0</span><span class="p">,</span>
+<span class="w">           </span><span class="n">stVencStream</span><span class="p">.</span><span class="n">mpPack</span><span class="o">-&gt;</span><span class="n">mLen0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">memcpy</span><span class="p">(</span><span class="n">stream_buf</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">len</span><span class="p">,</span><span class="w"> </span><span class="n">stVencStream</span><span class="p">.</span><span class="n">mpPack</span><span class="o">-&gt;</span><span class="n">mpAddr1</span><span class="p">,</span>
+<span class="w">           </span><span class="n">stVencStream</span><span class="p">.</span><span class="n">mpPack</span><span class="o">-&gt;</span><span class="n">mLen1</span><span class="p">);</span>
+<span class="w">    </span><span class="n">memcpy</span><span class="p">(</span><span class="n">stream_buf</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">len</span><span class="p">,</span><span class="w"> </span><span class="n">stVencStream</span><span class="p">.</span><span class="n">mpPack</span><span class="o">-&gt;</span><span class="n">mpAddr2</span><span class="p">,</span>
+<span class="w">           </span><span class="n">stVencStream</span><span class="p">.</span><span class="n">mpPack</span><span class="o">-&gt;</span><span class="n">mLen2</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">获取当前的fps</span><span class="err">，</span><span class="n">rtsp会检查duration时间</span>
+<span class="w">    </span><span class="n">AW_MPI_ISP_GetSensorFps</span><span class="p">(</span><span class="n">pStreamContext</span><span class="o">-&gt;</span><span class="n">mIsp</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">sensor_fps</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">调用rtsp_sendData发送</span>
+<span class="w">    </span><span class="n">RtspSendDataParam</span><span class="w"> </span><span class="n">stRtspParam</span><span class="p">;</span>
+<span class="w">    </span><span class="n">stRtspParam</span><span class="p">.</span><span class="n">buf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">stream_buf</span><span class="p">;</span><span class="w"> </span><span class="c1">//编码流buffer地址</span>
+<span class="w">    </span><span class="n">stRtspParam</span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">len</span><span class="p">;</span>
+<span class="w">    </span><span class="n">stRtspParam</span><span class="p">.</span><span class="n">frame_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">frame_type</span><span class="p">;</span><span class="c1">//编码流类型</span>
+<span class="w">    </span><span class="n">stRtspParam</span><span class="p">.</span><span class="n">pts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pts</span><span class="p">;</span>
+<span class="w">    </span><span class="n">stRtspParam</span><span class="p">.</span><span class="n">frame_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sensor_fps</span><span class="p">;</span><span class="c1">//编码流的帧率</span>
+<span class="w">    </span><span class="n">rtsp_sendData</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">stRtspParam</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/拍照示例代码分析.html">← 拍照示例代码分析</a>
+    <a class="next" href="/移动检测代码示例分析.html">移动检测代码示例分析 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

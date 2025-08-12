@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>lerobot策略优化器 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#torchoptim">torch.optim简介</a><ul><li><a href="#_1">什么优化器</a></li><li><a href="#torchoptim_1">torch.optim怎么用</a></li></ul></li><li><a href="#optimizerconfig">抽象基类OptimizerConfig</a><ul><li><a href="#_2">继承关系</a></li><li><a href="#_3">核心属性</a></li><li><a href="#_4">核心方法</a></li></ul></li><li><a href="#_5">实例化子类</a><ul><li><a href="#_6">单参数优化器</a></li><li><a href="#_7">多参数优化器</a></li></ul></li><li><a href="#_8">优化器状态管理</a><ul><li><a href="#_9">状态保存</a></li><li><a href="#_10">状态加载</a></li></ul></li><li><a href="#_11">工程调用</a><ul><li><a href="#_12">创建流程</a></li><li><a href="#_13">训练流程</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>lerobot策略优化器</h1>
+  <div class="meta">2025-08-02 · ai</div>
+  <div class="post-content"><h2 id="torchoptim">torch.optim简介</h2>
+<p>在学校lerobot的策略优化器前，我们先再复习一下什么是优化器。</p>
+<h3 id="_1">什么优化器</h3>
+<p>优化器官方解释就是在深度学习中让损失函数通过梯度下降思想逐步调整参数以达到最小损失。</p>
+<p>简单理解优化器的就是更新计算参数的，根据损失函数的梯度方向调整模型权重和偏置值，公式为：新参数 = 旧参数 - 学习率 × 梯度。通过迭代逐步逼近最优解。在文章<a href="https://www.laumy.tech/2050.html">https://www.laumy.tech/2050.html</a>我们已经探讨过常用的优化算法。</p>
+<p>接下来我们再来从PyTorch使用的角度复习一下。torch.optim 是 PyTorch 官方优化器模块，提供了 SGD、Adam、AdamW 等主流优化算法的实现，所有的优化器都继承自基类 torch.optim.Optimizer。其核心作用是如下：</p>
+<ul>
+<li>自动化参数更新：根据反向传播计算的梯度，按特定优化策略（如 Adam 的自适应学习率）更新模型参数。</li>
+<li>统一接口抽象：通过 Optimizer 基类封装不同算法，提供一致的使用流程（zero_grad() 清空梯度 → step() 更新参数）。</li>
+</ul>
+<p>在Pytorch中优化器统一封装成torch.optim接口调用，可以有以下优势。</p>
+<ul>
+<li>避免重复实现复杂算法：无需手动编写 Adam 的动量、二阶矩估计等逻辑，直接调用成熟接口。</li>
+<li>灵活支持训练需求：支持单/多参数组优化（如不同模块用不同学习率）、学习率调度、梯度清零等核心训练逻辑。</li>
+<li>工程化与可维护性：通过统一接口管理超参数（lr、weight_decay），便于实验对比与代码复用。</li>
+</ul>
+<h3 id="torchoptim_1">torch.optim怎么用</h3>
+<p><strong>Step 1：定义模型与优化器</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">nn</span><span class="p">,</span> <span class="n">optim</span>
+
+<span class="c1"># 1. 定义模型（示例：简单线性层）</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">in_features</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">out_features</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="c1"># 2. 初始化优化器：传入模型参数 + 超参数</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span>
+    <span class="n">params</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span>  <span class="c1"># 待优化参数（PyTorch 参数迭代器）</span>
+    <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>                    <span class="c1"># 学习率（核心超参数）</span>
+    <span class="n">betas</span><span class="o">=</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.999</span><span class="p">),</span>         <span class="c1"># Adam 动量参数（控制历史梯度影响）</span>
+    <span class="n">weight_decay</span><span class="o">=</span><span class="mf">0.01</span>           <span class="c1"># 权重衰减（L2 正则化，可选）</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>定义了一个optimizer使用的是Adam优化器，该优化器学习率设置为1e-3，权重衰减为0.01。</p>
+<p><strong>Step 2：训练循环</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 模拟输入数据（batch_size=32，特征维度=10）</span>
+<span class="n">inputs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="n">targets</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># 模拟目标值</span>
+
+<span class="c1"># 训练循环</span>
+<span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="c1"># ① 清空过往梯度（必须！否则梯度累积导致更新异常）</span>
+    <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+
+    <span class="c1"># ② 前向传播 + 计算损失</span>
+    <span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">MSELoss</span><span class="p">()(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>  <span class="c1"># 均方误差损失</span>
+
+    <span class="c1"># ③ 反向传播计算梯度 + 优化器更新参数</span>
+    <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>  <span class="c1"># 自动计算所有可训练参数的梯度</span>
+    <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>  <span class="c1"># 根据梯度更新参数</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="si">}</span><span class="s2">, Loss: </span><span class="si">{</span><span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<p>loss是损失，通过调用loss.backward()进行反向传播Pytorch就自动把梯度计算好保存了，然后调用关键的一部optimizer.step()就可以执行参数更新了（即新参数=旧参数-学习率*梯度），需要注意的是，在调用loss.backward()进行反向传播计算梯度时，要先调用optimizer.zero_grad()把之前的梯度值情况，因此每计算一次梯度都是被保存，不情况会导致梯度累积。</p>
+<p><strong>Step 3：差异化优化参数分组</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 定义参数组（不同模块用不同学习率）</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">([</span>
+    <span class="p">{</span>
+        <span class="s2">"params"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">backbone</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span>  <span class="c1"># backbone 参数</span>
+        <span class="s2">"lr"</span><span class="p">:</span> <span class="mf">1e-5</span>  <span class="c1"># 小学习率微调</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s2">"params"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">head</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span>       <span class="c1"># 任务头参数</span>
+        <span class="s2">"lr"</span><span class="p">:</span> <span class="mf">1e-3</span>  <span class="c1"># 大学习率更新</span>
+    <span class="p">}</span>
+<span class="p">],</span> <span class="n">betas</span><span class="o">=</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.999</span><span class="p">))</span>  <span class="c1"># 公共超参数（所有组共享）</span>
+</code></pre></div>
+<p>上面是针对同一个模型内不同模块使用不同的超参数lr。</p>
+<h2 id="optimizerconfig">抽象基类OptimizerConfig</h2>
+<p>OptimizerConfig 是所有优化器配置的抽象基类，通过 draccus.ChoiceRegistry 实现子类注册机制（类似插件系统），为新增优化器类型提供统一接口。</p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">OptimizerConfig</span><span class="p">(</span><span class="n">draccus</span><span class="o">.</span><span class="n">ChoiceRegistry</span><span class="p">,</span> <span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="n">lr</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">weight_decay</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">grad_clip_norm</span><span class="p">:</span> <span class="nb">float</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_choice_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">default_choice_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">"adam"</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+</code></pre></div>
+<h3 id="_2">继承关系</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">OptimizerConfig</span><span class="p">(</span><span class="n">draccus</span><span class="o">.</span><span class="n">ChoiceRegistry</span><span class="p">,</span> <span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+</code></pre></div>
+<p>OptimizerConfig 继承abc.ABC和draccus.ChoiceRegistry，前者标记为抽象基类，强制子类实现build的抽象方法，确保接口的一致性。后者提供子类注册机制，通过@OptimizerConfig.register_subclass("名称") 将子类与优化器类型绑定（如 "adam" → AdamConfig），支持配置驱动的动态实例化。</p>
+<h3 id="_3">核心属性</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">lr</span><span class="p">:</span> <span class="nb">float</span>                  <span class="c1"># 学习率（核心超参数）</span>
+<span class="n">weight_decay</span><span class="p">:</span> <span class="nb">float</span>        <span class="c1"># 权重衰减（L2正则化系数）</span>
+<span class="n">grad_clip_norm</span><span class="p">:</span> <span class="nb">float</span>      <span class="c1"># 梯度裁剪阈值（防止梯度爆炸）</span>
+</code></pre></div>
+<p>上面3个参数都是优化器的基础配置，避免子类重复定义。</p>
+<ul>
+<li>lr/weight_decay：直接传递给 torch.optim 优化器（如 Adam 的 lr 参数）</li>
+<li>grad_clip_norm：不参与优化器创建，而是在训练流程中用于梯度裁剪（如 train.py 中 torch.nn.utils.clip_grad_norm_）</li>
+</ul>
+<h3 id="_4">核心方法</h3>
+<p><strong>（1）type属性用于表示优化器类型</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@property</span>
+<span class="k">def</span> <span class="nf">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_choice_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">)</span>
+</code></pre></div>
+<p>通过 draccus.ChoiceRegistry 的 get_choice_name 方法，获取子类注册的优化器类型名称（如 AdamConfig 的 type 为 "adam"）。</p>
+<p>在实际应用中，在配置解析时，通过 type 字段（如 {"type": "adam"}）即可匹配到对应子类（AdamConfig），实现“配置→实例”的自动映射。</p>
+<p><strong>（2）default_choice_name默认优化器类型</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="k">def</span> <span class="nf">default_choice_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">return</span> <span class="s2">"adam"</span>
+</code></pre></div>
+<p>当配置中为显式指定type时，默认是用adam类型即AdamConfig，旨在简化用户配置，无需手动指定常见优化器类型。</p>
+<p><strong>（3）build抽象接口，优化器创建接口</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+<span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Build the optimizer. It can be a single optimizer or a dictionary of optimizers."""</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+</code></pre></div>
+<p>强制子类实现build的方法。</p>
+<h2 id="_5">实例化子类</h2>
+<p>optimizers.py中一共定义了4种优化器配置子类，adam，adamw，sgd， multi_adam，其中前3个是单参数优化器，最后一个是多参数优化器，最终均通过build方法创建torch.optim实例</p>
+<h3 id="_6">单参数优化器</h3>
+<div class="codehilite"><pre><span></span><code><span class="nd">@OptimizerConfig</span><span class="o">.</span><span class="n">register_subclass</span><span class="p">(</span><span class="s2">"adam"</span><span class="p">)</span>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">AdamConfig</span><span class="p">(</span><span class="n">OptimizerConfig</span><span class="p">):</span>
+    <span class="n">lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-3</span>
+    <span class="n">betas</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.999</span><span class="p">)</span>
+    <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span>
+    <span class="n">weight_decay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">grad_clip_norm</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>
+
+    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">:</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>  <span class="c1"># 将 dataclass 字段转为字典</span>
+        <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"grad_clip_norm"</span><span class="p">)</span>  <span class="c1"># 移除梯度裁剪阈值（非优化器参数）</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c1"># 创建 PyTorch Adam 实例</span>
+</code></pre></div>
+<p>AdamConfig 是 OptimizerConfig 的核心子类，封装了 Adam 优化器的配置与实例化逻辑，通过 draccus 注册机制与工程训练流程深度集成。</p>
+<p>@OptimizerConfig.register_subclass("adam")将 AdamConfig 类与字符串 "adam" 绑定，实现 配置驱动的动态实例化，当配置文件中 optimizer.type: "adam" 时，draccus 会自动解析并实例化 AdamConfig。继承自 OptimizerConfig 的 ChoiceRegistry 机制，确保子类可通过 type 字段被唯一标识。</p>
+<p>@dataclass自动生成 <strong>init</strong>、<strong>repr</strong> 等方法，简化超参数管理，无需手动编写构造函数，直接通过类字段定义超参数（如 lr=1e-3）。</p>
+<p>在AdamConfig中默认初始化了一些参数值，其中lr、betas、eps、weight_decay直接对应 torch.optim.Adam 的参数，通过 build 方法传递给 PyTorch 优化器，而grad_clip_norm不参与优化器创建，而是用于训练时的梯度裁剪（如 train.py 中 torch.nn.utils.clip_grad_norm_），实现“优化器参数”与“训练流程参数”的职责分离。</p>
+<p>在最后的build方法中，调用torch.optim.Adam(params, **kwargs) 实例化优化器。在此之前，先调用asdict(self)将 AdamConfig 实例的字段（如 lr、betas）转换为字典 {"lr": 1e-3, "betas": (0.9, 0.999), ...}，再调用kwargs.pop("grad_clip_norm")剔除 grad_clip_norm（梯度裁剪阈值），因其不属于torch.optim.Adam 的参数（优化器仅负责参数更新，梯度裁剪是训练流程的独立步骤）。</p>
+<h3 id="_7">多参数优化器</h3>
+<div class="codehilite"><pre><span></span><code><span class="nd">@OptimizerConfig</span><span class="o">.</span><span class="n">register_subclass</span><span class="p">(</span><span class="s2">"multi_adam"</span><span class="p">)</span>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">MultiAdamConfig</span><span class="p">(</span><span class="n">OptimizerConfig</span><span class="p">):</span>
+    <span class="n">optimizer_groups</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>  <span class="c1"># 组内超参数</span>
+
+    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">]:</span>
+        <span class="n">optimizers</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">params</span> <span class="ow">in</span> <span class="n">params_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># 合并默认超参数与组内超参数（组内参数优先）</span>
+            <span class="n">group_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer_groups</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="n">optimizer_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"lr"</span><span class="p">:</span> <span class="n">group_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"lr"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lr</span><span class="p">),</span>  <span class="c1"># 组内 lr 或默认 lr</span>
+                <span class="s2">"betas"</span><span class="p">:</span> <span class="n">group_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"betas"</span><span class="p">,</span> <span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.999</span><span class="p">)),</span>
+                <span class="s2">"weight_decay"</span><span class="p">:</span> <span class="n">group_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"weight_decay"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight_decay</span><span class="p">),</span>
+            <span class="p">}</span>
+            <span class="n">optimizers</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="o">**</span><span class="n">optimizer_kwargs</span><span class="p">)</span>  <span class="c1"># 为每组创建独立优化器</span>
+        <span class="k">return</span> <span class="n">optimizers</span>  <span class="c1"># 返回优化器字典：{"backbone": optimizer1, "head": optimizer2, ...}</span>
+</code></pre></div>
+<p>MultiAdamConfig 是 OptimizerConfig 的关键子类，专为多参数组优化场景设计，支持为模型不同模块（如 backbone 与 head）创建独立的 Adam 优化器，实现差异化超参数配置。</p>
+<p>首先跟前面单参数的属性不同点是多了一个optimizer_groups，这是一个超参数字典，存储多组不同的超参数，示例如下。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">optimizer_groups</span><span class="o">=</span><span class="p">{</span>
+    <span class="s2">"backbone"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"lr"</span><span class="p">:</span> <span class="mf">1e-5</span><span class="p">,</span> <span class="s2">"weight_decay"</span><span class="p">:</span> <span class="mf">1e-4</span><span class="p">},</span>  <span class="c1"># 低学习率微调 backbone</span>
+    <span class="s2">"head"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"lr"</span><span class="p">:</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="s2">"betas"</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.95</span><span class="p">,</span> <span class="mf">0.999</span><span class="p">)}</span>      <span class="c1"># 高学习率更新 head，自定义动量参数</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>build的方法主要逻辑如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">]:</span>
+    <span class="n">optimizers</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">params</span> <span class="ow">in</span> <span class="n">params_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c1"># 1. 获取组内超参数（无则使用默认）</span>
+        <span class="n">group_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimizer_groups</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="c1"># 2. 合并默认与组内超参数</span>
+        <span class="n">optimizer_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"lr"</span><span class="p">:</span> <span class="n">group_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"lr"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lr</span><span class="p">),</span>
+            <span class="s2">"betas"</span><span class="p">:</span> <span class="n">group_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"betas"</span><span class="p">,</span> <span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.999</span><span class="p">)),</span>
+            <span class="s2">"eps"</span><span class="p">:</span> <span class="n">group_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"eps"</span><span class="p">,</span> <span class="mf">1e-5</span><span class="p">),</span>
+            <span class="s2">"weight_decay"</span><span class="p">:</span> <span class="n">group_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"weight_decay"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight_decay</span><span class="p">),</span>
+        <span class="p">}</span>
+        <span class="c1"># 3. 为该组创建 Adam 优化器</span>
+        <span class="n">optimizers</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="o">**</span><span class="n">optimizer_kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">optimizers</span>  <span class="c1"># 返回：{组名: 优化器实例}</span>
+</code></pre></div>
+<p>其中params_dict是超参数组的来源，是字典类型，键为参数组名称（需与 optimizer_groups 键匹配），值为该组参数列表（如模型某模块的 parameters()）。通常是策略类的get_optim_params方法提供，如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 策略类中拆分参数组（示例逻辑）</span>
+<span class="k">def</span> <span class="nf">get_optim_params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"backbone"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">backbone</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span>
+        <span class="s2">"head"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">head</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span>
+    <span class="p">}</span>
+</code></pre></div>
+<p>主要的核心逻辑是对于每个参数组，优先使用 optimizer_groups 中的超参数（如 group_config.get("lr")），无则回退到默认值（如 self.lr），然后为每个参数组创建独立的 torch.optim.Adam 实例，确保参数更新互不干扰。</p>
+<h2 id="_8">优化器状态管理</h2>
+<h3 id="_9">状态保存</h3>
+<p>将优化器的某一个时刻参数进行存储，方便过程查看以及重新加载模型训练等等。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">save_optimizer_state</span><span class="p">(</span>
+    <span class="n">optimizer</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">],</span>  <span class="c1"># 优化器实例或字典</span>
+    <span class="n">save_dir</span><span class="p">:</span> <span class="n">Path</span>  <span class="c1"># 根保存目录</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="c1"># 1. 处理多参数优化器字典（如 MultiAdamConfig 创建的优化器）</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">opt</span> <span class="ow">in</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>  <span class="c1"># 遍历优化器名称与实例（如 "backbone": opt1）</span>
+            <span class="n">optimizer_dir</span> <span class="o">=</span> <span class="n">save_dir</span> <span class="o">/</span> <span class="n">name</span>  <span class="c1"># 创建子目录：根目录/优化器名称（如 save_dir/backbone）</span>
+            <span class="n">optimizer_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># 确保目录存在（含父目录创建）</span>
+            <span class="n">_save_single_optimizer_state</span><span class="p">(</span><span class="n">opt</span><span class="p">,</span> <span class="n">optimizer_dir</span><span class="p">)</span>  <span class="c1"># 委托单优化器保存逻辑</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># 2. 处理单参数优化器（如 AdamConfig 创建的优化器）</span>
+        <span class="n">_save_single_optimizer_state</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">save_dir</span><span class="p">)</span>  <span class="c1"># 直接使用根目录保存</span>
+</code></pre></div>
+<p>区分单参数和多参数优化器，对应多参数优化器为每个优化器创建独立子目录（如 save_dir/backbone、save_dir/head），避免不同优化器的状态文件冲突。如果是单优化器，则直接调用 _save_single_optimizer_state，状态文件保存于 save_dir 根目录，结构简洁。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">_save_single_optimizer_state</span><span class="p">(</span><span class="n">optimizer</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">,</span> <span class="n">save_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Save a single optimizer's state to disk."""</span>
+    <span class="c1"># 1. 获取优化器完整状态字典（含参数组和内部状态）</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+
+    <span class="c1"># 2. 分离参数组（超参数配置）与剩余状态（张量数据）</span>
+    <span class="n">param_groups</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"param_groups"</span><span class="p">)</span>  <span class="c1"># 参数组：学习率、权重衰减等超参数（非张量）</span>
+    <span class="n">flat_state</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>  <span class="c1"># 剩余状态：动量、二阶矩等张量（展平嵌套字典，便于序列化）</span>
+
+    <span class="c1"># 3. 保存张量状态（safetensors）与参数组（JSON）</span>
+    <span class="n">save_file</span><span class="p">(</span><span class="n">flat_state</span><span class="p">,</span> <span class="n">save_dir</span> <span class="o">/</span> <span class="n">OPTIMIZER_STATE</span><span class="p">)</span>  <span class="c1"># 张量数据：高效二进制存储（如 "optimizer_state.safetensors"）</span>
+    <span class="n">write_json</span><span class="p">(</span><span class="n">param_groups</span><span class="p">,</span> <span class="n">save_dir</span> <span class="o">/</span> <span class="n">OPTIMIZER_PARAM_GROUPS</span><span class="p">)</span>  <span class="c1"># 参数组：JSON 格式（如 "optimizer_param_groups.json"方便可视化查看）</span>
+</code></pre></div>
+<p>存储张量和非张量的格式</p>
+<ul>
+<li>param_groups：包含优化器的超参数配置（如 lr、weight_decay、betas），是列表嵌套字典的结构，存储为JSON格式，JSON 序列化后可直接查看超参数，便于训练过程追溯。其文件名为optimizer_param_groups.json。</li>
+<li>state：包含优化器的内部状态张量（如 Adam 的 exp_avg、exp_avg_sq 动量缓冲区），是嵌套字典结构，通过 flatten_dict 展平后用 safetensors 保存，safetensors专为张量设计的存储格式，支持高效读写、内存映射，避免 PyTorch torch.save 的 pickle 兼容性问题。其文件名为optimizer_state.safetensors。</li>
+</ul>
+<h3 id="_10">状态加载</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">load_optimizer_state</span><span class="p">(</span>
+    <span class="n">optimizer</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">],</span>  <span class="c1"># 待恢复的优化器（单实例或字典）</span>
+    <span class="n">save_dir</span><span class="p">:</span> <span class="n">Path</span>  <span class="c1"># 状态文件根目录</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="c1"># 1. 处理多优化器字典（如 MultiAdamConfig 创建的优化器）</span>
+        <span class="n">loaded_optimizers</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">opt</span> <span class="ow">in</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>  <span class="c1"># 遍历优化器名称与实例（如 "backbone": opt1）</span>
+            <span class="n">optimizer_dir</span> <span class="o">=</span> <span class="n">save_dir</span> <span class="o">/</span> <span class="n">name</span>  <span class="c1"># 子目录路径：根目录/优化器名称（如 save_dir/backbone）</span>
+            <span class="k">if</span> <span class="n">optimizer_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>  <span class="c1"># 仅当目录存在时加载（避免新增优化器时出错）</span>
+                <span class="n">loaded_optimizers</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_load_single_optimizer_state</span><span class="p">(</span><span class="n">opt</span><span class="p">,</span> <span class="n">optimizer_dir</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">loaded_optimizers</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">opt</span>  <span class="c1"># 目录不存在时返回原优化器</span>
+        <span class="k">return</span> <span class="n">loaded_optimizers</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># 2. 处理单优化器（如 AdamConfig 创建的优化器）</span>
+        <span class="k">return</span> <span class="n">_load_single_optimizer_state</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">save_dir</span><span class="p">)</span>  <span class="c1"># 直接从根目录加载</span>
+</code></pre></div>
+<p>同样是区分单参数和多参数，对于多参数组根据save_dir / name 定位每个优化器的独立子目录（与 save_optimizer_state 的保存结构对应），如果是单参数优化器直接调用 _load_single_optimizer_state，从 save_dir 根目录加载状态文件。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">_load_single_optimizer_state</span><span class="p">(</span><span class="n">optimizer</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">,</span> <span class="n">save_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Load a single optimizer's state from disk."""</span>
+    <span class="c1"># 1. 获取当前优化器的状态字典结构（用于校验与适配）</span>
+    <span class="n">current_state_dict</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+
+    <span class="c1"># 2. 加载并恢复张量状态（safetensors → 嵌套字典）</span>
+    <span class="n">flat_state</span> <span class="o">=</span> <span class="n">load_file</span><span class="p">(</span><span class="n">save_dir</span> <span class="o">/</span> <span class="n">OPTIMIZER_STATE</span><span class="p">)</span>  <span class="c1"># 加载展平的张量状态（如 "optimizer_state.safetensors"）</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">unflatten_dict</span><span class="p">(</span><span class="n">flat_state</span><span class="p">)</span>  <span class="c1"># 恢复为嵌套字典（与保存时的 flatten_dict 对应）</span>
+
+    <span class="c1"># 3. 处理优化器内部状态（如动量缓冲区）</span>
+    <span class="k">if</span> <span class="s2">"state"</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
+        <span class="c1"># 将字符串键转为整数（safetensors 保存时键为字符串，PyTorch 期望参数索引为整数）</span>
+        <span class="n">loaded_state_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"state"</span><span class="p">:</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">k</span><span class="p">):</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">state</span><span class="p">[</span><span class="s2">"state"</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()}}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">loaded_state_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"state"</span><span class="p">:</span> <span class="p">{}}</span>  <span class="c1"># 新创建的优化器可能无状态，初始化为空</span>
+
+    <span class="c1"># 4. 处理参数组（超参数配置，如学习率、权重衰减）</span>
+    <span class="k">if</span> <span class="s2">"param_groups"</span> <span class="ow">in</span> <span class="n">current_state_dict</span><span class="p">:</span>
+        <span class="c1"># 从 JSON 反序列化参数组，并确保结构与当前优化器匹配</span>
+        <span class="n">param_groups</span> <span class="o">=</span> <span class="n">deserialize_json_into_object</span><span class="p">(</span>
+            <span class="n">save_dir</span> <span class="o">/</span> <span class="n">OPTIMIZER_PARAM_GROUPS</span><span class="p">,</span>  <span class="c1"># 加载参数组 JSON 文件（如 "optimizer_param_groups.json"）</span>
+            <span class="n">current_state_dict</span><span class="p">[</span><span class="s2">"param_groups"</span><span class="p">]</span>  <span class="c1"># 以当前参数组结构为模板，确保兼容性</span>
+        <span class="p">)</span>
+        <span class="n">loaded_state_dict</span><span class="p">[</span><span class="s2">"param_groups"</span><span class="p">]</span> <span class="o">=</span> <span class="n">param_groups</span>
+
+    <span class="c1"># 5. 将恢复的状态字典加载到优化器</span>
+    <span class="n">optimizer</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">loaded_state_dict</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">optimizer</span>
+</code></pre></div>
+<p>张量的状态恢复部分，通过 unflatten_dict 将保存时展平的状态（flatten_dict）恢复为嵌套字典，匹配 PyTorch 优化器状态的原始结构。接着通过state["state"] 的键在保存时被序列化为字符串（如 "0"），加载时需转回整数（如 0），以匹配 PyTorch 参数索引的整数类型。</p>
+<p>对于参数组恢复先通过JSON 反序列化，deserialize_json_into_object 将 JSON 文件中的参数组配置（如 [{"lr": 1e-3, ...}, ...]）反序列化为 Python 对象。再以当前优化器的 current_state_dict["param_groups"] 为模板，确保加载的参数组与当前优化器的参数结构兼容（如参数组数量、超参数字段匹配），避免因配置变更导致的加载失败。</p>
+<p>最后合并 state（张量数据）和 param_groups（超参数配置）为完整状态字典，通过 optimizer.load_state_dict 完成优化器状态恢复。</p>
+<h2 id="_11">工程调用</h2>
+<h3 id="_12">创建流程</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 1. 策略提供参数（如多参数组）</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_optim_params</span><span class="p">()</span>  <span class="c1"># 例如：{"backbone": [params1...], "head": [params2...]}</span>
+
+<span class="c1"># 2. 配置解析：根据 config.optimizer.type 实例化对应子类（如 MultiAdamConfig）</span>
+<span class="n">cfg</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">MultiAdamConfig</span><span class="p">(</span>
+    <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>
+    <span class="n">optimizer_groups</span><span class="o">=</span><span class="p">{</span><span class="s2">"backbone"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"lr"</span><span class="p">:</span> <span class="mf">1e-5</span><span class="p">},</span> <span class="s2">"head"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"lr"</span><span class="p">:</span> <span class="mf">1e-3</span><span class="p">}}</span>
+<span class="p">)</span>
+
+<span class="c1"># 3. 创建优化器实例</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>  <span class="c1"># 返回：{"backbone": Adam, "head": Adam}</span>
+</code></pre></div>
+<h3 id="_13">训练流程</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">update_policy</span><span class="p">(</span><span class="o">...</span><span class="p">):</span>
+    <span class="c1"># 前向传播计算损失</span>
+    <span class="n">loss</span><span class="p">,</span> <span class="n">output_dict</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+    <span class="c1"># 反向传播与梯度裁剪</span>
+    <span class="n">grad_scaler</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="n">grad_scaler</span><span class="o">.</span><span class="n">unscale_</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">clip_grad_norm_</span><span class="p">(</span><span class="n">policy</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">grad_clip_norm</span><span class="p">)</span>
+    <span class="c1"># 参数更新</span>
+    <span class="n">grad_scaler</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
+    <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>  <span class="c1"># 清空梯度</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/具身智能act算法.html">← 具身智能ACT算法</a>
+    <a class="next" href="/lerobot学习率调度器.html">lerobot学习率调度器 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

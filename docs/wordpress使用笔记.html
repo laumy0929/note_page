@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>wordpress使用笔记 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>wordpress使用笔记</h1>
+  <div class="meta">2023-03-04 · 其他</div>
+  <div class="post-content"><h1 id="wp-editormd">使用WP Editor.md 粘贴的图片模糊</h1>
+<p>修改插件的图片质量</p>
+<div class="codehilite"><pre><span></span><code>/usr/share/nginx/html/wordpress/wp-content/plugins/wp-editormd/src/App/ImagePaste.php
+</code></pre></div>
+<p><a href="https://www.laumy.tech//wp-content/uploads/2023/11/wp_editor_md_91328a602db7328964f6777c26dd24e9.jpg"><img alt="" src="/assets/doc/10-其他/wordpress使用笔记/images/wp_editor_md_91328a602db7328964f6777c26dd24e9.jpg"/></a></p>
+<h1 id="_1">首页不显示全文章，只显示标题和部分内容</h1>
+<div class="codehilite"><pre><span></span><code>/usr/share/nginx/html/wordpress/wp-content/themes/twentyseventeen/index.php
+</code></pre></div>
+<p><a href="https://www.laumy.tech//wp-content/uploads/2023/11/wp_editor_md_012689085ad2a86af2f9ab659da61a79.jpg"><img alt="" src="/assets/doc/10-其他/wordpress使用笔记/images/wp_editor_md_012689085ad2a86af2f9ab659da61a79.jpg"/></a></p>
+<h1 id="markdown">markdown的正文自动插入目录</h1>
+<p>安装插件Table of Contents Plus</p>
+<h1 id="markdown_1">使用markdown编辑，让正文标题自动编号</h1>
+<p>（1）打开 WordPress 后台，进入“外观 - 编辑器”，选择你正在使用的主题。</p>
+<p>（2）在左侧的“主题文件”面板中找到“functions.php”文件，并点击它以打开编辑器。</p>
+<p>（3）将下面的代码复制粘贴到“functions.php”文件的末尾：</p>
+<div class="codehilite"><pre><span></span><code>add_action('wp_enqueue_scripts', 'add_custom_script');
+function add_custom_script() {
+    if (is_singular()) { // 仅在单个文章页面加载脚本
+        wp_enqueue_script('custom-script', get_template_directory_uri() . '/custom.js', array('jquery'), '1.0', true);
+    }
+}
+</code></pre></div>
+<p>这个代码块实现了一个名为“custom-script”的 JavaScript 文件，在单个文章页面加载。</p>
+<p>（4）在主题目录下wordpress/wp-content/themes/blocksy创建一个新的 JavaScript 文件，命名为“custom.js”。 （5）将以下 JavaScript 代码复制粘贴到“custom.js”文件中：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">jQuery</span><span class="p">(</span><span class="n">document</span><span class="p">).</span><span class="n">ready</span><span class="p">(</span><span class="k">function</span><span class="p">(</span><span class="err">$</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">  </span><span class="nf">var</span><span class="w"> </span><span class="n">content</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="err">$</span><span class="p">(</span><span class="s1">'article'</span><span class="p">).</span><span class="n">find</span><span class="p">(</span><span class="s1">'.entry-content'</span><span class="p">);</span>
+<span class="w">  </span><span class="nf">var</span><span class="w"> </span><span class="n">headings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">content</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="s1">'h1, h2, h3, h4, h5, h6'</span><span class="p">);</span>
+
+<span class="w">  </span><span class="nf">var</span><span class="w"> </span><span class="n">chapterCounts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">0, 0, 0, 0, 0, 0</span><span class="o">]</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">headings</span><span class="p">.</span><span class="k">each</span><span class="p">(</span><span class="k">function</span><span class="p">()</span><span class="w"> </span><span class="err">{</span>
+<span class="w">    </span><span class="nf">var</span><span class="w"> </span><span class="k">level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parseInt</span><span class="p">(</span><span class="err">$</span><span class="p">(</span><span class="n">this</span><span class="p">).</span><span class="n">prop</span><span class="p">(</span><span class="s1">'tagName'</span><span class="p">).</span><span class="nf">substring</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">chapterCounts</span><span class="o">[</span><span class="n">level</span><span class="o">]++</span><span class="p">;</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="nf">var</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">level</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">      </span><span class="n">chapterCounts</span><span class="o">[</span><span class="n">i</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="err">}</span>
+
+<span class="w">    </span><span class="nf">var</span><span class="w"> </span><span class="n">chapterNumber</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">''</span><span class="p">;</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="nf">var</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="k">level</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">      </span><span class="n">chapterNumber</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">chapterCounts</span><span class="o">[</span><span class="n">i</span><span class="o">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">'.'</span><span class="p">;</span>
+<span class="w">    </span><span class="err">}</span>
+
+<span class="w">    </span><span class="err">$</span><span class="p">(</span><span class="n">this</span><span class="p">).</span><span class="n">prepend</span><span class="p">(</span><span class="n">chapterNumber</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">' '</span><span class="p">);</span>
+<span class="w">  </span><span class="err">}</span><span class="p">);</span>
+<span class="err">}</span><span class="p">);</span>
+</code></pre></div>
+<h1 id="lnmp">手动部署LNMP环境</h1>
+<p><a href="https://help.aliyun.com/zh/ecs/use-cases/manually-deploy-an-lnmp-environment-on-a-centos-8-instance?spm=a2c4g.11186623.0.0.75df4c617DvPt4">https://help.aliyun.com/zh/ecs/use-cases/manually-deploy-an-lnmp-environment-on-a-centos-8-instance?spm=a2c4g.11186623.0.0.75df4c617DvPt4</a></p>
+<h1 id="_2">使用域名访问网站</h1>
+<p><a href="https://help.aliyun.com/zh/ssl-certificate/user-guide/install-ssl-certificates-on-nginx-servers-or-tengine-servers">https://help.aliyun.com/zh/ssl-certificate/user-guide/install-ssl-certificates-on-nginx-servers-or-tengine-servers</a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/软中断和tasklet.html">← 软中断和tasklet</a>
+    <a class="next" href="/linux中断实现.html">Linux中断实现 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

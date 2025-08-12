@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>梯度计算 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">什么是梯度</a><ul><li><a href="#_2">直观理解梯度</a></li><li><a href="#_3">梯度在机器学习中的作用</a></li></ul></li><li><a href="#_4">梯度下降的示例</a><ul></ul></li><li><a href="#_5">梯度计算推导</a><ul><li><a href="#1">步骤 1: 定义损失函数</a></li><li><a href="#2">步骤 2: 使用链式法则求梯度</a></li><li><a href="#3">步骤 3: 计算每一部分的偏导数</a></li><li><a href="#4">步骤 4: 合并结果</a></li><li><a href="#5">步骤 5: 将具体数值代入</a></li></ul></li><li><a href="#pytorch">pytorch示例</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>梯度计算</h1>
+  <div class="meta">2025-05-01 · ai</div>
+  <div class="post-content"><h2 id="_1">什么是梯度</h2>
+<p>梯度(Gradient)是用于描述多元函数在某一点的变化率最大的方向及其大小。在深度学习中，梯度被广泛用于优化模型参数(如神经网络的权重和偏置)，通过梯度下降等算法最小化损失函数。</p>
+<p>对于多元函数 $f(x_1, x_2, \dots, x_n)$，其梯度是一个<strong>向量</strong>，由函数对每个变量的偏导数组成，记作：</p>
+<p>$$ \nabla f = \left( \frac{\partial f}{\partial x_1}, \frac{\partial f}{\partial x_2}, \dots, \frac{\partial f}{\partial x_n} \right) $$</p>
+<p>其中：</p>
+<ul>
+<li>$\nabla f$ 是梯度符号（读作“nabla f”）。</li>
+<li>$\frac{\partial f}{\partial x_i}$ 是函数 $f$ 对变量 $x_i$ 的偏导数。</li>
+</ul>
+<h3 id="_2">直观理解梯度</h3>
+<p>假设有一个二元函数 $f(x, y) = x^2 + y^2$，其梯度为：</p>
+<p>$$ \nabla f = \left( \frac{\partial f}{\partial x}, \frac{\partial f}{\partial y} \right) = (2x, 2y) $$</p>
+<p>在点 $(1, 1)$ 处，梯度为 $(2, 2)$，表示函数在该点沿方向 $(2, 2)$ 增长最快。</p>
+<p>若想最小化 $f(x, y)$，应沿着负梯度方向 $-(2, 2)$ 移动，即更新参数：</p>
+<p>$$ x \leftarrow x - \alpha \cdot 2x $$</p>
+<p>$$ y \leftarrow y - \alpha \cdot 2y $$</p>
+<p>其中 $\alpha$ 是学习率。</p>
+<h3 id="_3">梯度在机器学习中的作用</h3>
+<p>在机器学习中，梯度表示损失函数（Loss Function）对模型参数的敏感度。例如，对于模型参数 $W$（权重）和 $b$（偏置），梯度 $\nabla L$ 包含两个分量：</p>
+<p>$$ \nabla L = \left( \frac{\partial L}{\partial W}, \frac{\partial L}{\partial b} \right) $$</p>
+<p>通过沿着负梯度方向更新参数（即梯度下降），可以逐步降低损失函数的值。</p>
+<h2 id="_4">梯度下降的示例</h2>
+<p>目标：最小化函数 （线性回归的损失函数）。</p>
+<p>$$ L(W, b) = (W \cdot x + b - y_{\text{true}})^2 $$</p>
+<p>假设</p>
+<p>$$ x = 2, \quad y_{\text{true}} = 4, \quad W = 1, \quad b = 0.5 $$</p>
+<p>计算预测值：</p>
+<p>$$ y_{\text{pred}} = W \cdot x + b = 1 \cdot 2 + 0.5 = 2.5 $$</p>
+<p>计算损失：</p>
+<p>$$ L = (y_{\text{pred}} - y_{\text{true}})^2 = (2.5 - 4)^2 = 2.25 $$</p>
+<p>计算梯度：</p>
+<p>$$ \frac{\partial L}{\partial W} = 2 (y_{\text{pred}} - y_{\text{true}}) \cdot x = 2 (2.5 - 4) \cdot 2 = -6.0 $$</p>
+<p>$$ \frac{\partial L}{\partial b} = 2 (y_{\text{pred}} - y_{\text{true}}) = 2 (2.5 - 4) = -3.0 $$</p>
+<p>梯度为</p>
+<p>$$ \nabla L = (-6.0, -3.0) $$</p>
+<p>参数更新（学习率 $ (\alpha = 0.1)）$：</p>
+<p>$$ W_{\text{new}} = W - \alpha \cdot \frac{\partial L}{\partial W} = 1 - 0.1 \cdot (-6.0) = 1.6 $$</p>
+<p>$$ b_{\text{new}} = b - \alpha \cdot \frac{\partial L}{\partial b} = 0.5 - 0.1 \cdot (-3.0) = 0.8 $$</p>
+<h2 id="_5">梯度计算推导</h2>
+<p>这个公式是梯度计算中的一部分，计算的是损失函数 (L) 对参数 (W) 的偏导数。我们来一步步推导这个公式。</p>
+<p>假设损失函数为：</p>
+<p>$$ L(W, b) = (W \cdot x + b - y_{\text{true}})^2 $$</p>
+<p>其中$ W$是权重，$b $是偏置，$x $是输入，$y_{\text{true}} $是真实的标签。我们要计算的是损失函数 $L$ 对权重 $W$的偏导数$ \frac{\partial L}{\partial W}$。</p>
+<h3 id="1">步骤 1: 定义损失函数</h3>
+<p>损失函数是预测值和真实值之间的误差的平方，定义为：</p>
+<p>$$ L(W, b) = (y_{\text{pred}} - y_{\text{true}})^2 $$</p>
+<p>其中，$y_{\text{pred}} = W \cdot x + b $是模型的预测值。这个损失函数是一个二次函数，目标是最小化它。</p>
+<h3 id="2">步骤 2: 使用链式法则求梯度</h3>
+<p>我们需要对损失函数 (L) 关于 (W) 求偏导数。首先可以应用链式法则：</p>
+<p>$$ \frac{\partial L}{\partial W} = \frac{\partial L}{\partial y_{\text{pred}}} \cdot \frac{\partial y_{\text{pred}}}{\partial W} $$</p>
+<h3 id="3">步骤 3: 计算每一部分的偏导数</h3>
+<ol>
+<li><strong>第一部分</strong>: 计算 $\frac{\partial L}{\partial y_{\text{pred}}}$。</li>
+</ol>
+<p>由于损失函数是平方误差形式：</p>
+<p>$$ L = (y_{\text{pred}} - y_{\text{true}})^2 $$</p>
+<p>对$y_{\text{pred}}$求导，得到：</p>
+<p>$$ \frac{\partial L}{\partial y_{\text{pred}}} = 2(y_{\text{pred}} - y_{\text{true}}) $$</p>
+<ol start="2">
+<li><strong>第二部分</strong>: 计算 $\frac{\partial y_{\text{pred}}}{\partial W}$。</li>
+</ol>
+<p>由于 $y_{\text{pred}} $= $W \cdot x + b$，对$ W $求导，得到：</p>
+<p>$$ \frac{\partial y_{\text{pred}}}{\partial W} = x $$</p>
+<h3 id="4">步骤 4: 合并结果</h3>
+<p>现在将两部分结果结合起来：</p>
+<p>$$ \frac{\partial L}{\partial W} = 2(y_{\text{pred}} - y_{\text{true}}) \cdot x $$</p>
+<h3 id="5">步骤 5: 将具体数值代入</h3>
+<p>根据给定的数值 $x = 2$,$ y_{\text{true}} = 4$, $W = 1$, 和 $b = 0.5$，我们首先计算预测值$y_{\text{pred}}$：</p>
+<p>$$ y_{\text{pred}} = W \cdot x + b = 1 \cdot 2 + 0.5 = 2.5 $$</p>
+<p>然后代入到梯度公式中：</p>
+<p>$$ \frac{\partial L}{\partial W} = 2(2.5 - 4) \cdot 2 = 2(-1.5) \cdot 2 = -6.0 $$</p>
+<p>所以，损失函数$ L$ 对 $W $的偏导数是 $-6.0$。</p>
+<p>总结：对于复杂的梯度计算可以利用链式法则。在该示例中，先令 $y_{\text{pred}} $= $W \cdot x + b$。对$W$求偏导，就可以转化为，$\frac{\partial L}{\partial W} = \frac{\partial L}{\partial y_{\text{pred}}} \cdot \frac{\partial y_{\text{pred}}}{\partial W}$，然后可以先求$\frac{\partial L}{\partial y_{\text{pred}}} $，再求$\frac{\partial y_{\text{pred}}}{\partial W}$，这样计算就没有这么复杂了。根据公式$\frac{\partial L}{\partial y_{\text{pred}}} = 2(y_{\text{pred}} - y_{\text{true}})$,而$\frac{\partial y_{\text{pred}}}{\partial W} = x$,所以$\frac{\partial L}{\partial W} = 2(y_{\text{pred}} - y_{\text{true}}) \cdot x$，因此知道预测值、真实值、输入值、当前的权重和偏置即可算出偏导。同理$b$也可以用类似方法，继而算出损失函数的梯度$\nabla L = \left( \frac{\partial L}{\partial W}, \frac{\partial L}{\partial b} \right)$</p>
+<h2 id="pytorch">pytorch示例</h2>
+<p>在pytorch中通过自动微分Autograd自动计算梯度，示例如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="c1"># 定义参数（启用梯度追踪）</span>
+<span class="n">W</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">b</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># 输入数据</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">2.0</span><span class="p">)</span>
+<span class="n">y_true</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">4.0</span><span class="p">)</span>
+
+<span class="c1"># 前向传播</span>
+<span class="n">y_pred</span> <span class="o">=</span> <span class="n">W</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">b</span>
+<span class="n">loss</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_pred</span> <span class="o">-</span> <span class="n">y_true</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+
+<span class="c1"># 反向传播计算梯度</span>
+<span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+
+<span class="c1"># 输出梯度</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"dL/dW: </span><span class="si">{</span><span class="n">W</span><span class="o">.</span><span class="n">grad</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>  <span class="c1"># 输出 tensor(-6.0)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"dL/db: </span><span class="si">{</span><span class="n">b</span><span class="o">.</span><span class="n">grad</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>  <span class="c1"># 输出 tensor(-3.0)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>数学表达</th>
+<th>意义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>梯度定义</td>
+<td>∇f = (∂f/∂x₁, …)</td>
+<td>多元函数变化最快的方向及其速率</td>
+</tr>
+<tr>
+<td>梯度下降</td>
+<td>W ← W − α ⋅ ∂L/∂W</td>
+<td>沿负梯度方向更新参数以最小化损失函数</td>
+</tr>
+<tr>
+<td>PyTorch自动微分</td>
+<td>loss.backward()</td>
+<td>通过反向传播自动计算所有参数的梯度并存储在 .grad 中</td>
+</tr>
+</tbody>
+</table></div>
+  <div class="post-nav">
+    <a class="prev" href="/层与块.html">← 层与块</a>
+    <a class="next" href="/前向传播-反向传播和计算图.html">前向传播、反向传播和计算图 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

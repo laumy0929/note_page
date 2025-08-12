@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ELF格式解析 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">编译过程</a><ul></ul></li><li><a href="#elf">ELF格式</a><ul><li><a href="#elf-header">ELF header</a></li><li><a href="#program-header-table">program header table</a></li><li><a href="#sections">固定的sections</a></li><li><a href="#sections-header-table">sections header table</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>ELF格式解析</h1>
+  <div class="meta">2024-01-14 · 调试</div>
+  <div class="post-content"><h2 id="_1">编译过程</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_d1e60ab63ca46a82bde01c54980a0070.jpg"><img alt="" src="/assets/doc/07-调试/elf格式解析/images/wp_editor_md_d1e60ab63ca46a82bde01c54980a0070.jpg"/></a></p>
+<p>工具链把程序源文件翻译成可执行文件一般经理4个步骤：预处理、编译、汇编、链接。本章节关于静态链接和动态链接的过程主要就是在第4个过程。链接器会将输入目标文件(.o)经过加工后合并成一个输出文件，这里的输出文件以linux的ELF为例。链接器会将相同性质的段合并在一起，如将所有输入文件的\".text\"合并到输出文件的\".text\"段，接着是\".data\"段，\".bss\"段等。</p>
+<h2 id="elf">ELF格式</h2>
+<p>ELF一般有3种类型：</p>
+<ul>
+<li>可重定位文件（Reloacatable File）：xxx.o。</li>
+<li>可执行文件（Executable File）：xx.out。</li>
+<li>共享目标文件（Sharead object File）：xxx.so。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_932558543d54613194b03aff85973335.jpg"><img alt="" src="/assets/doc/07-调试/elf格式解析/images/wp_editor_md_932558543d54613194b03aff85973335.jpg"/></a></p>
+<p>ELF提供了两种视图：链接视图和执行视图。</p>
+<ul>
+<li>链接视图： 以section为单位，在链接阶段，如将多个模块的.text合并为一个.text。</li>
+<li>执行视图：以segment为单位，在执行阶段，对应于linux的VMA，.text和.radata为一个整体。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_89bc3bb4a1b0e677ea051612f02a2c5b.jpg"><img alt="" src="/assets/doc/07-调试/elf格式解析/images/wp_editor_md_89bc3bb4a1b0e677ea051612f02a2c5b.jpg"/></a></p>
+<p>ELF可以组成可以分为四类：ELF header、program header table、固定的sections、sections header table。</p>
+<h3 id="elf-header">ELF header</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">elf32_hdr</span><span class="p">{</span>
+<span class="w">  </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">e_ident</span><span class="p">[</span><span class="n">EI_NIDENT</span><span class="p">];</span>
+<span class="w">  </span><span class="n">Elf32_Half</span><span class="w">    </span><span class="n">e_type</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Half</span><span class="w">    </span><span class="n">e_machine</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">e_version</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Addr</span><span class="w">    </span><span class="n">e_entry</span><span class="p">;</span><span class="w">  </span><span class="cm">/* Entry point */</span>
+<span class="w">  </span><span class="n">Elf32_Off</span><span class="w"> </span><span class="n">e_phoff</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Off</span><span class="w"> </span><span class="n">e_shoff</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">e_flags</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Half</span><span class="w">    </span><span class="n">e_ehsize</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Half</span><span class="w">    </span><span class="n">e_phentsize</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Half</span><span class="w">    </span><span class="n">e_phnum</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Half</span><span class="w">    </span><span class="n">e_shentsize</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Half</span><span class="w">    </span><span class="n">e_shnum</span><span class="p">;</span><span class="w"> </span><span class="c1">//描述了有多少个sections。</span>
+<span class="w">  </span><span class="n">Elf32_Half</span><span class="w">    </span><span class="n">e_shstrndx</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">Elf32_Ehdr</span><span class="p">;</span>
+</code></pre></div>
+<p>这些字段是 ELF 文件头中的一部分，它们包含了 ELF 文件的基本信息，如文件类型、目标机器架构、入口地址、程序头表和节区头表等，为 ELF 文件的加载和执行提供了必要的信息。</p>
+<p>使用命令readelf -h xxx可以读取上面的信息。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_c6ffa5e6a1815955e9b611b5641ad1de.jpg"><img alt="" src="/assets/doc/07-调试/elf格式解析/images/wp_editor_md_c6ffa5e6a1815955e9b611b5641ad1de.jpg"/></a></p>
+<h3 id="program-header-table">program header table</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">elf32_phdr</span><span class="p">{</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">p_type</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Off</span><span class="w"> </span><span class="n">p_offset</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Addr</span><span class="w">    </span><span class="n">p_vaddr</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Addr</span><span class="w">    </span><span class="n">p_paddr</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">p_filesz</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">p_memsz</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">p_flags</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">p_align</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">Elf32_Phdr</span><span class="p">;</span>
+</code></pre></div>
+<p>ELF 程序头表（Program Header Table）包含了多个程序头（Program Header）的条目，每个程序头描述了一个段（Segment）的信息。段是 ELF 文件中的逻辑组织单元，包含了可执行代码、数据、只读数据等。程序头表通过指定每个段在文件中和内存中的位置、大小、属性等信息，为系统加载器（Loader）提供了必要的信息，以正确加载和执行 ELF 文件。</p>
+<p>使用readelf -l 可以查看有哪些segment</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_0158297951c82dcb45c12050167961e3.jpg"><img alt="" src="/assets/doc/07-调试/elf格式解析/images/wp_editor_md_0158297951c82dcb45c12050167961e3.jpg"/></a></p>
+<p>上图中Type 为 LOAD的，表示该节区包含可执行文件或共享库的可加载部分。在加载过程中，这些节区的内容将被加载到内存中。</p>
+<h3 id="sections">固定的sections</h3>
+<p>使用readelf -S 可以查看有哪些sections</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_9fb85cac474de9c5bc790ef826e1da2c.jpg"><img alt="" src="/assets/doc/07-调试/elf格式解析/images/wp_editor_md_9fb85cac474de9c5bc790ef826e1da2c.jpg"/></a></p>
+<ul>
+<li>.text：包含可执行代码的节区，通常用于存储程序的指令。</li>
+<li>.data：包含已初始化的全局和静态变量的节区，用于存储程序的全局数据。</li>
+<li>.bss：包含未初始化的全局和静态变量的节区，用于存储程序的全局数据，但在文件中不占用实际空间。</li>
+<li>.rodata：包含只读数据的节区，通常用于存储常量、字符串等不可修改的数据。</li>
+<li>.comment：包含编译器生成的注释信息的节区，通常用于存储编译器版本、编译时间等信息。</li>
+<li>.eh_frame：包含异常处理框架信息的节区，用于支持 C++ 异常处理和调用堆栈展开。</li>
+<li>.dynsym：包含动态链接符号表的节区，用于存储动态链接所需的符号信息。</li>
+<li>.shstrtab：包含节区名称字符串的节区，用于存储所有节区的名称。</li>
+<li>.strtab：包含字符串表的节区，用于存储字符串常量。</li>
+<li>.symtab：包含符号表的节区，用于存储链接器符号信息。</li>
+<li>.got：全局偏移表（Global Offset Table），用于存储动态链接所需的全局变量和函数地址。</li>
+<li>.plt：过程链接表（Procedure Linkage Table），用于实现函数调用的延迟绑定。</li>
+<li>.rel.xxx：用于存储重定位信息的节区，其中 xxx 表示需要进行重定位的节区名称，如.rel.text,.rel.data。</li>
+<li>.dynamic：包含动态链接器信息的节区，用于存储动态链接器所需的信息。</li>
+</ul>
+<p>.bss 节区存储未初始化的全局和静态变量，这些变量在编译时没有明确赋初始值，因此在 ELF 文件中不需要占用实际空间。相反，当程序被加载到内存中时，操作系统会分配一段 BSS 段的内存，大小由 .bss 节区中所有变量的总大小决定，然后将该内存区域初始化为 0。这种方式可以有效地节省文件大小，节约磁盘空间和加载时间。如果 .bss 节区中的变量在文件中被显式地初始化了，那么它们就会被分配到 .data 节区中，该节区会在文件中占用实际空间。需要注意的是，.bss 节区的存在并不是必须的，编译器可以将未初始化的全局和静态变量直接放入 .data 节区中，但这样会导致 .data 节区的大小增加，从而增加了文件大小和加载时间。因此，使用 .bss 节区可以更好地优化程序的性能和空间占用。</p>
+<h3 id="sections-header-table">sections header table</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">elf32_shdr</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">sh_name</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">sh_type</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">sh_flags</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Addr</span><span class="w">    </span><span class="n">sh_addr</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Off</span><span class="w"> </span><span class="n">sh_offset</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">sh_size</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">sh_link</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">sh_info</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">sh_addralign</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Elf32_Word</span><span class="w">    </span><span class="n">sh_entsize</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">Elf32_Shdr</span><span class="p">;</span>
+</code></pre></div>
+<p>ELF文件中section head table （SHT）来描述ELF文件中有哪些具体的sections，每个section描述了这个段的信息，比如每个段的段名、段的长度、在文件中的偏移、读写权限及段的其它属性。</p>
+<p>使用命令使用readelf -S 可以查看有section head table信息，与上一节固定的sections对应，实际上section head table就是描述上一节的信息。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/静态链接与动态链接.html">← 静态链接与动态链接</a>
+    <a class="next" href="/spi与dbi概念.html">SPI与DBI概念 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

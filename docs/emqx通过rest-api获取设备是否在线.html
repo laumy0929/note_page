@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>emqx通过REST API获取设备是否在线 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>emqx通过REST API获取设备是否在线</h1>
+  <div class="meta">2024-12-16 · 其他</div>
+  <div class="post-content"><p>本文通过emqx REST API的方式来进行配置</p>
+<ol>
+<li>创建一个API密钥</li>
+</ol>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_6f88e3d10ecea4b336a5a5624e9aed0b.jpg"><img alt="" src="/assets/doc/10-其他/emqx获取设备是否在线/images/wp_editor_md_6f88e3d10ecea4b336a5a5624e9aed0b.jpg"/></a></p>
+<ol start="2">
+<li>记录密钥的名称</li>
+</ol>
+<p>API key是用户名称，Secret KEY是密码</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_a141813c20027cd7d7bedaeea2e3f821.jpg"><img alt="" src="/assets/doc/10-其他/emqx获取设备是否在线/images/wp_editor_md_a141813c20027cd7d7bedaeea2e3f821.jpg"/></a></p>
+<ol start="3">
+<li>浏览器登录验证</li>
+</ol>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_0378955b45187175d1f095e06541657e.jpg"><img alt="" src="/assets/doc/10-其他/emqx获取设备是否在线/images/wp_editor_md_0378955b45187175d1f095e06541657e.jpg"/></a></p>
+<p>用户名就是 API Key，密码就是Secret KEY.</p>
+<p>登录上之后就可以获取到设备的信息了。</p>
+<p>可以参考： http://localhost:18083/api-docs/index.html 支持哪些API</p>
+<p>官网参考： <a href="https://docs.emqx.com/zh/emqx/latest/admin/api.html">https://docs.emqx.com/zh/emqx/latest/admin/api.html</a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/macbook上ubuntu虚拟机共享.html">← MacBook上ubuntu虚拟机共享</a>
+    <a class="next" href="/基于nodejs搭建jsonp环境.html">基于nodejs搭建jsonp环境 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>arch初始化 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>arch初始化</h1>
+  <div class="meta">2024-07-07 · risc-v</div>
+  <div class="post-content"><div class="codehilite"><pre><span></span><code><span class="nl">_start_kernel</span><span class="p">:</span>
+<span class="w">    </span><span class="cm">/* Mask all interrupts */</span>
+<span class="w">    </span><span class="n">csrw</span><span class="w"> </span><span class="n">CSR_SIE</span><span class="p">,</span><span class="w"> </span><span class="n">zero</span>
+<span class="w">    </span><span class="n">csrw</span><span class="w"> </span><span class="n">CSR_SIP</span><span class="p">,</span><span class="w"> </span><span class="n">zero</span>
+<span class="w">    </span><span class="n">①</span><span class="w"> </span><span class="n">将sie</span><span class="err">，</span><span class="n">sip寄存器设置为0</span><span class="err">，</span><span class="n">关闭所有中断和清除中断的pending</span><span class="err">（</span><span class="n">不是异常</span><span class="err">）。</span>
+<span class="w">    </span><span class="cm">/* Load the global pointer */</span>
+<span class="p">.</span><span class="n">option</span><span class="w"> </span><span class="n">push</span>
+<span class="p">.</span><span class="n">option</span><span class="w"> </span><span class="n">norelax</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">gp</span><span class="p">,</span><span class="w"> </span><span class="n">__global_pointer$</span>
+<span class="p">.</span><span class="n">option</span><span class="w"> </span><span class="n">pop</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Disable FPU to detect illegal usage of</span>
+<span class="cm">     * floating point in kernel space</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">li</span><span class="w"> </span><span class="n">t0</span><span class="p">,</span><span class="w"> </span><span class="n">SR_FS</span>
+<span class="w">    </span><span class="n">csrc</span><span class="w"> </span><span class="n">CSR_SSTATUS</span><span class="p">,</span><span class="w"> </span><span class="n">t0</span>
+<span class="n">②关闭掉浮点</span><span class="err">，</span><span class="n">浮点至少在内核空间才会使用</span>
+
+<span class="cp">#ifdef CONFIG_SMP</span>
+<span class="w">    </span><span class="n">li</span><span class="w"> </span><span class="n">t0</span><span class="p">,</span><span class="w"> </span><span class="n">CONFIG_NR_CPUS</span>
+<span class="n">bgeu</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">t0</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">Lsecondary_park</span>
+<span class="w">    </span><span class="n">③如果使能了SMP</span><span class="err">，</span><span class="n">硬件的实际hart数量超过配置的数量部分直接进入</span>
+<span class="w">    </span><span class="n">第二阶段</span><span class="err">，</span><span class="n">直接进入WFI模式</span><span class="err">。</span>
+<span class="cp">#endif</span>
+
+<span class="w">    </span><span class="cm">/* Pick one hart to run the main boot sequence */</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">a3</span><span class="p">,</span><span class="w"> </span><span class="n">hart_lottery</span><span class="w"> </span><span class="c1">//hart_lottery是一个全局变量，刚开始为0</span>
+<span class="w">    </span><span class="n">li</span><span class="w"> </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="n">amoadd</span><span class="p">.</span><span class="n">w</span><span class="w"> </span><span class="n">a3</span><span class="p">,</span><span class="w"> </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="n">a3</span><span class="p">)</span><span class="c1">//将a3地址的值赋值为a3,将a2的值加到a3地址处</span>
+<span class="w">    </span><span class="n">bnez</span><span class="w"> </span><span class="n">a3</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">Lsecondary_start</span><span class="w"> </span><span class="c1">//判断a3的值是否为0，如果不为0，跳转</span>
+<span class="w">    </span><span class="n">④彩票机制</span><span class="err">，</span><span class="n">挑选一个hart作为主hart运行</span><span class="err">，</span><span class="n">其他hart跳转到</span><span class="p">.</span><span class="n">Lsecondary_start</span>
+<span class="w">  </span><span class="n">彩票机制是最先运行到该代码的hart对全局变量hart_lottery</span><span class="o">+</span><span class="mi">1</span><span class="err">，</span><span class="n">后续hart运行时</span>
+<span class="w">  </span><span class="n">检测到全局变量hart_lottery不为0时都需要跳转</span><span class="err">。</span>
+
+<span class="w">    </span><span class="cm">/* Clear BSS for flat non-ELF images */</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">a3</span><span class="p">,</span><span class="w"> </span><span class="n">__bss_start</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">a4</span><span class="p">,</span><span class="w"> </span><span class="n">__bss_stop</span>
+<span class="w">    </span><span class="n">ble</span><span class="w"> </span><span class="n">a4</span><span class="p">,</span><span class="w"> </span><span class="n">a3</span><span class="p">,</span><span class="w"> </span><span class="n">clear_bss_done</span>
+<span class="nl">clear_bss</span><span class="p">:</span>
+<span class="w">    </span><span class="n">REG_S</span><span class="w"> </span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="n">a3</span><span class="p">)</span>
+<span class="w">    </span><span class="n">add</span><span class="w"> </span><span class="n">a3</span><span class="p">,</span><span class="w"> </span><span class="n">a3</span><span class="p">,</span><span class="w"> </span><span class="n">RISCV_SZPTR</span>
+<span class="w">    </span><span class="n">blt</span><span class="w"> </span><span class="n">a3</span><span class="p">,</span><span class="w"> </span><span class="n">a4</span><span class="p">,</span><span class="w"> </span><span class="n">clear_bss</span>
+<span class="nl">clear_bss_done</span><span class="p">:</span>
+<span class="n">⑤</span><span class="w"> </span><span class="n">向BSS段写0</span>
+
+<span class="w">    </span><span class="cm">/* Save hart ID and DTB physical address */</span>
+<span class="w">    </span><span class="n">mv</span><span class="w"> </span><span class="n">s0</span><span class="p">,</span><span class="w"> </span><span class="n">a0</span><span class="w"> </span><span class="c1">//hart ID</span>
+<span class="w">    </span><span class="n">mv</span><span class="w"> </span><span class="n">s1</span><span class="p">,</span><span class="w"> </span><span class="n">a1</span><span class="w"> </span><span class="c1">//DTB phy address</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="n">boot_cpu_hartid</span>
+<span class="w">    </span><span class="n">REG_S</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="n">a2</span><span class="p">)</span>
+<span class="w">    </span><span class="n">⑥</span><span class="w"> </span><span class="n">将hart</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="n">保存到变量boot_cpu_hartid</span>
+
+<span class="w">    </span><span class="cm">/* Initialize page tables and relocate to virtual addresses */</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">sp</span><span class="p">,</span><span class="w"> </span><span class="n">init_thread_union</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">THREAD_SIZE</span><span class="w"> </span><span class="c1">//初始化一个临时栈空间，接下来会调用c函数</span>
+<span class="w">    </span><span class="n">mv</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">s1</span>
+<span class="w">    </span><span class="n">call</span><span class="w"> </span><span class="n">setup_vm</span><span class="w">  </span><span class="c1">//调用setup_vm，传递参数为DTB的物理地址</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">early_pg_dir</span>
+<span class="w">    </span><span class="n">call</span><span class="w"> </span><span class="n">relocate</span><span class="w">   </span><span class="c1">//调用relocate，传递参数为early_pg_dir</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/ftrace的使用.html">← ftrace的使用</a>
+    <a class="next" href="/临时虚拟地址空间映射.html">临时虚拟地址空间映射 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

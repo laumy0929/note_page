@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>计算机视觉 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">图像增广</a><ul><li><a href="#_2">翻转和裁剪</a></li><li><a href="#_3">改变颜色</a></li><li><a href="#_4">混合增强</a></li></ul></li><li><a href="#fine-tuning">微调(fine-tuning)</a><ul></ul></li><li><a href="#_5">目标检测</a><ul><li><a href="#anchor-box">锚框（anchor box）</a></li><li><a href="#_6">区域卷积神经网络</a></li><li><a href="#ssd">SSD</a></li><li><a href="#yolo">YOLO</a></li></ul></li><li><a href="#_7">语义分割</a><ul></ul></li><li><a href="#_8">转置卷积</a><ul></ul></li><li><a href="#fcn">全卷积网络FCN</a><ul></ul></li><li><a href="#_9">样式迁移</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>计算机视觉</h1>
+  <div class="meta">2025-05-11 · ai</div>
+  <div class="post-content"><h2 id="_1">图像增广</h2>
+<p>什么是图像增广？图像增广（Image Augmentation）是通过对原始图像进行一系列随机变换（如旋转、裁剪、颜色调整等）生成多样化样本的数据增强技术，旨在扩充训练数据集、提升模型泛化能力。其核心逻辑是模拟真实场景中可能存在的多样性，使模型学习到更鲁棒的特征。</p>
+<p>深度学习中泛化能力是模型对未见过的新数据的适应能力，其核心体现在从训练数据中学习通用规律而非简单记忆特例。应用图像增广可以随机改变训练样本可以减少模型对某些属性的依赖，从而提高模型的泛化能力。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">d2l</span><span class="o">.</span><span class="n">set_figsize</span><span class="p">()</span>
+<span class="n">img</span> <span class="o">=</span> <span class="n">d2l</span><span class="o">.</span><span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">'../img/cat1.jpg'</span><span class="p">)</span>
+<span class="n">d2l</span><span class="o">.</span><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">img</span><span class="p">);</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_9024eb1c64bb38258d2bdcf20448fd97.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_9024eb1c64bb38258d2bdcf20448fd97.jpg"/></a></p>
+<p>常用的图像增广方法有翻转和裁剪、改变颜色等，大多数图像增广都是随机性，下面定义一个函数应用图像增广后显示的效果。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">aug</span><span class="p">,</span> <span class="n">num_rows</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">num_cols</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mf">1.5</span><span class="p">):</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="p">[</span><span class="n">aug</span><span class="p">(</span><span class="n">img</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_rows</span> <span class="o">*</span> <span class="n">num_cols</span><span class="p">)]</span>
+    <span class="c1">#for循环随机增强输出num_rows * num_cols个图像</span>
+    <span class="c1">#创建了一个列表Y，包含了num_rows * num_cols个增强后的图像</span>
+    <span class="c1">#aug(img)是对img应用增强操作。</span>
+    <span class="n">d2l</span><span class="o">.</span><span class="n">show_images</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">num_rows</span><span class="p">,</span> <span class="n">num_cols</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
+</code></pre></div>
+<ul>
+<li>img：输入原始的图像</li>
+<li>aug：输入的增强函数</li>
+<li>num_rws: 显示增广后图像的行数。</li>
+<li>num_cols: 显示增广后图像的列数。</li>
+<li>scale：调整显示图像的缩放比例。</li>
+</ul>
+<h3 id="_2">翻转和裁剪</h3>
+<p>翻转有左右翻转、上下翻转，翻转该不会改变对象的类别，下面看看效果。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">apply</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">torchvision</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">RandomHorizontalFlip</span><span class="p">())</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_5e95428653b832339ccc7247458d02de.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_5e95428653b832339ccc7247458d02de.jpg"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="n">apply</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">torchvision</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">RandomVerticalFlip</span><span class="p">())</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_6ef1f8134c9625e92d904a104b158b2c.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_6ef1f8134c9625e92d904a104b158b2c.jpg"/></a></p>
+<p>除了翻转还可以随机裁剪。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">shape_aug</span> <span class="o">=</span> <span class="n">torchvision</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">RandomResizedCrop</span><span class="p">(</span>
+    <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">),</span> <span class="n">scale</span><span class="o">=</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">ratio</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">apply</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">shape_aug</span><span class="p">)</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_5e74c3e432c798efa795eadfb82ed9fe.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_5e74c3e432c798efa795eadfb82ed9fe.jpg"/></a></p>
+<h3 id="_3">改变颜色</h3>
+<p>改变颜色可包括几个方面包括亮度、对比度、饱和度和色调。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">color_aug</span> <span class="o">=</span> <span class="n">torchvision</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">ColorJitter</span><span class="p">(</span>
+    <span class="n">brightness</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">contrast</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">saturation</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">hue</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">apply</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">color_aug</span><span class="p">)</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_65d9862cd43c4e33fc359403e6db84ca.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_65d9862cd43c4e33fc359403e6db84ca.jpg"/></a></p>
+<h3 id="_4">混合增强</h3>
+<p>在实际项目中，可以将多种图像增广方面混合起来，可以调用Compose来实现。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">augs</span> <span class="o">=</span> <span class="n">torchvision</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">([</span>
+    <span class="n">torchvision</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">RandomHorizontalFlip</span><span class="p">(),</span> <span class="n">color_aug</span><span class="p">,</span> <span class="n">shape_aug</span><span class="p">])</span>
+<span class="n">apply</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">augs</span><span class="p">)</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_e81b300ba80fbef080ee9700cb8584ae.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_e81b300ba80fbef080ee9700cb8584ae.jpg"/></a></p>
+<h2 id="fine-tuning">微调(fine-tuning)</h2>
+<p>微调是在一个预训练模型的基础上，针对特定任务或数据集进行进一步训练，以便使模型能够更好的使用新的数据和任务。微调的步骤如下：</p>
+<ul>
+<li>在源数据上预训练源模型。</li>
+<li>创建一个新的目标模型，将源模型上的所有设计及参数（除输出层外）复制到目标模型。</li>
+<li>新的目标模型添加输出层，输出数是目标数据集中类别数，只随机初始化该输出的参数。</li>
+<li>新的目标集上训练目标模型。输出层是从头训练，而其他层是根据源模型参数进行微调。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_23139698a7dc9cd0210f2a9a9765f2b7.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_23139698a7dc9cd0210f2a9a9765f2b7.jpg"/></a></p>
+<p>为什么要微调？因为一个新的模型训练很贵，不但需要重新标注数据集、训练，那既然已经有训练好的模型，我们为何不根据训练好的模型稍加调整，站在巨人的肩膀上了?</p>
+<p>为什么可以微调了? 一般神经网络可以分成两块</p>
+<ul>
+<li>特征提取： 将原始的像素变成容易线性分割的特征。</li>
+<li>softmax回归：线性分类器做分类。</li>
+</ul>
+<p>因此特征提取部分一般是通用做法，所以容易复用，我们只需要替换到softmax输出层重新训练即可。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_8e55c612197a30a0f9de8fee8e2321b3.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_8e55c612197a30a0f9de8fee8e2321b3.jpg"/></a></p>
+<p>微调中权重参数是怎么初始化的？对于特征提取部分直接复制原来预训练的模型，输出层因为是修改替换的，所以需要重新随机初始化进行训练。微调训练是一个目标数据集上的正常训练任务，但是使用更强的正则化，具体体现在使用更小的学习率和使用更少的数据迭代。预训练模型源数据集若远远复杂于新目标数据集，通常微调效果更好。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_d6719657d69197f119d96cf3576b9bdf.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_d6719657d69197f119d96cf3576b9bdf.jpg"/></a></p>
+<p>下面是使用ResNet-18作为源模型来进行微调概要示例。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">pretrained_net</span> <span class="o">=</span> <span class="n">torchvision</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">resnet18</span><span class="p">(</span><span class="n">pretrained</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="c1">#定义和初始化预训练模型，指定pretrained=True，表示自动下载预训练的模型参数。</span>
+
+<span class="n">pretrained_net</span><span class="o">.</span><span class="n">fc</span>
+<span class="c1">#.fc表示最后输出层即全连接层，先打印看看效果</span>
+<span class="c1"># 打印结果：Linear(in_features=512, out_features=1000, bias=True)</span>
+<span class="c1"># 可以看到最后输出层是输入512，输出1000的全连接层</span>
+
+<span class="n">finetune_net</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">finetune_net</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="c1">#我们将最后的全连接层修改为输入不变，但是输出为2的全连接层，表示只分类2个目标。</span>
+
+<span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">xavier_uniform_</span><span class="p">(</span><span class="n">finetune_net</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">weight</span><span class="p">);</span>
+<span class="c1">#对新定义的全连接层fc进行权重初始化，采用的是xavier均分布方法</span>
+
+<span class="n">train_fine_tuning</span><span class="p">(</span><span class="n">finetune_net</span><span class="p">,</span> <span class="mf">5e-5</span><span class="p">)</span>
+<span class="c1">#使用新的模型进行训练。</span>
+</code></pre></div>
+<p>微调是通过使用大数据上得到预训练好的模型来初始化模型权重来完成提升精度，使用微调通常速度更快、精度更高。</p>
+<h2 id="_5">目标检测</h2>
+<p>目标检测或目标识别是用于识别图像中多个感兴趣的目标，不仅知道他们的类别，还需要知道他们在图像中的具体位置。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_4bce192448ba8bbb13bae844576a3a4c.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_4bce192448ba8bbb13bae844576a3a4c.jpg"/></a></p>
+<p>如上图，图中有个狗和猫，通过一个边缘框框起来，边缘框左上角坐标+右下角坐标即可定位。</p>
+<h3 id="anchor-box">锚框（anchor box）</h3>
+<p>目标检测既然要在图像中检测出感兴趣目标的位置（坐标），那么就需要遍历框住不同的区域来进行识别。目标检测算法会在输入图像中抽样大量区域，然后判断这些区域中是否包含我们感兴趣的目标，并调整区域边缘，从而更准确的预测目标的真实边界框。不同的模型抽样的方法不同，这里主要介绍的是以每个像素为中心，生成多个缩放比和宽高比不同的边界框，这些边界就称为锚框。</p>
+<p>如何生成锚框了？</p>
+<p>假设输入图像的高度是h，宽度是w。那么就以每个像素按照缩放比（scale）和宽高（aspect ratio）比，为中心生成不同形状的锚框，那么锚框的宽度和高度分别为[<strong>锚框的宽度和高度分别是$hs\sqrt{r}$和$hs/\sqrt{r}$。</strong>]。在实践中，如果按照缩放比和宽高比组合时，每个输入图像共有$whnm$个锚框，这样数量太庞大，计算复杂度会很高，因此只考虑包含s和r的组合。$(s_1, r_1), (s_1, r_2), \ldots, (s_1, r_m), (s_2, r_1), (s_3, r_1), \ldots, (s_n, r_1).$，这样对于整个输入图像，将生成$wh(n+m-1)$个锚框。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">img</span> <span class="o">=</span> <span class="n">d2l</span><span class="o">.</span><span class="n">plt</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="s1">'../img/catdog.jpg'</span><span class="p">)</span>
+<span class="n">h</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">))</span>
+<span class="n">Y</span> <span class="o">=</span> <span class="n">multibox_prior</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">sizes</span><span class="o">=</span><span class="p">[</span><span class="mf">0.75</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">],</span> <span class="n">ratios</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">])</span>
+<span class="c1"># multibox_prior返回的形状是（批量大小，锚框的数量，4）</span>
+<span class="n">Y</span><span class="o">.</span><span class="n">shape</span>
+
+<span class="n">输处</span><span class="err">：</span>
+<span class="mi">561</span> <span class="mi">728</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2042040</span><span class="p">,</span> <span class="mi">4</span><span class="p">])</span>
+</code></pre></div>
+<p>可以看到运行后，锚框的数量是2042040。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">d2l</span><span class="o">.</span><span class="n">set_figsize</span><span class="p">()</span>
+<span class="n">bbox_scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">((</span><span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">))</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">d2l</span><span class="o">.</span><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
+<span class="n">show_bboxes</span><span class="p">(</span><span class="n">fig</span><span class="o">.</span><span class="n">axes</span><span class="p">,</span> <span class="n">boxes</span><span class="p">[</span><span class="mi">250</span><span class="p">,</span> <span class="mi">250</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">bbox_scale</span><span class="p">,</span>
+            <span class="p">[</span><span class="s1">'s=0.75, r=1'</span><span class="p">,</span> <span class="s1">'s=0.5, r=1'</span><span class="p">,</span> <span class="s1">'s=0.25, r=1'</span><span class="p">,</span> <span class="s1">'s=0.75, r=2'</span><span class="p">,</span>
+             <span class="s1">'s=0.75, r=0.5'</span><span class="p">])</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_cbc0b1d0a7ad792467aff42b4a5db601.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_cbc0b1d0a7ad792467aff42b4a5db601.jpg"/></a></p>
+<p>上面是画出坐标[250,250]像素点，取一些s/r值的锚框效果。</p>
+<p>如何衡量锚框和真实目标边界框的相似性了，使用交并比IoU，即两个边界框相交面积与相并面积的比。给定集合$\mathcal{A}$和$\mathcal{B}$，他们的杰卡德系数是他们交集的大小除以他们并集的大小：</p>
+<p>$$J(\mathcal{A},\mathcal{B}) = \frac{\left|\mathcal{A} \cap \mathcal{B}\right|}{\left| \mathcal{A} \cup \mathcal{B}\right|}.$$</p>
+<p>交并比的取值范围是0~1:0表示两个边界无重合像素，1表示两个边界完成重合。 <a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_3ffab4aa7bafd5948034d6e059919082.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_3ffab4aa7bafd5948034d6e059919082.jpg"/></a></p>
+<p>在实际训练中如何标注锚框了？</p>
+<p>在实际训练中，我们将每个锚框视为一个训练样本，为了训练目标检测模型，我们为每个锚框的类别和偏移进行标签，类别是与锚框相关的目标类别，偏移是真实边界框相对锚框的偏移量。在预测的时候，首先每张图片生成多个锚框，预测所有锚框的类别和偏移量，根据预测的偏移量调整他们的位置以获得预测的边界框，最后输出符合条件的预测边界框。</p>
+<p>在预测时，可能输出许多相似的具有明显重叠的预测边界框，他们都围绕同一个目标。为了简化输出，使用非极大值抑制合并属于同一目标的相似的预测边界框。非极大值抑制的主要原理时，进行比较每个预测边界框的置信度，具体使用IoU来比较选取最大值。 <a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_7387f4e499bcc48b807769a00eb53477.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_7387f4e499bcc48b807769a00eb53477.jpg"/></a></p>
+<p>通过非极大抑制预测处理后的结果。 <a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_b2f874896642af20bde7f23788438588.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_b2f874896642af20bde7f23788438588.jpg"/></a></p>
+<h3 id="_6">区域卷积神经网络</h3>
+<h4 id="r-cnn">R-CNN</h4>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_6385cead50841bbf35528940b18d5919.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_6385cead50841bbf35528940b18d5919.jpg"/></a></p>
+<p>R-CNN从图像中选取若干(如2000)提议区域（如锚框是一种选取方法），预测标注他们的类别和边界框（如偏移量），然后使用卷积神经网络对每个提议区域进行前向传播已抽取特征，根据特征来预测类别和边界框。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_6f0c7d36a610ad9828dd6f722afaa173.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_6f0c7d36a610ad9828dd6f722afaa173.jpg"/></a></p>
+<p>使用R-CNN一般使用的是预训练来的卷积网络来抽取图像特征，但是每个图像会选出上千个提议区域，每个提议区域都需要经过卷积计算，这样也要上千次的卷积神经网络前向传播来执行目标检测，因此这样速度会很慢。</p>
+<h4 id="fast-r-cnn">Fast R-CNN</h4>
+<p>R-CNN的性能瓶颈主要在于对每个提议区域，卷积神经网络的前向传播都是独立的，没有共享计算。而这些提议区域往往会有重叠，这样会导致特征抽取重复计算。而使用Faster-CNN则进行了改进。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_09f5dfe1fd999c0bd1bd169c6f0363b6.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_09f5dfe1fd999c0bd1bd169c6f0363b6.jpg"/></a></p>
+<p>与R-CNN相比，Fast R-CNN用来提取特征的卷积神经网络输入的是整个图像，而不是各个提议区域，这样就不用像R-CNN对每个提议区域都进行卷积神经网络计算。</p>
+<p>而选择性搜索生成的n个提议区域还是不变，不同的是Fast R-CNN引入了兴趣区域汇聚层，将卷积神经网络的输出和提议区域作为输入，输出连接后的各个提议区域抽取特征。而R-CNN对提议区域的处理是直接输入到分类器中，输出目标类别。</p>
+<p>总结一下Fast R-CNN有主要有两点：</p>
+<ul>
+<li>经过卷积神经网络数量不同：R-CNN所有提议区域都需要经过，而Fast R-CNN只需要输入完整的一张图片。</li>
+<li>提议区域用处不用：R-CNN将提议区域最终到分类器中输出目标类别，而Fast R-CNN将提议区域和经过卷积神经网络输出的特征当做输入给到兴趣区域池化层。</li>
+</ul>
+<h4 id="faster-r-cnn">Faster R-CNN</h4>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_93859617cc48a520f639377f9ba97a66.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_93859617cc48a520f639377f9ba97a66.jpg"/></a></p>
+<p>Fast R-CNN的缺点就是在选择性搜索中还是会生成大量的提议区域，为了优化这个提出了Faster R-CNN，提出将选择性搜索替换为区域提议网络，从而减少提议区域生成的数量。</p>
+<p>如何减少提议区域生成的数量了？ 主要使用了非极大值抑制，将提议区域中相似的或者说重叠比较多的剔除掉，这样输入到兴趣区域池化层就变少了。</p>
+<h4 id="mask-r-cnn">Mask R-CNN</h4>
+<p>如果训练集标注了每个目标图像的像素级位置，那么可以使用Mask R-CNN。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_3432bf856b849aa296cb8d83e3f14d5d.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_3432bf856b849aa296cb8d83e3f14d5d.jpg"/></a></p>
+<p>从上图可以看出 Mask R-CNN相对Faster R-CNN变换点在后面部分，Mask R-CNN将兴趣区域汇聚层替换为兴趣区域对齐层。这里的对齐层就是通过在训练集上实现标注目标的具体位置通过双线性超值来的，这样就可以更精准保留特征图的信息，实现像素级的预测。可以理解为Faster R-CNN兴趣区域层还需要调参经过一堆网络计算预测，而这里通过实现标注的区域进一步确定了位置。</p>
+<h3 id="ssd">SSD</h3>
+<p>待补充</p>
+<h3 id="yolo">YOLO</h3>
+<p>Faster R-CNN的检测分为两个阶段，首先区域提议网络（RPN）生成候选区域，接着在使用卷积神经网络对这些候选区域进行分类和边界框回归。 而yolo是单阶段检测，他将图像分成一个S*S的网格，每个网络预测多个边界框和相应类别的概率。YOLO一次性处理整个图像，直接进行目标分类和定位回归，速度相对较快。Faster R-CNN精度会更高一些，在复杂场景和多目标检测比较优越。而YOLO实时性、低延迟，但是精度偏低，但是随着YOLO的进化精度逐渐在提升。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_1a471c6c9eb0fb7a2ebfd092af874025.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_1a471c6c9eb0fb7a2ebfd092af874025.jpg"/></a></p>
+<h2 id="_7">语义分割</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_83656f46d01a4d6ddc2c647b17c88e9d.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_83656f46d01a4d6ddc2c647b17c88e9d.jpg"/></a></p>
+<p>语义分割是对图像中的每个像素进行分类到特定类别中。与目标检测不同的是，目标检测是识别图像中的物体并定位其边界框，而语义分割是则对图像的每个像素进行标注，赋予每个像素一个表情。语义分割是像素级别的分类。语义分割的应用如图像处理背景虚化、智能驾驶路面分割。</p>
+<p>语义分割和实例分割的区别是语音分割只对像素类别进行分类，而示例分割是在像素类别中对实例在区分，如下图所示。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_11f3f4ae6fa2639f155040bcb1bb6f28.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_11f3f4ae6fa2639f155040bcb1bb6f28.jpg"/></a></p>
+<p>最重要的语义分割数据集是Pascal VOC2012。</p>
+<h2 id="_8">转置卷积</h2>
+<p>卷积不会增大原来的输入高宽，要么维持不变、要么减小。而转置卷积则可以用来增大输入高宽。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_30956456a3146e748a98b7921d90406d.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_30956456a3146e748a98b7921d90406d.jpg"/></a></p>
+<p>转置卷积可以认为是卷积的逆过程。</p>
+<h2 id="fcn">全卷积网络FCN</h2>
+<p>语义分割是对图像中的每个像素分类，通常输入的图像大小和输出图像的大小要一样，也就是说输出类别的预测与输入图像在像素级上是具有一一对应关系。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_678f6a7a9e43917883e7d0c2d21bb065.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_678f6a7a9e43917883e7d0c2d21bb065.jpg"/></a></p>
+<p>FCN是用来做语义分割最早的深度卷积神经网络之一，他使用转置卷积层来替换CNN最后的全连接层。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_3479e852001ffa37789f0e9739568312.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_3479e852001ffa37789f0e9739568312.jpg"/></a></p>
+<h2 id="_9">样式迁移</h2>
+<p>图像处理经常会遇到滤镜，而使用卷积神经网络，自动将一张图像的风格应用在另外一张图像上，即称为样式迁移。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_3ef488a625a7961d26e57b345dc39cad.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_3ef488a625a7961d26e57b345dc39cad.jpg"/></a></p>
+<p>如上图，将style image中的样式迁移到content image上，就得到一张合成图片。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_502b6086f0c1ad29abc6b37cd6c9fe14.jpg"><img alt="" src="/assets/doc/04-ai/深度学习/计算机视觉/images/wp_editor_md_502b6086f0c1ad29abc6b37cd6c9fe14.jpg"/></a></p>
+<p>最终的损失内容损失+样式损失，即总变成损失。也就是说训练的时候输出图像的内容要跟源图像的内容接近，而样式跟样式图片接近。</p>
+<p>本文来自： <a href="https://zh.d2l.ai/" title="&lt;动手学深度学习 V2&gt;">&lt;动手学深度学习 V2&gt;</a> 的学习笔记</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/优化算法.html">← 优化算法</a>
+    <a class="next" href="/现代卷积神经网络.html">现代卷积神经网络 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

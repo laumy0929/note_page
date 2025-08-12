@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>挂载根文件系统 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#initramfs">initramfs方式</a><ul></ul></li><li><a href="#ramdisk">ramdisk方式</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>挂载根文件系统</h1>
+  <div class="meta">2024-07-07 · risc-v</div>
+  <div class="post-content"><p>根文件系统是控制权从linux内核转移到用户空间的一个桥梁，文件系统的挂载需要提供挂载点，linux内核在初始化时汇初始化一个虚拟的“/”目录用于根文件系统的挂载。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">start_kernel</span>
+<span class="w">    </span><span class="n">vfs_caches_init</span><span class="p">()</span>
+<span class="w">    </span><span class="n">mnt_init</span><span class="p">()</span>
+<span class="w">    </span><span class="n">init_rootfs</span><span class="p">()</span>
+<span class="w">        </span><span class="n">init_mount_tree</span><span class="p">()</span>
+<span class="w">            </span><span class="n">vfs_kern_mount</span><span class="p">(</span><span class="o">&amp;</span><span class="n">rootfs_fs_type</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="s">"rootfs"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+</code></pre></div>
+<p>根文件系统的挂载待日后进一步研究，本小结先简单介绍一下initrd，initramfs，ramdisk。</p>
+<p>内核启动执行的第一个应用进程，需要先读取文件系统执行/init或/sbin/init，因此需要先初始化文件系统。而文件系统一般存储在存储介质（flash,IDE,SCSI）上，访问这些存储介质需要有驱动程序。那么是否有什么办法可以解决这个问题了？以下有两种方法可以解决： （1）存储介质驱动编译进内核：是将存储介质的驱动程序编译进内核，内核启动阶段就可以访问存储介质。这种方法对于固定存储介质型号倒也还好，只需要编译少数驱动程序即可。而对于发行版本的linux，如果要支持很多个存储介质，就需要将很多驱动编译进内核，这样就会导致linux内核镜像非常庞大。 （2）基于ramdisk的文件系统：ramdisk不是一个实际的文件系统，而是一种实际文件系统装入内存的机制，并且可以做为根文件系统，换句话说ramdisk实际上是从内存划分一部分空间，当作磁盘来使用，可以往里面存储任何东西。因此当存储介质驱动程序没有准备好时，我们可以把内存模拟成一个存储介质，内核配置上CONFIG_BLK_DEV_RAM，就支持了ramdisk，一般会生成/dev/ramx节点。基于该节点我们可以格式化想要的文件系统。 （3）基于ramdisk的initrd（bootloader initialized RAM Disk）：是针对方法（1）的改进，把内存当作存储介质，这方方式我们称为ramdisk，设备节点为/dev/ramX。initrd是一个被压缩过的小型根目录，包含了启动阶段中必须的驱动模块，这个目录中包含了启动阶段中必须的驱动模块，可执行文件和启动脚本。当系统启动的时候，bootloader会把initrd文件读到内存中，然后把initrd文件在内存中的起始地址和大小传递给内核。内核在启动初始化过程中会解压缩initrd文件，然后将解压后的initrd挂载为根目录，然后执行根目录中的/linuxrc脚本（cpio格式的initrd为/init,而image格式的initrd&lt;也称老式块设备的initrd或传统的文件镜像格式的initrd&gt;为/initrc），就可以在这个脚本中加载realfs（真实文件系统）存放设备的驱动程序以及在/dev目录下建立必要的设备节点。这样，就可以mount真正的根目录，并切换到这个根目录中来。initrd并不是一个实际的文件系统，只能说算是一个打包的根目录。 （4）基于内存的initramfs：方式（3）有一个弊端，就是必须要事先支持ramdisk，分配固定的大小，那么这个大小到底分配多少了？分多了浪费，分少了可能不够，针对这种情况，在linux2.5内核之后出现了initramfs。它的作用和initrd类似，只是和内核编译成一个文件。initramfs是经过gzip压缩后的cpio格式和数据文件，该cpio格式文件被链接进了内核中特殊的数据端.init.ramfs上，其中全局变量__initramfs_start和__initramfs_end分别指向这个数据段的起始地址和结束地址。内核启动时会对.init.ramfs段中的数据进行解压，然后使用它作为临时的根文件系统。这种方式依旧会导致内核镜像变大。注意：initramfs本身是一个ramfs文件系统，因此它可以内嵌到内核中，也可以单独存在 Initrd和initramfs的区别？ （1） Linux内核只认cpio格式的initramfs文件包(因为unpack_to_rootfs只能解析cpio格式文件)，非cpio格式的 initramfs文件包将被系统抛弃，而initrd可以是cpio包也可以是传统的镜像(image)文件，实际使用中initrd都是传统镜像文件。 （2）initramfs在编译内核的同时被编译并与内核连接成一个文件，它被链接到地址__initramfs_start处，与内核同时被 bootloader加载到ram中，而initrd是另外单独编译生成的，是一个独立的文件，它由bootloader单独加载到ram中内核空间外的地址，比如加载的地址为addr(是物理地址而非虚拟地址)，大小为8MB，那么只要在命令行加入\"initrd=addr,8M\"命令，系统就可以找到 initrd(当然通过适当修改Linux的目录结构，makefile文件和相关代码，以上两种情况都是可以相通的)。 （3）initramfs被解析处理后原始的cpio包(压缩或非压缩)所占的空间(&amp;__initramfs_start - &amp;__initramfs_end)是作为系统的一部分直接保留在系统中，不会被释放掉，而对于initrd镜像文件，如果没有在命令行中设置\"keepinitd\"命令，那么initrd镜像文件被处理后其原始文件所占的空间(initrd_end - initrd_start)将被释放掉。 （4）initramfs可以独立ram disk单独存在，而要支持initrd必须要先支持ram disk，即要配置CONFIG_BLK_DEV_INITRD选项 -- 支持initrd，必须先要配置CONFIG_BLK_DEV_RAM -- 支持ram disk ，因为initrd image实际就是初始化好了的ramdisk镜像文件，最后都要解析、写入到ram disk设备/dev/ram或/dev/ram0中。注: 使用initramfs，命令行参数将不需要\"initrd=\"和\"root=\"命令 在linux2.5之后，出现了initramfs，initrd有其固有的缺陷（需要ramdisk，固定大小内存等），本章节就重点介绍一下initramfs和基于ramdisk的文件系统方式。</p>
+<h2 id="initramfs">initramfs方式</h2>
+<p>早期使用的是initrd，但是在linux2.5之后就升级为initramfs，因此本章节重点描述initramfs。 initramfs可以直接集成到kernel里面，也可以单独加载initramfs。 内核配置选择</p>
+<div class="codehilite"><pre><span></span><code><span class="n">General</span><span class="w"> </span><span class="n">setup</span>
+<span class="w"> </span><span class="o">----&gt;</span><span class="w"> </span><span class="p">[</span><span class="o">*</span><span class="p">]</span><span class="w"> </span><span class="n">Initial</span><span class="w"> </span><span class="n">RAM</span><span class="w"> </span><span class="n">filesystem</span><span class="w"> </span><span class="n">and</span><span class="w"> </span><span class="n">RAM</span><span class="w"> </span><span class="n">disk</span><span class="w"> </span><span class="p">(</span><span class="n">initramfs</span><span class="o">/</span><span class="n">initrd</span><span class="p">)</span><span class="w"> </span><span class="n">support</span>
+
+<span class="n">以下是要支持压缩的格式</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span><span class="w">   </span><span class="n">Support</span><span class="w"> </span><span class="n">initial</span><span class="w"> </span><span class="n">ramdisk</span><span class="o">/</span><span class="n">ramfs</span><span class="w"> </span><span class="n">compressed</span><span class="w"> </span><span class="n">using</span><span class="w"> </span><span class="n">gzip</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span><span class="w">   </span><span class="n">Support</span><span class="w"> </span><span class="n">initial</span><span class="w"> </span><span class="n">ramdisk</span><span class="o">/</span><span class="n">ramfs</span><span class="w"> </span><span class="n">compressed</span><span class="w"> </span><span class="n">using</span><span class="w"> </span><span class="n">bzip2</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span><span class="w">   </span><span class="n">Support</span><span class="w"> </span><span class="n">initial</span><span class="w"> </span><span class="n">ramdisk</span><span class="o">/</span><span class="n">ramfs</span><span class="w"> </span><span class="n">compressed</span><span class="w"> </span><span class="n">using</span><span class="w"> </span><span class="n">LZMA</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span><span class="w">   </span><span class="n">Support</span><span class="w"> </span><span class="n">initial</span><span class="w"> </span><span class="n">ramdisk</span><span class="o">/</span><span class="n">ramfs</span><span class="w"> </span><span class="n">compressed</span><span class="w"> </span><span class="n">using</span><span class="w"> </span><span class="n">XZ</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span><span class="w">   </span><span class="n">Support</span><span class="w"> </span><span class="n">initial</span><span class="w"> </span><span class="n">ramdisk</span><span class="o">/</span><span class="n">ramfs</span><span class="w"> </span><span class="n">compressed</span><span class="w"> </span><span class="n">using</span><span class="w"> </span><span class="n">LZO</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span><span class="w">   </span><span class="n">Support</span><span class="w"> </span><span class="n">initial</span><span class="w"> </span><span class="n">ramdisk</span><span class="o">/</span><span class="n">ramfs</span><span class="w"> </span><span class="n">compressed</span><span class="w"> </span><span class="n">using</span><span class="w"> </span><span class="n">LZ4</span>
+</code></pre></div>
+<p>制作initramfs</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cp</span><span class="w"> </span><span class="n">busybox</span><span class="o">/</span><span class="n">_install</span><span class="o">/</span><span class="w">  </span><span class="n">rootfs</span>
+<span class="n">cd</span><span class="w"> </span><span class="n">rootfs</span>
+<span class="n">find</span><span class="w"> </span><span class="p">.</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">cpio</span><span class="w"> </span><span class="o">-</span><span class="n">o</span><span class="w"> </span><span class="o">-</span><span class="n">H</span><span class="w"> </span><span class="n">newc</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">rootfs</span><span class="p">.</span><span class="n">cpio</span><span class="w">   </span><span class="c1">//将文件复制打包成一个文件</span>
+<span class="n">gzip</span><span class="w"> </span><span class="o">-</span><span class="n">c</span><span class="w"> </span><span class="n">rootfs</span><span class="p">.</span><span class="n">cpio</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">rootfs</span><span class="p">.</span><span class="n">cpio</span><span class="p">.</span><span class="n">gz</span><span class="w">     </span><span class="c1">//将文件进行压缩为gz格式</span>
+</code></pre></div>
+<p>其中设置-append \"rdinit=/linuxrc\"是Linux内核命令行、启动参数，-initrd initramfs/rootfs/rootfs.cpio.gz 指定文件镜像。Rootfs.cpio.gz是要和内核编译进一个文件的，但是qemu支持通过-initrd指定文件镜像。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">qemu</span><span class="o">-</span><span class="n">system</span><span class="o">-</span><span class="n">riscv64</span><span class="w"> </span><span class="o">-</span><span class="n">M</span><span class="w"> </span><span class="n">virt</span><span class="w"> </span><span class="o">-</span><span class="n">cpu</span><span class="w"> </span><span class="n">c910v</span><span class="w"> </span><span class="o">-</span><span class="n">m</span><span class="w"> </span><span class="mi">256</span><span class="n">M</span><span class="w"> </span><span class="o">-</span><span class="n">nographic</span><span class="w"> </span><span class="err">\</span>\
+<span class="w"> </span><span class="o">-</span><span class="n">bios</span><span class="w"> </span><span class="n">qemu</span><span class="o">-</span><span class="n">opensbi</span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">generic</span><span class="o">/</span><span class="n">firmware</span><span class="o">/</span><span class="n">fw_jump</span><span class="p">.</span><span class="n">bin</span><span class="w"> </span><span class="err">\</span>\
+<span class="w"> </span><span class="o">-</span><span class="n">kernel</span><span class="w"> </span><span class="n">linux</span><span class="mf">-5.4</span><span class="o">/</span><span class="n">arch</span><span class="o">/</span><span class="n">riscv</span><span class="o">/</span><span class="n">boot</span><span class="o">/</span><span class="n">Image</span><span class="w"> </span><span class="err">\</span>\
+<span class="w"> </span><span class="o">-</span><span class="n">initrd</span><span class="w"> </span><span class="n">initramfs</span><span class="o">/</span><span class="n">rootfs</span><span class="o">/</span><span class="n">rootfs</span><span class="p">.</span><span class="n">cpio</span><span class="p">.</span><span class="n">gz</span><span class="w"> </span><span class="err">\</span>\
+<span class="w"> </span><span class="o">-</span><span class="n">append</span><span class="w"> </span><span class="s">"rdinit=/linuxrc"</span>
+</code></pre></div>
+<p>其中设置-append \"rdinit=/linuxrc\"是Linux内核命令行、启动参数，-initrd initramfs/rootfs/rootfs.cpio.gz 指定文件镜像。Rootfs.cpio.gz是要和内核编译进一个文件的，但是qemu支持通过-initrd指定文件镜像。 如果要将根文件系统内嵌如内核</p>
+<div class="codehilite"><pre><span></span><code><span class="n">General</span><span class="w"> </span><span class="n">setup</span>
+<span class="w"> </span><span class="o">----&gt;</span><span class="w"> </span><span class="p">(..</span><span class="o">/</span><span class="n">initramfs</span><span class="o">/</span><span class="n">rootfs</span><span class="o">/</span><span class="n">rootfs</span><span class="p">.</span><span class="n">cpio</span><span class="p">.</span><span class="n">gz</span><span class="p">)</span><span class="w"> </span><span class="n">Initramfs</span><span class="w"> </span><span class="n">sourc</span>
+</code></pre></div>
+<h2 id="ramdisk">ramdisk方式</h2>
+<p>ramdisk的方式是将内存作为存储盘，生成一个/dev/ramx的节点。作为存储介质不一定使用ramfs文件系统，它可以是任意类型的文件系统，如ext2，ext4等，当然也可以是ramfs。本小结我们演示基于ramdisk挂载ext4的方式启动。</p>
+<div class="codehilite"><pre><span></span><code><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="n">Drivers</span>
+<span class="w">  </span><span class="o">----&gt;</span><span class="w"> </span><span class="p">[</span><span class="o">*</span><span class="p">]</span><span class="w"> </span><span class="n">Block</span><span class="w"> </span><span class="n">devices</span>
+<span class="w">   </span><span class="o">----&gt;</span><span class="w"> </span><span class="o">&lt;*&gt;</span><span class="w"> </span><span class="n">RAM</span><span class="w"> </span><span class="n">block</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="n">support</span>
+<span class="w">    </span><span class="o">----&gt;</span><span class="w"> </span><span class="p">(</span><span class="mi">65535</span><span class="p">)</span><span class="w"> </span><span class="n">Default</span><span class="w"> </span><span class="n">RAM</span><span class="w"> </span><span class="n">disk</span><span class="w"> </span><span class="n">size</span><span class="w"> </span><span class="p">(</span><span class="n">kbytes</span><span class="p">)</span>
+</code></pre></div>
+<p>Ramdisk是在内存中模拟磁盘，使用ramdisk比Initramfs灵活一些，不需要每次都去编译内核。不过在qemu中，都支持通过-initrd指定文件镜像。注意ramdisk大小一定要足够大。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">qemu</span><span class="o">-</span><span class="n">system</span><span class="o">-</span><span class="n">riscv64</span><span class="w"> </span><span class="o">-</span><span class="n">M</span><span class="w"> </span><span class="n">virt</span><span class="w"> </span><span class="o">-</span><span class="n">cpu</span><span class="w"> </span><span class="n">c910v</span><span class="w"> </span><span class="o">-</span><span class="n">m</span><span class="w"> </span><span class="mi">2</span><span class="n">G</span><span class="w"> </span><span class="o">-</span><span class="n">nographic</span><span class="w"> </span><span class="err">\</span>\
+<span class="w"> </span><span class="o">-</span><span class="n">bios</span><span class="w"> </span><span class="n">qemu</span><span class="o">-</span><span class="n">opensbi</span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">generic</span><span class="o">/</span><span class="n">firmware</span><span class="o">/</span><span class="n">fw_jump</span><span class="p">.</span><span class="n">bin</span><span class="w"> </span><span class="err">\</span>\
+<span class="w"> </span><span class="o">-</span><span class="n">kernel</span><span class="w"> </span><span class="n">linux</span><span class="mf">-5.4</span><span class="o">/</span><span class="n">arch</span><span class="o">/</span><span class="n">riscv</span><span class="o">/</span><span class="n">boot</span><span class="o">/</span><span class="n">Image</span><span class="w"> </span><span class="err">\</span>\
+<span class="w"> </span><span class="o">-</span><span class="n">initrd</span><span class="w"> </span><span class="p">.</span><span class="o">/</span><span class="n">rootfs_7_4</span><span class="p">.</span><span class="n">img</span><span class="w"> </span><span class="err">\</span>\
+<span class="w"> </span><span class="o">-</span><span class="n">append</span><span class="w"> </span><span class="s">"root=/dev/ram0 ramdisk_size=268435456 rw console=ttyS0"</span>
+</code></pre></div>
+<p>根文件系统制作方法</p>
+<div class="codehilite"><pre><span></span><code><span class="n">qemu</span><span class="o">-</span><span class="n">img</span><span class="w"> </span><span class="n">create</span><span class="w"> </span><span class="n">rootfs</span><span class="p">.</span><span class="n">img</span><span class="w"> </span><span class="mi">256</span><span class="n">M</span><span class="w">   </span><span class="err">#</span><span class="o">---</span><span class="n">创建一个文件</span>
+<span class="n">mkfs</span><span class="p">.</span><span class="n">ext4</span><span class="w"> </span><span class="n">rootfs</span><span class="p">.</span><span class="n">img</span><span class="w">            </span><span class="err">#</span><span class="o">---</span><span class="n">将文件格式为ext4格式</span>
+<span class="n">mkdir</span><span class="w"> </span><span class="n">rootfs</span>
+<span class="n">sudo</span><span class="w"> </span><span class="n">mount</span><span class="w"> </span><span class="o">-</span><span class="n">o</span><span class="w"> </span><span class="n">loop</span><span class="w"> </span><span class="n">rootfs</span><span class="p">.</span><span class="n">img</span><span class="w"> </span><span class="n">rootfs</span><span class="w">  </span><span class="err">#</span><span class="o">---</span><span class="n">挂在文件到rootfs下</span><span class="err">，</span><span class="n">将命令等拷贝进去</span>
+<span class="n">cd</span><span class="w"> </span><span class="n">rootfs</span>
+<span class="n">sudo</span><span class="w"> </span><span class="n">mkdir</span><span class="w"> </span><span class="n">dev</span>
+<span class="n">sudo</span><span class="w"> </span><span class="n">mkdir</span><span class="w"> </span><span class="n">proc</span>
+<span class="n">sudo</span><span class="w"> </span><span class="n">mkdir</span><span class="w"> </span><span class="n">sys</span>
+<span class="n">sudo</span><span class="w"> </span><span class="n">cp</span><span class="w"> </span><span class="o">-</span><span class="n">r</span><span class="w"> </span><span class="p">..</span><span class="o">/</span><span class="n">busyboxsource</span><span class="o">/</span><span class="n">_install</span><span class="cm">/* .</span>
+<span class="cm">sudo mkdir proc sys dev etc etc/init.d</span>
+<span class="cm">cd etc/init.d/</span>
+<span class="cm">sudo touch rcS</span>
+<span class="cm">sudo vi rcS</span>
+
+<span class="cm">#!/bin/sh</span>
+<span class="cm">mount -t proc none /proc</span>
+<span class="cm">mount -t sysfs none /sys</span>
+<span class="cm">/sbin/mdev -s</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/异常初始化.html">← 异常初始化</a>
+    <a class="next" href="/linux-risc-v-head-s调试记录.html">Linux risc-v head.S调试记录 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

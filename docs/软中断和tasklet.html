@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>软中断和tasklet - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">抢占计数</a><ul></ul></li><li><a href="#_2">注册软中断</a><ul></ul></li><li><a href="#softirq">触发softirq</a><ul></ul></li><li><a href="#softirq_1">执行softirq</a><ul></ul></li><li><a href="#tasklet">Tasklet</a><ul><li><a href="#tasklet_1">tasklet的创建</a></li><li><a href="#tasklet_2">触发执行tasklet</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>软中断和tasklet</h1>
+  <div class="meta">2023-03-05 · linux</div>
+  <div class="post-content"><p>Linux的中断分为上下部机制，上半部在中断上下文中关闭了本地CPU中断响应，下半部是在中断线程中处理。在Linux系统没有引入中断线程化机制之前，就已经出现了一些下半部的机制，如软中断SoftIRQ，Tasklet和workqueue。 SoftIRQ是预留给系统对时间要求比较严格进行使用的，Linux系统已经定义了软中断的类型，通常情况下用户部需要修改软中断的类型，对于用户来说可以使用tasklet机制。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">enum</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">HI_SOFTIRQ</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="w">    </span><span class="n">最高优先级的软中断</span>
+<span class="w">    </span><span class="n">TIMER_SOFTIRQ</span><span class="p">,</span><span class="w">   </span><span class="n">Timer定时器软中断</span>
+<span class="w">    </span><span class="n">NET_TX_SOFTIRQ</span><span class="p">,</span><span class="w">  </span><span class="n">网络发包软中断</span>
+<span class="w">    </span><span class="n">NET_RX_SOFTIRQ</span><span class="p">,</span><span class="w">  </span><span class="n">网络收包软中断</span>
+<span class="w">    </span><span class="n">BLOCK_SOFTIRQ</span><span class="p">,</span><span class="w">   </span><span class="n">块设备软中断</span>
+<span class="w">    </span><span class="n">IRQ_POLL_SOFTIRQ</span><span class="p">,</span><span class="w"> </span><span class="n">IO轮询的块设备软中断</span><span class="w"> </span>
+<span class="w">    </span><span class="n">TASKLET_SOFTIRQ</span><span class="p">,</span><span class="w">  </span><span class="n">tasklet软中断</span>
+<span class="w">    </span><span class="n">SCHED_SOFTIRQ</span><span class="p">,</span><span class="w">   </span><span class="n">进程调度以及负载均衡软中断</span>
+<span class="w">    </span><span class="n">HRTIMER_SOFTIRQ</span><span class="p">,</span><span class="w"> </span><span class="n">高精度定时器软中断</span>
+<span class="w">    </span><span class="n">RCU_SOFTIRQ</span><span class="p">,</span><span class="w">     </span><span class="n">RCU服务软中断</span>
+
+<span class="w">    </span><span class="n">NR_SOFTIRQS</span>
+<span class="p">};</span>
+</code></pre></div>
+<h2 id="_1">抢占计数</h2>
+<p>在讨论softirq前，我们先来讨论下抢占计数，这与softirq有密切的关系。Linux配置打开了CONFIG_PREEMPT表示允许高优先级的任务抢占低优先级任务，但是在spin lock，中断/软中断上下文中依旧不允许抢占的。在linux系统中使用了一个Per-CPU的32位变量来标识一些特殊场景，如下。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3b15bb3b2af9aa854ff5a2d097d230e5.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_3b15bb3b2af9aa854ff5a2d097d230e5.jpg"/></a></p>
+<ul>
+<li>PREEMPT_BITS:用于记录禁止抢占计数，当调用preempt_enable/preempt_disable会进行减加操作，直到count位0才能允许开启抢占。上述还包括spin lock，read lock等都会禁止抢占。</li>
+<li>SOFTIRQ_BITS:软中断计数区域，进入软中断会调用local_bh_disble计数+1，退出软中断调用local_bh_enable计数-1，当SOFTIRQ_BITS为正数就表明处于softirq上下文中，in_softirq为真。其中第8位表示正在处理软中断。</li>
+<li>HARDIRQ_BITS:硬件中断计数区，进入+1，退出时-1，当HARDIRQ_BITS为正数时表明处于hardirq上下文中，in_hardirq为真。</li>
+<li>MNI_BITS:置位表示进入MNI中断上下文。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="cp">#define nmi_count() (preempt_count() &amp; NMI_MASK)</span>
+<span class="cp">#define hardirq_count() (preempt_count() &amp; HARDIRQ_MASK)</span>
+<span class="cp">#ifdef CONFIG_PREEMPT_RT</span>
+<span class="cp"># define softirq_count()    (current-&gt;softirq_disable_cnt &amp; SOFTIRQ_MASK)</span>
+<span class="cp">#else</span>
+<span class="cp"># define softirq_count()    (preempt_count() &amp; SOFTIRQ_MASK)</span>
+<span class="cp">#endif</span>
+<span class="cp">#define irq_count() (nmi_count() | hardirq_count() | softirq_count())</span>
+
+<span class="cm">/*</span>
+<span class="cm"> * Macros to retrieve the current execution context:</span>
+<span class="cm"> *</span>
+<span class="cm"> * in_nmi()     - We're in NMI context</span>
+<span class="cm"> * in_hardirq()     - We're in hard IRQ context</span>
+<span class="cm"> * in_serving_softirq() - We're in softirq context</span>
+<span class="cm"> * in_task()        - We're in task context</span>
+<span class="cm"> */</span>
+<span class="cp">#define in_nmi()        (nmi_count())</span>
+<span class="cp">#define in_hardirq()        (hardirq_count())</span>
+<span class="cp">#define in_serving_softirq()    (softirq_count() &amp; SOFTIRQ_OFFSET)</span>
+<span class="cp">#define in_task()       (!(in_nmi() | in_hardirq() | in_serving_softirq()))</span>
+
+<span class="cm">/*</span>
+<span class="cm"> * The following macros are deprecated and should not be used in new code:</span>
+<span class="cm"> * in_irq()       - Obsolete version of in_hardirq()</span>
+<span class="cm"> * in_softirq()   - We have BH disabled, or are processing softirqs</span>
+<span class="cm"> * in_interrupt() - We're in NMI,IRQ,SoftIRQ context or have BH disabled</span>
+<span class="cm"> */</span>
+<span class="cp">#define in_irq()        (hardirq_count())</span>
+<span class="cp">#define in_softirq()        (softirq_count())</span>
+<span class="cp">#define in_interrupt()      (irq_count())</span>
+</code></pre></div>
+<ul>
+<li>in_irq: 说明HARDIRQ_BITS位有置起，说明当前有正在处理的中断handler(top half)，只要hardirq_count大于0，就说明是IRQ Context。</li>
+<li>in_softirq：说明SOFTIRQ_BITS位有置起，但是也不能完全说是当前正在执行softirq，其稍微有点特殊。当softirq正在执行的时候，softirq count会增加，那是处于softirq context没有错，但是再其他场景下也会将softirq count增加，比如在进程上下文中出于对临界区的包含，会调用local_bh_disable/enable保护临界区，那么这也会置起SOFTIRQ_BITS，但是并没有在执行softirq,因此对于softirq还是使用in_serving_softirq来判断是否softirq正在处理。</li>
+</ul>
+<p>当MNI_BITS|HARDIRQ_BITS|SOFTIRQ_BITS置位表示处于中断上下文中，in_interrupt为真，当使能CONFIG_PREEMPT后，中断返回会检测这个preempt_count变量，当该值如果为0时才能允许被抢占。</p>
+<h2 id="_2">注册软中断</h2>
+<p>系统中为每个CPU都创建了一个中断线程用于处理软中断。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">DEFINE_PER_CPU</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">task_struct</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">ksoftirqd</span><span class="p">);</span>
+<span class="n">EXPORT_PER_CPU_SYMBOL_GPL</span><span class="p">(</span><span class="n">ksoftirqd</span><span class="p">);</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">smp_hotplug_thread</span><span class="w"> </span><span class="n">softirq_threads</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">store</span><span class="w">          </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">ksoftirqd</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">thread_should_run</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">ksoftirqd_should_run</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">thread_fn</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">run_ksoftirqd</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">thread_comm</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="s">"ksoftirqd/%u"</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">spawn_ksoftirqd</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">cpuhp_setup_state_nocalls</span><span class="p">(</span><span class="n">CPUHP_SOFTIRQ_DEAD</span><span class="p">,</span><span class="w"> </span><span class="s">"softirq:dead"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span>
+<span class="w">                  </span><span class="n">takeover_tasklets</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">(</span><span class="n">smpboot_register_percpu_thread</span><span class="p">(</span><span class="o">&amp;</span><span class="n">softirq_threads</span><span class="p">));</span>
+<span class="w">    </span><span class="c1">//为每个CPU创建一个softirq处理线程</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">early_initcall</span><span class="p">(</span><span class="n">spawn_ksoftirqd</span><span class="p">);</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">softirq_action</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">void</span><span class="w">    </span><span class="p">(</span><span class="o">*</span><span class="n">action</span><span class="p">)(</span><span class="k">struct</span><span class="w"> </span><span class="nc">softirq_action</span><span class="w"> </span><span class="o">*</span><span class="p">);</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">softirq_action</span><span class="w"> </span><span class="n">softirq_vec</span><span class="p">[</span><span class="n">NR_SOFTIRQS</span><span class="p">]</span>
+</code></pre></div>
+<p>系统中定义了一个全局struct softirq_action变量用于存储各类型中断的回调函数，系统通过open_softirq函数来注册回调函数。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">open_softirq</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">nr</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">action</span><span class="p">)(</span><span class="k">struct</span><span class="w"> </span><span class="nc">softirq_action</span><span class="w"> </span><span class="o">*</span><span class="p">))</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">softirq_vec</span><span class="p">[</span><span class="n">nr</span><span class="p">].</span><span class="n">action</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">action</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>在linux系统中为每个CPU都维护了一个softirq的状态信息。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__softirq_pending</span><span class="p">;</span>
+<span class="cp">#ifdef ARCH_WANTS_NMI_IRQSTAT</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__nmi_count</span><span class="p">;</span>
+<span class="cp">#endif</span>
+<span class="p">}</span><span class="w"> </span><span class="n">____cacheline_aligned</span><span class="w"> </span><span class="n">irq_cpustat_t</span><span class="p">;</span>
+
+<span class="n">DECLARE_PER_CPU_ALIGNED</span><span class="p">(</span><span class="n">irq_cpustat_t</span><span class="p">,</span><span class="w"> </span><span class="n">irq_stat</span><span class="p">);</span>
+</code></pre></div>
+<h2 id="softirq">触发softirq</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_afc1199009c36d7bd6ce4e8354c3af53.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_afc1199009c36d7bd6ce4e8354c3af53.jpg"/></a></p>
+<p>从上图可以看出触发softirq主要有两个函数raise_softirq和raise_softirq_irqoff。raise_softirq会关闭本地中断响应，而raise_softirq_irqoff不会。 raise_softirq是用于进程上下文触发软中断的，而在进程上下文关闭本地cpu的中断响应是为了保护临界访问，软中断的触发实际是设置软中断的pending位，而只需要关闭本地中断响应是因为每个cpu都维护了一个软中断的pending位。 raise_softirq_irqoff是用于中断上下文触发中断的，实际上大部分的软中断都是在中断上下文触发的，因为本身就处于中断上下文了，本地中断响应已经关闭了，因此不需要再支持local_irq_save。 软中断处理过程中，调用__raise_softirq_irqoff设置软中断的pengding位，这样再执行软中断是会进行检测该位，如果使能才会执行软中断。 在raise_softirq_irqoff中还会进行判断是否处于中断上下文中且是否有软中断置位，对于处于进程上下文触发的软中断，那么可以直接激活软中断线程进程处理软中断。而处于中断上下文中，则什么都不用做，因为在中断退出时才会检测软中断进行执行软中断，因此对于处于中断上下文触发的软中断，仅仅是设置软中断的pending位。</p>
+<h2 id="softirq_1">执行softirq</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_328c756d7cddf15aa8a2363859b93da6.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_328c756d7cddf15aa8a2363859b93da6.jpg"/></a></p>
+<p>软中断执行时机可以分为3种情况，分别是在中断退出时检测是否有软中断执行、进程上下文中主动执行、在spin_unlock_bh（实际调用__local_bh_enable_ip）。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ba9a74ba8d4913ce34c4b7d4e1bb13ec.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_ba9a74ba8d4913ce34c4b7d4e1bb13ec.jpg"/></a></p>
+<p>先来看一下执行中断退出执行软中断的场景，如上图进程被中断打断后进入到中断上下文中，进入中断后cpu硬件会自动关闭cpu本地中断响应，处理中断完成后在执行irq_exit中断退出时，当检测到有软中断pending时执行软中断；如果软中断是在中断上下文执行时，在软中断处理中会调用local_irq_enable打开CPU本地中断响应再处理软中断程序，如果是触发的软中断线程，硬中断已经完成退出也会使能本地中断。因此在软中断执行过程中打开了中断响应，所以可能会再次进入硬中断上下文。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_77197aa931d67a104cb86e1f1c473779.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_77197aa931d67a104cb86e1f1c473779.jpg"/></a></p>
+<p>再来看上面这张图，在一个task中处理一个变量此时被硬件中断打断进行中断处理函数，在中断处理快结束时如果有软中断pending将会先处理软中断，如果软中断中也访问了该变量，那么就出现竞态异常，因此为了处理进程和软中断的竞态，调用spin_lock_bh和spin_unlock_bh进行保护，在硬件中断处理完要进入软中断将会被禁止，硬件中断会被直接退出，继而task可以继续运行，当task再执行spin_unlock_bh时会触发执行软中断。另外如果软中断处理函数中的竞态可能在多核直接发生，为了保护多核的临界处理在软中断中只需要调用spin_lock和spin_unlock即可，不需要调用spin_lock_bh和spin_unlock_bh，因为每个cpu上只有一个软中断可以运行不需要做软中断之间的临界保护。总结就是在进程上下文中要避免软中断和多核的竞态保护就调用spin_lock_bh和spin_unlock_bh，软中断中避免多核的竞态保护就调用spin_lock和spin_unlock即可。</p>
+<h2 id="tasklet">Tasklet</h2>
+<p>Tasklet是软中断类型的一种，便于用户实现软中断。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">tasklet_struct</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">tasklet_struct</span><span class="w"> </span><span class="o">*</span><span class="n">next</span><span class="p">;</span><span class="w"> </span><span class="n">多个tasklet串成一个链表</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">state</span><span class="p">;</span><span class="w">       </span><span class="n">标记tasklet的状态</span>
+<span class="w">    </span><span class="n">atomic_t</span><span class="w"> </span><span class="n">count</span><span class="p">;</span><span class="w">           </span><span class="n">正数表示本地已经有运行的tasklet</span><span class="err">，</span><span class="n">只有为0才能运行</span><span class="err">。</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">use_callback</span><span class="p">;</span><span class="w">         </span>
+<span class="w">    </span><span class="k">union</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">func</span><span class="p">)(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">data</span><span class="p">);</span>
+<span class="w">        </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">callback</span><span class="p">)(</span><span class="k">struct</span><span class="w"> </span><span class="nc">tasklet_struct</span><span class="w"> </span><span class="o">*</span><span class="n">t</span><span class="p">);</span>
+<span class="w">    </span><span class="p">};</span><span class="w">                      </span><span class="n">tasklet的处理回调函数</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">data</span><span class="p">;</span><span class="w">       </span><span class="n">传参</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>Tasklet是softirq的一种，系统中分配了两个标志可用于tasklet软中断，分别是高优先级的HI_SOFTIRQ和普通优先级的TASKLET_SOFTIRQ，系统中每个CPU对应维护两个tasklet链表，一个HI_SOFTIRQ类型的链表和一个TASKLET_SOFTIRQ类型的链表，用于管理维护用户注册的tasklet。在进行处理软中断是，会优先级处理HI_SOFTIRQ类型的tasklet。</p>
+<div class="codehilite"><pre><span></span><code><span class="cm">/*</span>
+<span class="cm"> * Tasklets</span>
+<span class="cm"> */</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">tasklet_head</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">tasklet_struct</span><span class="w"> </span><span class="o">*</span><span class="n">head</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">tasklet_struct</span><span class="w"> </span><span class="o">**</span><span class="n">tail</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="n">DEFINE_PER_CPU</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">tasklet_head</span><span class="p">,</span><span class="w"> </span><span class="n">tasklet_vec</span><span class="p">);</span>
+<span class="k">static</span><span class="w"> </span><span class="n">DEFINE_PER_CPU</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">tasklet_head</span><span class="p">,</span><span class="w"> </span><span class="n">tasklet_hi_vec</span><span class="p">);</span>
+</code></pre></div>
+<p>Softirq在初始化时会为tasklet注册全局的软中断回调函数。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">softirq_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">cpu</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">for_each_possible_cpu</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">per_cpu</span><span class="p">(</span><span class="n">tasklet_vec</span><span class="p">,</span><span class="w"> </span><span class="n">cpu</span><span class="p">).</span><span class="n">tail</span><span class="w"> </span><span class="o">=</span>
+<span class="w">            </span><span class="o">&amp;</span><span class="n">per_cpu</span><span class="p">(</span><span class="n">tasklet_vec</span><span class="p">,</span><span class="w"> </span><span class="n">cpu</span><span class="p">).</span><span class="n">head</span><span class="p">;</span>
+<span class="w">        </span><span class="n">per_cpu</span><span class="p">(</span><span class="n">tasklet_hi_vec</span><span class="p">,</span><span class="w"> </span><span class="n">cpu</span><span class="p">).</span><span class="n">tail</span><span class="w"> </span><span class="o">=</span>
+<span class="w">            </span><span class="o">&amp;</span><span class="n">per_cpu</span><span class="p">(</span><span class="n">tasklet_hi_vec</span><span class="p">,</span><span class="w"> </span><span class="n">cpu</span><span class="p">).</span><span class="n">head</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">open_softirq</span><span class="p">(</span><span class="n">TASKLET_SOFTIRQ</span><span class="p">,</span><span class="w"> </span><span class="n">tasklet_action</span><span class="p">);</span>
+<span class="w">    </span><span class="n">open_softirq</span><span class="p">(</span><span class="n">HI_SOFTIRQ</span><span class="p">,</span><span class="w"> </span><span class="n">tasklet_hi_action</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="tasklet_1">tasklet的创建</h3>
+<p>用户可以使用下面两个宏来定义一个tasklet，区别一个已经处于enable另外一个处于disable。</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">#define DECLARE_TASKLET(name, _callback)        \\</span>
+<span class="cp">struct tasklet_struct name = {              \\</span>
+<span class="cp">    .count = ATOMIC_INIT(0),            \\</span>
+<span class="cp">    .callback = _callback,              \\</span>
+<span class="cp">    .use_callback = true,               \\</span>
+<span class="cp">}</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="cp">#define DECLARE_TASKLET_DISABLED(name, _callback)   \\</span>
+<span class="cp">struct tasklet_struct name = {              \\</span>
+<span class="cp">    .count = ATOMIC_INIT(1),            \\</span>
+<span class="cp">    .callback = _callback,              \\</span>
+<span class="cp">    .use_callback = true,               \\</span>
+<span class="cp">}</span>
+
+<span class="n">如</span><span class="err">：</span><span class="k">static</span><span class="w"> </span><span class="n">DECLARE_TASKLET</span><span class="p">(</span><span class="n">fst_tx_task</span><span class="p">,</span><span class="w"> </span><span class="n">fst_process_tx_work_q</span><span class="p">);</span>
+</code></pre></div>
+<p>除了使用宏来定义外，还可以使用tasklet_init来动态初始化分配。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">tasklet_init</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">tasklet_struct</span><span class="w"> </span><span class="o">*</span><span class="n">t</span><span class="p">,</span>
+<span class="w">          </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">func</span><span class="p">)(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">),</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">data</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">t</span><span class="o">-&gt;</span><span class="n">next</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">    </span><span class="n">t</span><span class="o">-&gt;</span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="n">atomic_set</span><span class="p">(</span><span class="o">&amp;</span><span class="n">t</span><span class="o">-&gt;</span><span class="n">count</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">t</span><span class="o">-&gt;</span><span class="n">func</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">func</span><span class="p">;</span>
+<span class="w">    </span><span class="n">t</span><span class="o">-&gt;</span><span class="n">use_callback</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">    </span><span class="n">t</span><span class="o">-&gt;</span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">data</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">EXPORT_SYMBOL</span><span class="p">(</span><span class="n">tasklet_init</span><span class="p">);</span>
+</code></pre></div>
+<h3 id="tasklet_2">触发执行tasklet</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_16bebf463ff7bbbfcb53e56d9a87392f.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_16bebf463ff7bbbfcb53e56d9a87392f.jpg"/></a></p>
+<p>触发tasklet得到执行，也比较简单，上面以普通的tasklet为例。用户可调用tasklet_schedule，该函数将tasklet插入到链表中然后调用raise_softirq_irqoff触发软中断，最终触发了softirq，关于softirq的运行在上一章节中已经描述，最后softirq运行tasklet_action，在该函数中进行while遍历链表执行对应的tasklet回调函数。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/workqueue.html">← workqueue</a>
+    <a class="next" href="/wordpress使用笔记.html">wordpress使用笔记 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

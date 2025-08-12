@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>一切皆文件之块设备驱动（二） - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">打开块设备</a><ul><li><a href="#mknod">mknod</a></li><li><a href="#blk_dev_open">blk_dev_open</a></li><li><a href="#bdev">bdev文件系统</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>一切皆文件之块设备驱动（二）</h1>
+  <div class="meta">2023-06-04 · linux</div>
+  <div class="post-content"><h2 id="_1">打开块设备</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8cb0c52c358ef8ad24b7aef183457582.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（二）/images/wp_editor_md_8cb0c52c358ef8ad24b7aef183457582.jpg"/></a></p>
+<h3 id="mknod">mknod</h3>
+<p>块设备同样要使用mknod创建设备节点，这与字符设备一样。会调用到init_special_inode填充inode的file_operations，只不过块设备注册的是def_blk_fops。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">init_special_inode</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">inode</span><span class="w"> </span><span class="o">*</span><span class="n">inode</span><span class="p">,</span><span class="w"> </span><span class="n">umode_t</span><span class="w"> </span><span class="n">mode</span><span class="p">,</span><span class="w"> </span><span class="kt">dev_t</span><span class="w"> </span><span class="n">rdev</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mode</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">S_ISCHR</span><span class="p">(</span><span class="n">mode</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_fop</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">def_chr_fops</span><span class="p">;</span>
+<span class="w">        </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_rdev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdev</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">S_ISBLK</span><span class="p">(</span><span class="n">mode</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_fop</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">def_blk_fops</span><span class="p">;</span>
+<span class="w">        </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_rdev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdev</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">S_ISFIFO</span><span class="p">(</span><span class="n">mode</span><span class="p">))</span>
+<span class="w">        </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_fop</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pipefifo_fops</span><span class="p">;</span>
+<span class="w">    </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">S_ISSOCK</span><span class="p">(</span><span class="n">mode</span><span class="p">))</span>
+<span class="w">        </span><span class="p">;</span><span class="w">   </span><span class="cm">/* leave it no_open_fops */</span>
+<span class="w">    </span><span class="k">else</span>
+<span class="w">        </span><span class="n">printk</span><span class="p">(</span><span class="n">KERN_DEBUG</span><span class="w"> </span><span class="s">"init_special_inode: bogus i_mode (%o) for"</span>
+<span class="w">                  </span><span class="s">" inode %s:%lu</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">mode</span><span class="p">,</span><span class="w"> </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_sb</span><span class="o">-&gt;</span><span class="n">s_id</span><span class="p">,</span>
+<span class="w">                  </span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_ino</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>def_blk_fops如下，与字符设备一样，当打开块设备时，就会调用到blk_dev_open。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">file_operations</span><span class="w"> </span><span class="n">def_blk_fops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">open</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="n">blkdev_open</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">release</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">blkdev_close</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">llseek</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">blkdev_llseek</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">read_iter</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">blkdev_read_iter</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">write_iter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">blkdev_write_iter</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">iopoll</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">blkdev_iopoll</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">mmap</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="n">generic_file_mmap</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">fsync</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">blkdev_fsync</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">unlocked_ioctl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">block_ioctl</span><span class="p">,</span>
+<span class="cp">#ifdef CONFIG_COMPAT</span>
+<span class="w">    </span><span class="p">.</span><span class="n">compat_ioctl</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">compat_blkdev_ioctl</span><span class="p">,</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="p">.</span><span class="n">splice_read</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">generic_file_splice_read</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">splice_write</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">iter_file_splice_write</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">fallocate</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">blkdev_fallocate</span><span class="p">,</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="blk_dev_open">blk_dev_open</h3>
+<p>blk_dev_open里面关键的操作时调用blkdev_get获取到块设备，并赋值file中f_mapping。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">blkdev_open</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">inode</span><span class="w"> </span><span class="o">*</span><span class="n">inode</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">filp</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">block_device</span><span class="w"> </span><span class="o">*</span><span class="n">bdev</span><span class="p">;</span>
+<span class="w">    </span><span class="p">......</span>
+<span class="w">    </span><span class="n">bdev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">blkdev_get_by_dev</span><span class="p">(</span><span class="n">inode</span><span class="o">-&gt;</span><span class="n">i_rdev</span><span class="p">,</span><span class="w"> </span><span class="n">filp</span><span class="o">-&gt;</span><span class="n">f_mode</span><span class="p">,</span><span class="w"> </span><span class="n">filp</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">IS_ERR</span><span class="p">(</span><span class="n">bdev</span><span class="p">))</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">PTR_ERR</span><span class="p">(</span><span class="n">bdev</span><span class="p">);</span>
+<span class="w">    </span><span class="n">filp</span><span class="o">-&gt;</span><span class="n">f_mapping</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bdev</span><span class="o">-&gt;</span><span class="n">bd_inode</span><span class="o">-&gt;</span><span class="n">i_mapping</span><span class="p">;</span>
+<span class="n">filp</span><span class="o">-&gt;</span><span class="n">f_wb_err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">filemap_sample_wb_err</span><span class="p">(</span><span class="n">filp</span><span class="o">-&gt;</span><span class="n">f_mapping</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="bdev">bdev文件系统</h3>
+<p>blk_dev_open调用blkdev_get_by_dev获取到块设备得bdev，获取块设备是通过bdev文件系统来查询获取，下面先来了解下bdev文件系统的注册过程。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c0b3a00985afb828dd0272f25604fb43.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（二）/images/wp_editor_md_c0b3a00985afb828dd0272f25604fb43.jpg"/></a></p>
+<p>bdev是系统注册是在系统启动初始化阶段调用bdev_cache_init注册的，每个块设备在bdev文件系统中都有一个inode，linux利用block_inode数据结构将inode和block_device进行关联起来，对设备block_device的查找转化为在bdev文件系统中对inode的查找。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_865a6282bf3aa00e5ad1f7a0941e7d54.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（二）/images/wp_editor_md_865a6282bf3aa00e5ad1f7a0941e7d54.jpg"/></a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/一切皆文件之块设备驱动-五.html">← 一切皆文件之块设备驱动（五）</a>
+    <a class="next" href="/一切皆文件之块设备驱动-三.html">一切皆文件之块设备驱动（三） →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

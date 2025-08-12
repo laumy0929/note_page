@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SPI与DBI概念 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#spi_1">标准SPI</a><ul></ul></li><li><a href="#dual-spi">Dual SPI</a><ul><li><a href="#dout">DOUT模式</a></li><li><a href="#dio">DIO模式</a></li></ul></li><li><a href="#quad-spi">Quad SPI</a><ul><li><a href="#qout">QOUT</a></li><li><a href="#qio">QIO</a></li><li><a href="#qpi">QPI</a></li></ul></li><li><a href="#_1">小结</a><ul></ul></li><li><a href="#3-line">3-Line模式</a><ul></ul></li><li><a href="#4-line">4-Line模式</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>SPI与DBI概念</h1>
+  <div class="meta">2024-01-10 · 外设</div>
+  <div class="post-content"><h1 id="spi">SPI</h1>
+<h2 id="spi_1">标准SPI</h2>
+<p>标准SPI接口，4根线CS、CLK、MISO、MOSI。4根线都是单线传输，主机通过MOSI发送数据，设备通过MISO发送数据给主机。标准的SPI可以支持全双工（发和收同时）、半双工（某个时刻发或收）、单双工（单方向传输，主机要么只能发送，要么只能接收）。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_f1f109bf8df1c879e03a9d6fc735b013.jpg"><img alt="" src="/assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_f1f109bf8df1c879e03a9d6fc735b013.jpg"/></a></p>
+<h2 id="dual-spi">Dual SPI</h2>
+<p>双线SPI，顾名思义就是数据传输使用2根数据线。与标准SPI的线数一样4根线CS、CLK、MISO、MOSI，差别就是MISO，MOSI在某个时刻可以同时用来做数据收或发，因此该模式一般是半双工模式。对于Dual SPI类型接口外接的设备，通常是flash设备，根据传输的命令、地址是否使用2线又区分为DOUT和DIO模式。</p>
+<h3 id="dout">DOUT模式</h3>
+<p>命令+地址阶段按照常规SPI传输1线传输，数据阶段变成2线（MOSI,MISO在读数据或写数据时使用两个线）。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_74a6376496f6cd8b99ba43b956c2d1ca.jpg"><img alt="" src="/assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_74a6376496f6cd8b99ba43b956c2d1ca.jpg"/></a></p>
+<h3 id="dio">DIO模式</h3>
+<p>命令阶段是常规SPI的1线传输，地址和数据阶段是双线传输。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_a5d23c89182ff2dec72e88ba583071dc.jpg"><img alt="" src="/assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_a5d23c89182ff2dec72e88ba583071dc.jpg"/></a></p>
+<h2 id="quad-spi">Quad SPI</h2>
+<p>CS，CLK，MOSI，MISO，WP，HOLD一共6根线，其中MOSI，MISO，WP，HOLD为数据线。根据命令、地址是否使用4线还是标准SPI一共分为3中模式，分别是QOUT，QIO，QPI。</p>
+<h3 id="qout">QOUT</h3>
+<p>命令+地址阶段按照常规SPI传输1线传输，数据阶段变成4线（MOSI,MISO，WP,HOLD在读数据或写数据时使用4线）。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_57703332949a3ceaf11b19609f726347.jpg"><img alt="" src="/assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_57703332949a3ceaf11b19609f726347.jpg"/></a></p>
+<h3 id="qio">QIO</h3>
+<p>只在命令阶段是常规SPI的1线传输，地址和数据阶段是4线传输。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_3286871530492eea6f42af80d5e2e92f.jpg"><img alt="" src="/assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_3286871530492eea6f42af80d5e2e92f.jpg"/></a></p>
+<h3 id="qpi">QPI</h3>
+<p>命令，地址，数据都是8线传输。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_c998580484ec04af8091dd47e3dfed3b.jpg"><img alt="" src="/assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_c998580484ec04af8091dd47e3dfed3b.jpg"/></a></p>
+<h2 id="_1">小结</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_5bde44598b7a9196629b6aea1d1f775a.jpg"><img alt="" src="/assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_5bde44598b7a9196629b6aea1d1f775a.jpg"/></a></p>
+<h1 id="dbi">DBI</h1>
+<h2 id="3-line">3-Line模式</h2>
+<p>CSX（CS），SCL（CLK），SDA（MOSI或MISO），SDI（MOSI或MISO，可选）。前面CSX,SCL,SDA是必须的，所以称为3线模式。3线模式有区分为2中，interface I和interface II。</p>
+<ul>
+<li>interface I: 数据收发之需要一根线SDA。</li>
+<li>interface II：额外使用SDI，数据收和发端口独立。</li>
+</ul>
+<p>需要注意的时，3线模式没有Data/CMD线用于区分是数据还是命令，所以需要在数据流MSB前额外早呢更加一位表示当前传输的数据是DATA还是CMD。</p>
+<h2 id="4-line">4-Line模式</h2>
+<p>CSX（CS），SCL（CLK），D/CX，SDA（MOSI或MISO），SDI（MOSI或MISO，可选）。相对于3线模式，额外添加了一根D/CX用来表示数据还是命令。根据数据传输是否需要1线还是2线区分interface I和interface II。</p>
+<ul>
+<li>interface I: 数据收发之需要一根线SDA。</li>
+<li>interface II：额外使用SDI，数据收和发端口独立。</li>
+</ul>
+<p>与3线的区别是，多了一根D/CX来表是data还是cmd。</p>
+<p>小结：SPI和DBI是不同的协议，QSPI一般说的是SPI的物理线有4(数据传输)+2（CLK+CS），同时QSPI根据指令，地址使用几线有QOUT,QIO,QPI 3种模式，QSPI一般说的是SPI协议而不是DBI协议，SPI和DBI是完全不同的协议，只是复用了一样的pin。</p>
+<p>参考：<a href="https://blog.csdn.net/tianizimark/article/details/124608851">https://blog.csdn.net/tianizimark/article/details/124608851</a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/elf格式解析.html">← ELF格式解析</a>
+    <a class="next" href="/内存相关问题排查思路.html">内存相关问题排查思路 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

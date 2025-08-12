@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>内存测量 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">系统占用内存</a><ul><li><a href="#free">free</a></li><li><a href="#procmeminfo">/proc/meminfo</a></li><li><a href="#proczoneinfo">/proc/zoneinfo</a></li></ul></li><li><a href="#_2">用户进程占用内存</a><ul><li><a href="#procpidstatus">/proc/pid/status</a></li><li><a href="#procpidsmaps">/proc/pid/smaps</a></li><li><a href="#pmap-x-pid">pmap -x [pid]</a></li></ul></li><li><a href="#_3">内核占用内存</a><ul><li><a href="#procmeminfo_1">/proc/meminfo</a></li><li><a href="#procpagetypeinfo">/proc/pagetypeinfo</a></li></ul></li><li><a href="#_4">小结</a><ul><li><a href="#_5">内存统计</a></li><li><a href="#_6">查询占用较多内存的进程</a></li><li><a href="#_7">进程内存监测</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>内存测量</h1>
+  <div class="meta">2023-08-27 · linux</div>
+  <div class="post-content"><h2 id="_1">系统占用内存</h2>
+<h3 id="free">free</h3>
+<h4 id="free_1">旧版本free</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">$</span><span class="w"> </span><span class="n">free</span>
+<span class="w">             </span><span class="n">total</span><span class="w">       </span><span class="n">used</span><span class="w">       </span><span class="n">free</span><span class="w">     </span><span class="n">shared</span><span class="w">    </span><span class="n">buffers</span><span class="w">     </span><span class="n">cached</span>
+<span class="nl">Mem</span><span class="p">:</span><span class="w">      </span><span class="mi">65960636</span><span class="w">   </span><span class="mi">63933576</span><span class="w">   </span><span class="mi">2027060</span><span class="w">   </span><span class="mi">73392</span><span class="w">    </span><span class="mi">1602076</span><span class="w">   </span><span class="mi">32628548</span>
+<span class="o">-/+</span><span class="w"> </span><span class="n">buffers</span><span class="o">/</span><span class="n">cache</span><span class="o">:</span><span class="w">       </span><span class="mi">29702952</span><span class="w">   </span><span class="mi">36257684</span>
+<span class="nl">Swap</span><span class="p">:</span><span class="w">            </span><span class="mi">0</span><span class="w">          </span><span class="mi">0</span><span class="w">          </span><span class="mi">0</span>
+</code></pre></div>
+<p>（1）第一行Mem：内存的使用情况，默认单位是Kb。 - total:系统总共的内存。total=used+free - used：已经被使用的内存。 - free：剩余还没有被使用的物理内存。 - shared: 多个进程共享的内存。 - buffers:块设备所占的缓存页，包括直接读写块设备、文件系统元数据（metadata）、SupperBlock所使用的缓存页等。 - cached：普通文件数据所占用的缓存页。 （2）第二行-/+ buffers/cache:物理内存缓存统计。 -buffers/cache(used列):29702952，被程序正在使用的缓存内存，等于used-buffers-cached +buffers/cache(used列):36257684，还可以挪用使用的缓存内存，等于free+buffers+cached （3）第三行：交换区空间的统计。</p>
+<h4 id="free_2">新版本free</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">root</span><span class="err">@</span><span class="n">TinaLinux</span><span class="o">:/</span><span class="err">#</span><span class="w"> </span><span class="n">free</span>
+<span class="w">              </span><span class="n">total</span><span class="w">        </span><span class="n">used</span><span class="w">        </span><span class="n">free</span><span class="w">      </span><span class="n">shared</span><span class="w">  </span><span class="n">buff</span><span class="o">/</span><span class="n">cache</span><span class="w">   </span><span class="n">available</span>
+<span class="nl">Mem</span><span class="p">:</span><span class="w">        </span><span class="mi">2022788</span><span class="w">      </span><span class="mi">98876</span><span class="w">     </span><span class="mi">1818264</span><span class="w">    </span><span class="mi">84</span><span class="w">      </span><span class="mi">105648</span><span class="w">     </span><span class="mi">1898696</span>
+<span class="nl">Swap</span><span class="p">:</span><span class="w">           </span><span class="mi">0</span><span class="w">           </span><span class="mi">0</span><span class="w">           </span><span class="mi">0</span>
+</code></pre></div>
+<p>第一行Mem：内存的使用情况，默认单位是Kb。 第二行Swap：交换空间的使用情况。 - total:系统总共的内存。total = used+free+buff/cache - used：已经被使用的内存。 - free：剩余还没有被使用的物理内存。 - shared: 多个进程共享的内存。 - buff:块设备所占的缓存页。 - cache：普通文件数据所占用的缓存页。 - available：还可以被应用程序使用的物理内存大小。available=free+可回收利用的buff/cache 在系统中available才是系统真正可还能申请到的内存。</p>
+<h3 id="procmeminfo">/proc/meminfo</h3>
+<div class="codehilite"><pre><span></span><code><span class="cp"># cat /proc/meminfo </span>
+<span class="nl">MemTotal</span><span class="p">:</span><span class="w">        </span><span class="mi">2022788</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">MemFree</span><span class="p">:</span><span class="w">         </span><span class="mi">1818376</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">MemAvailable</span><span class="p">:</span><span class="w">    </span><span class="mi">1898700</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Buffers</span><span class="p">:</span><span class="w">             </span><span class="mi">436</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Cached</span><span class="p">:</span><span class="w">            </span><span class="mi">20352</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">SwapCached</span><span class="p">:</span><span class="w">            </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Active</span><span class="p">:</span><span class="w">             </span><span class="mi">5104</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Inactive</span><span class="p">:</span><span class="w">          </span><span class="mi">31432</span><span class="w"> </span><span class="n">kB</span>
+<span class="n">Active</span><span class="p">(</span><span class="n">anon</span><span class="p">)</span><span class="o">:</span><span class="w">        </span><span class="mi">116</span><span class="w"> </span><span class="n">kB</span>
+<span class="n">Inactive</span><span class="p">(</span><span class="n">anon</span><span class="p">)</span><span class="o">:</span><span class="w">    </span><span class="mi">15716</span><span class="w"> </span><span class="n">kB</span>
+<span class="n">Active</span><span class="p">(</span><span class="n">file</span><span class="p">)</span><span class="o">:</span><span class="w">       </span><span class="mi">4988</span><span class="w"> </span><span class="n">kB</span>
+<span class="n">Inactive</span><span class="p">(</span><span class="n">file</span><span class="p">)</span><span class="o">:</span><span class="w">    </span><span class="mi">15716</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Unevictable</span><span class="p">:</span><span class="w">           </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Mlocked</span><span class="p">:</span><span class="w">               </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">SwapTotal</span><span class="p">:</span><span class="w">             </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">SwapFree</span><span class="p">:</span><span class="w">              </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Dirty</span><span class="p">:</span><span class="w">                 </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Writeback</span><span class="p">:</span><span class="w">             </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">AnonPages</span><span class="p">:</span><span class="w">         </span><span class="mi">15792</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Mapped</span><span class="p">:</span><span class="w">             </span><span class="mi">5156</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Shmem</span><span class="p">:</span><span class="w">                </span><span class="mi">84</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">KReclaimable</span><span class="p">:</span><span class="w">      </span><span class="mi">84752</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Slab</span><span class="p">:</span><span class="w">             </span><span class="mi">148640</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">SReclaimable</span><span class="p">:</span><span class="w">      </span><span class="mi">84752</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">SUnreclaim</span><span class="p">:</span><span class="w">        </span><span class="mi">63888</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">KernelStack</span><span class="p">:</span><span class="w">        </span><span class="mi">2144</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">PageTables</span><span class="p">:</span><span class="w">          </span><span class="mi">620</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">NFS_Unstable</span><span class="p">:</span><span class="w">          </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Bounce</span><span class="p">:</span><span class="w">                </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">WritebackTmp</span><span class="p">:</span><span class="w">          </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">CommitLimit</span><span class="p">:</span><span class="w">     </span><span class="mi">1011392</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Committed_AS</span><span class="p">:</span><span class="w">      </span><span class="mi">93972</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmallocTotal</span><span class="p">:</span><span class="w">   </span><span class="mi">259653632</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmallocUsed</span><span class="p">:</span><span class="w">        </span><span class="mi">4820</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmallocChunk</span><span class="p">:</span><span class="w">          </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Percpu</span><span class="p">:</span><span class="w">              </span><span class="mi">768</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">CmaTotal</span><span class="p">:</span><span class="w">          </span><span class="mi">65536</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">CmaFree</span><span class="p">:</span><span class="w">           </span><span class="mi">48764</span><span class="w"> </span><span class="n">kB</span>
+</code></pre></div>
+<ul>
+<li>MemTotal: 系统当前可用物理内存总量，除去了reserved的内存。</li>
+<li>MemFree:系统当前剩余空闲物理内存。</li>
+<li>MemAvailable:系统中可使用的物理内存，包含了可以回收的内存。</li>
+<li>Buffers:块设备缓存。</li>
+<li>Cached:普通文件页的缓存。</li>
+<li>SwapCached:系统有多少匿名页面曾经被交换到交换区过。</li>
+<li>Active:活动的匿名页面和活动的文件映射页面内存，=Active(anon)+Active(file)。</li>
+<li>Inactive:不活跃的匿名页面和文件页面。=Inactive(anon)+Inactive(file)。</li>
+<li>Active(anon):活跃的匿名页面。</li>
+<li>Inactive(anon): 不活跃的匿名页面。</li>
+<li>Active(file):活跃的文件页面。</li>
+<li>Inactive(file): 不活跃的文件页面。</li>
+<li>Unevictable: 不能回收的页面（LRU_UNEVICTABLE）。</li>
+<li>Mlocked: 不能被交换（swap）出去的页面。</li>
+<li>SwapTotal:交换分区的大小。</li>
+<li>SwapFree: 交换分区空闲的大小。</li>
+<li>Dirty: 脏页的数量。</li>
+<li>Writeback: 正在回写的也买你数量。</li>
+<li>AnonPages:有反向映射的页面，通常是匿名页面并且被映射到用户空间的。</li>
+<li>Mapped:所有映射到用户地址空间的内容缓存页面。</li>
+<li>Shmem: 共享内存（tmpfs事先的shmem/devtmpfs等）。</li>
+<li>KReclaimable: 内核可回收内存，包括可回收的slab和其他可回收的内核页面。</li>
+<li>Slab:所有slab页面，包括可回收和不可回收。</li>
+<li>SReclaimable:可回收的slab页面。</li>
+<li>SUnreclaim: 不可回收的slab页面。</li>
+<li>KernelStack: 所有进程的内核栈总大小。</li>
+<li>PageTables: 用于存储页表的页面数量。</li>
+<li>NFS_Unstable:NFS中，发给服务器但是还没有写入磁盘的页面。</li>
+<li>Bounce: 针对智能访问低端内存的设备，当DMA分配到高端内存时，分配要给低端临时buffer用于复制处理。</li>
+<li>WritebackTmp:回写过程中使用的临时缓存</li>
+<li>CommitLimit:</li>
+<li>Committed_AS:</li>
+<li>VmallocTotal:vmalloc区域总大小。</li>
+<li>VmallocUsed:vmalloc区域使用的内存大小。</li>
+<li>VmallocChunk:vmalloc可用的连续最大块大小。</li>
+<li>Percpu:percpu机制使用的页面。</li>
+<li>CmaTotal:CMA机制使用的总内存。</li>
+<li>CmaFree:CMA机制剩余空用内存。</li>
+</ul>
+<p>1.Linux内核的内存用了多少？Slab+VmallocUsed+PageTables+KernelStack+Bounce。 2.用户内存用了多少内存？ （1）LRU视角：active+inactive+unevicatable = 5104+31432+0= 36536KB （2）缓存视角（swapcache=0）：Cached+Buffers +AnonPages= 20352+436+15792=36580KB，cached和buffers内存并不是都使用完成了，这种统计方式往往大于实际使用内存。 观察内存泄露的时候重点看：Memfree、Slab的变化。</p>
+<h3 id="proczoneinfo">/proc/zoneinfo</h3>
+<p>zoneinfo显示了当前系统所有内存管理区的信息，可以分为以下几个部分。 1.当前内存节点的内存统计信息 Node 0，zone DMA：第0个节点，DMA区域的总体信息。 <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_e4093f7be650c02635a1db87f9cb821f.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_e4093f7be650c02635a1db87f9cb821f.jpg"/></a> 2.当前内存管理区的总信息 <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_7086f7e9582157646fe22151d4b36a02.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_7086f7e9582157646fe22151d4b36a02.jpg"/></a> 节点0，zone区域。 - pages free:内存管理区中空闲的页面数量。 - min：警戒水位的页面数量。 - low：低水位的页面数量。 - high：高水位的页面数量。 - spanned:内存管理区总的页面数量，包含空洞。 - present：内存管理区总的可用页面数量，不包含空洞。 - managed：被伙伴系统管理的页面数量。 - protection：管理区中预留内存的页面数量。分别是预留给DMA,DMA32,NORMAL,HIGH。 3.每个CPU内存分配器的信息per_cpu_pageset <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_92cb8ef1cf54c7f446dc36d976f71b5b.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_92cb8ef1cf54c7f446dc36d976f71b5b.jpg"/></a> pagesets:表示每个CPU内存分配器中每个CPU缓存的页面信息。 - count: 在该CPU内存区域上已经分配的页面数量。 - high:页面回收的空闲页面数量的水位线，如果cpu上的页面数量超过该值，需要退还给zone。 - batch:如果缓存中没有页面了，一次性中zone中获取batch个页面。。 - vm stats threshold: 某个进程虚拟内存使用量超过该阈值时，内核将在/proc/PID/smaps打印进程的详细内存映射信息。 zoneinfo节点重点可以看一下各区域min/low/high的水位值，可以通过/proc/sys/vm/min_free_kbytes调整min值。</p>
+<h2 id="_2">用户进程占用内存</h2>
+<h3 id="procpidstatus">/proc/pid/status</h3>
+<div class="codehilite"><pre><span></span><code><span class="cp"># cat /proc/1151/status </span>
+<span class="nl">Name</span><span class="p">:</span><span class="w">   </span><span class="n">wifi_daemon</span>
+<span class="nl">Umask</span><span class="p">:</span><span class="w">  </span><span class="mo">0022</span>
+<span class="nl">State</span><span class="p">:</span><span class="w">  </span><span class="n">S</span><span class="w"> </span><span class="p">(</span><span class="n">sleeping</span><span class="p">)</span>
+<span class="nl">Tgid</span><span class="p">:</span><span class="w">   </span><span class="mi">1151</span>
+<span class="nl">Ngid</span><span class="p">:</span><span class="w">   </span><span class="mi">0</span>
+<span class="nl">Pid</span><span class="p">:</span><span class="w">    </span><span class="mi">1151</span>
+<span class="nl">PPid</span><span class="p">:</span><span class="w">   </span><span class="mi">1</span>
+<span class="nl">TracerPid</span><span class="p">:</span><span class="w">      </span><span class="mi">0</span>
+<span class="nl">Uid</span><span class="p">:</span><span class="w">    </span><span class="mi">0</span><span class="w">       </span><span class="mi">0</span><span class="w">       </span><span class="mi">0</span><span class="w">       </span><span class="mi">0</span>
+<span class="nl">Gid</span><span class="p">:</span><span class="w">    </span><span class="mi">0</span><span class="w">       </span><span class="mi">0</span><span class="w">       </span><span class="mi">0</span><span class="w">       </span><span class="mi">0</span>
+<span class="nl">FDSize</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span>
+<span class="nl">Groups</span><span class="p">:</span><span class="w">  </span>
+<span class="nl">VmPeak</span><span class="p">:</span><span class="w">   </span><span class="mi">239316</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmSize</span><span class="p">:</span><span class="w">   </span><span class="mi">239316</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmLck</span><span class="p">:</span><span class="w">         </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmPin</span><span class="p">:</span><span class="w">         </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmHWM</span><span class="p">:</span><span class="w">      </span><span class="mi">1172</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmRSS</span><span class="p">:</span><span class="w">      </span><span class="mi">1172</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">RssAnon</span><span class="p">:</span><span class="w">             </span><span class="mi">532</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">RssFile</span><span class="p">:</span><span class="w">             </span><span class="mi">640</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">RssShmem</span><span class="p">:</span><span class="w">              </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmData</span><span class="p">:</span><span class="w">    </span><span class="mi">33540</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmStk</span><span class="p">:</span><span class="w">       </span><span class="mi">132</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmExe</span><span class="p">:</span><span class="w">        </span><span class="mi">36</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmLib</span><span class="p">:</span><span class="w">      </span><span class="mi">7560</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmPTE</span><span class="p">:</span><span class="w">        </span><span class="mi">76</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">VmSwap</span><span class="p">:</span><span class="w">        </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">CoreDumping</span><span class="p">:</span><span class="w">    </span><span class="mi">0</span>
+<span class="nl">THP_enabled</span><span class="p">:</span><span class="w">    </span><span class="mi">0</span>
+<span class="nl">Threads</span><span class="p">:</span><span class="w">        </span><span class="mi">3</span>
+<span class="nl">SigQ</span><span class="p">:</span><span class="w">   </span><span class="mi">0</span><span class="o">/</span><span class="mi">7639</span>
+<span class="nl">SigPnd</span><span class="p">:</span><span class="w"> </span><span class="mo">0000000000000000</span>
+<span class="nl">ShdPnd</span><span class="p">:</span><span class="w"> </span><span class="mo">0000000000000000</span>
+<span class="nl">SigBlk</span><span class="p">:</span><span class="w"> </span><span class="mo">0000000000000000</span>
+<span class="nl">SigIgn</span><span class="p">:</span><span class="w"> </span><span class="mo">0000000000001000</span>
+<span class="nl">SigCgt</span><span class="p">:</span><span class="w"> </span><span class="mo">00000001</span><span class="mi">80000000</span>
+<span class="nl">CapInh</span><span class="p">:</span><span class="w"> </span><span class="mo">0000000000000000</span>
+<span class="nl">CapPrm</span><span class="p">:</span><span class="w"> </span><span class="mf">000001f</span><span class="n">fffffffff</span>
+<span class="nl">CapEff</span><span class="p">:</span><span class="w"> </span><span class="mf">000001f</span><span class="n">fffffffff</span>
+<span class="nl">CapBnd</span><span class="p">:</span><span class="w"> </span><span class="mf">000001f</span><span class="n">fffffffff</span>
+<span class="nl">CapAmb</span><span class="p">:</span><span class="w"> </span><span class="mo">0000000000000000</span>
+<span class="nl">NoNewPrivs</span><span class="p">:</span><span class="w">     </span><span class="mi">0</span>
+<span class="nl">Seccomp</span><span class="p">:</span><span class="w">        </span><span class="mi">0</span>
+<span class="nl">Seccomp_filters</span><span class="p">:</span><span class="w">        </span><span class="mi">0</span>
+<span class="nl">Speculation_Store_Bypass</span><span class="p">:</span><span class="w">       </span><span class="n">not</span><span class="w"> </span><span class="n">vulnerable</span>
+<span class="nl">SpeculationIndirectBranch</span><span class="p">:</span><span class="w">      </span><span class="n">unknown</span>
+<span class="nl">Cpus_allowed</span><span class="p">:</span><span class="w">   </span><span class="n">ff</span>
+<span class="nl">Cpus_allowed_list</span><span class="p">:</span><span class="w">      </span><span class="mi">0-7</span>
+<span class="nl">voluntary_ctxt_switches</span><span class="p">:</span><span class="w">        </span><span class="mi">12</span>
+<span class="nl">nonvoluntary_ctxt_switches</span><span class="p">:</span><span class="w">     </span><span class="mi">0</span>
+</code></pre></div>
+<ul>
+<li>VmPeak: 进程使用的最大虚拟内存，通常等于进程内存描述符号mm-&gt;total_vm。</li>
+<li>VmSize:进程使用的虚拟内存，等于mm-&gt;total_vm。</li>
+<li>VmLck:记录所有用户或内核锁定的内存，主要是mlock的内存，系统回收内存时，不会优先回收这部分内存。</li>
+<li>VmPin:进程固定在内存的虚拟地址空间大小，记录了无法被换出到磁盘的页面数量。</li>
+<li>VmHWM:进程使用的最大物理内存，包括进程使用的匿名页面、文件映射页面以及共享内存页面大小总和。</li>
+<li>VmRSS: 进程使用的最大物理内存，通常等于VmHMM。</li>
+<li>RssAnon: 进程使用的匿名页面大小。</li>
+<li>RssFile: 进程使用的文件页面大小。</li>
+<li>RssShmem: 进程使用的共享内存页面大小。</li>
+<li>VmData:进程私有数据段占用内存大小。</li>
+<li>VmStk:进程用户栈占用内存大小。</li>
+<li>VmExe:进程代码段占用大小。</li>
+<li>VmLib:进程共享库占用大小。</li>
+<li>VmPTE:进程占用的页表大小。</li>
+<li>VmSwap: 进程使用巨型页的大小。</li>
+</ul>
+<h3 id="procpidsmaps">/proc/pid/smaps</h3>
+<div class="codehilite"><pre><span></span><code><span class="mf">7f</span><span class="n">ac964000</span><span class="mi">-7</span><span class="n">fac9b8000</span><span class="w"> </span><span class="n">r</span><span class="o">-</span><span class="n">xp</span><span class="w"> </span><span class="mo">00000000</span><span class="w"> </span><span class="n">b3</span><span class="o">:</span><span class="mo">07</span><span class="w"> </span><span class="mi">403</span><span class="w">    </span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">libwifimg</span><span class="o">-</span><span class="n">v2</span><span class="mf">.0</span><span class="p">.</span><span class="n">so</span>
+<span class="nl">Size</span><span class="p">:</span><span class="w">                </span><span class="mi">336</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">KernelPageSize</span><span class="p">:</span><span class="w">        </span><span class="mi">4</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">MMUPageSize</span><span class="p">:</span><span class="w">           </span><span class="mi">4</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Rss</span><span class="p">:</span><span class="w">                 </span><span class="mi">240</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Pss</span><span class="p">:</span><span class="w">                 </span><span class="mi">240</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Shared_Clean</span><span class="p">:</span><span class="w">          </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Shared_Dirty</span><span class="p">:</span><span class="w">          </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Private_Clean</span><span class="p">:</span><span class="w">       </span><span class="mi">240</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Private_Dirty</span><span class="p">:</span><span class="w">         </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Referenced</span><span class="p">:</span><span class="w">          </span><span class="mi">136</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Anonymous</span><span class="p">:</span><span class="w">             </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">LazyFree</span><span class="p">:</span><span class="w">              </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">AnonHugePages</span><span class="p">:</span><span class="w">         </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">ShmemPmdMapped</span><span class="p">:</span><span class="w">        </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">FilePmdMapped</span><span class="p">:</span><span class="w">         </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Shared_Hugetlb</span><span class="p">:</span><span class="w">        </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Private_Hugetlb</span><span class="p">:</span><span class="w">       </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Swap</span><span class="p">:</span><span class="w">                  </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">SwapPss</span><span class="p">:</span><span class="w">               </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">Locked</span><span class="p">:</span><span class="w">                </span><span class="mi">0</span><span class="w"> </span><span class="n">kB</span>
+<span class="nl">THPeligible</span><span class="p">:</span><span class="w">    </span><span class="mi">0</span>
+<span class="nl">VmFlags</span><span class="p">:</span><span class="w"> </span><span class="n">rd</span><span class="w"> </span><span class="n">ex</span><span class="w"> </span><span class="n">mr</span><span class="w"> </span><span class="n">mw</span><span class="w"> </span><span class="n">me</span><span class="w"> </span>
+</code></pre></div>
+<ul>
+<li>7fac964000-7fac9b8000 r-xp 00000000 b3:07 403 /lib/libwifimg-v2.0.so: 7fac964000-7fac9b8000虚拟内存段的开始和结束位置，表示一个VMA。 r-xp表示该VMA是可读、可执行、私有。00000000虚拟内存段其实地址对应映射文件中以页为单位的偏移量。</li>
+<li>size:虚拟内存空间大小。不是实际物理内存的分配大小，对应的是VMA的内存大小，内存总是会延迟分配。</li>
+<li>Rss:实际分配的内存，包括其他进程的共享内存Rss=Shared_Clean+Shared_Dirty+Private_Clean+Private_Dirty。</li>
+<li>Pss:平摊计算后的实际物理内存使用。共享部分按比例均分+Private_xx部分。</li>
+<li>Private_Dirty:进程独占的脏页面大小。</li>
+<li>Private_Clean:进程独占干净页面大小。</li>
+<li>USS:等于Private_Dirty+Private_Clean，通常用来表示进程独占的物理内存大小，去掉与其他共享内存部分。</li>
+</ul>
+<p>Rss计算：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">pid</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Rss</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span>
+</code></pre></div>
+<p>Pss计算</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">pid</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Pss</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span>
+</code></pre></div>
+<p>Uss计算</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">pid</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Pss</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_57788f1634a7a135b1ab45d81a474592.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_57788f1634a7a135b1ab45d81a474592.jpg"/></a></p>
+<p>进程1001： VSS=1+2+3 RSS=4+5+6 PSS=4/2+5+6 USS=5+6 看进程是否有内存泄露，可以优先看USS（Private_Dirty+Private_Clean）是否有增长。</p>
+<h3 id="pmap-x-pid">pmap -x [pid]</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_12fdb61a59ab6537474379cf65f79c9c.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_12fdb61a59ab6537474379cf65f79c9c.jpg"/></a> <a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_dc7517b988862316e20005e18c16e1e9.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_dc7517b988862316e20005e18c16e1e9.jpg"/></a> - Address：虚拟地址起始地址 - Kbytes：内存块占用虚拟内存大小，单位KB。 - PSS：进程使用的物理内存大小（贡献内存按比例分配的大小），单位KB。 - Dirty:脏内存大小，指进程修改过的页面大小，单位KB。 - Swap：被交换到磁盘上的内存大小，单位KB。 - Mode：显示内存段的权限属性。 - Mapping：显示内存段对应的文件或库名。 - Total：汇总内存区域的虚拟内存大小，单位KB。 在linux物理内存中，每个页面有一个dirty的标志，如果该页面被改写了，我们称之位dirty page。总的来说，所有非dirty page的物理页面都可以被回收。进程中各个段的dirty page情况。</p>
+<h2 id="_3">内核占用内存</h2>
+<h3 id="procmeminfo_1">/proc/meminfo</h3>
+<p>内核占用内存：Slab+VmallocUsed+PageTables+KernelStack+Bounce。</p>
+<h3 id="procpagetypeinfo">/proc/pagetypeinfo</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_72f1c23fd6cae037995b2cdb4670063a.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存测量/images/wp_editor_md_72f1c23fd6cae037995b2cdb4670063a.jpg"/></a></p>
+<p>Page block order：10，支持最高阶order，这里是10，表示内存大小一块为2^10页面。 Pages per block：最高阶一块内存需要的页面数量，等于2^10=1024，即page block大小为1024*4K=4MB。 Unmovable order=1的数量有87个，也就是2^1个页面组成的内存块有87个。 Movable 454：表示在DMA区域，movable类型的page block的数量为454。（按照最高阶计算oder = 2^10的页面组成的内存块）。</p>
+<h2 id="_4">小结</h2>
+<h3 id="_5">内存统计</h3>
+<div class="codehilite"><pre><span></span><code><span class="cp">#!/bin/sh</span>
+
+<span class="k">while</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">    </span><span class="cp">#1计算系统总共内存及剩余内存</span>
+<span class="w">    </span><span class="n">TOTAL_MEM</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">grep</span><span class="w"> </span><span class="n">MemTotal</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">meminfo</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w">    </span><span class="n">FREE_MEM</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">grep</span><span class="w"> </span><span class="n">MemFree</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">meminfo</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+
+<span class="w">    </span><span class="cp">#2计算内核占用内存</span>
+<span class="w">    </span><span class="n">SLAB</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">grep</span><span class="w"> </span><span class="n">Slab</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">meminfo</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w">    </span><span class="n">VMALLOC</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">grep</span><span class="w"> </span><span class="n">VmallocUsed</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">meminfo</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w">    </span><span class="n">PAGETABLE</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">grep</span><span class="w"> </span><span class="n">PageTables</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">meminfo</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w">    </span><span class="n">KERNELSTACK</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">grep</span><span class="w"> </span><span class="n">KernelStack</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">meminfo</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w">    </span><span class="n">KERNEL_MEM</span><span class="o">=</span><span class="n">$</span><span class="p">((</span><span class="n">SLAB</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">VMALLOC</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">PAGETABLE</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">KERNELSTACK</span><span class="p">))</span>
+
+<span class="cp">#3计算用户USS/PSS/RSS占用内存</span>
+<span class="w">    </span><span class="n">CURRENT_USER</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">id</span><span class="w"> </span><span class="o">-</span><span class="n">u</span><span class="p">)</span>
+<span class="w">    </span><span class="n">TOTAL_USS</span><span class="o">=</span><span class="mi">0</span>
+<span class="w">    </span><span class="n">TOTAL_PSS</span><span class="o">=</span><span class="mi">0</span>
+<span class="w">    </span><span class="n">TOTAL_RSS</span><span class="o">=</span><span class="mi">0</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">pid</span><span class="w"> </span><span class="n">in</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">ls</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">grep</span><span class="w"> </span><span class="s">"^[0-9]*$"</span><span class="p">);</span><span class="w"> </span><span class="k">do</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="o">-</span><span class="n">f</span><span class="w"> </span><span class="s">"/proc/${pid}/status"</span><span class="w"> </span><span class="p">];</span><span class="w"> </span><span class="n">then</span>
+<span class="w">            </span><span class="n">username</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Uid</span><span class="o">:/</span><span class="p">{</span><span class="n">printf</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="err">'</span><span class="w"> </span><span class="s">"/proc/${pid}/status"</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s">"$username"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"$CURRENT_USER"</span><span class="w"> </span><span class="p">];</span><span class="w"> </span><span class="n">then</span>
+<span class="w">                </span><span class="n">name</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Name</span><span class="o">:/</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="err">'</span><span class="w"> </span><span class="s">"/proc/${pid}/status"</span><span class="p">)</span>
+<span class="w">                </span><span class="n">mem1</span><span class="o">=</span><span class="mi">0</span>
+<span class="w">                </span><span class="n">mem1</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$</span><span class="p">{</span><span class="n">pid</span><span class="p">}</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Private</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w">                </span><span class="n">mem2</span><span class="o">=</span><span class="mi">0</span>
+<span class="w">                </span><span class="n">mem2</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$</span><span class="p">{</span><span class="n">pid</span><span class="p">}</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Pss</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w">                </span><span class="n">mem3</span><span class="o">=</span><span class="mi">0</span>
+<span class="w">                </span><span class="n">mem3</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$</span><span class="p">{</span><span class="n">pid</span><span class="p">}</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Rss</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w">            </span><span class="n">fi</span>
+<span class="w">            </span><span class="n">TOTAL_USS</span><span class="o">=</span><span class="n">$</span><span class="p">((</span><span class="n">TOTAL_USS</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">mem1</span><span class="p">))</span>
+<span class="w">            </span><span class="n">TOTAL_PSS</span><span class="o">=</span><span class="n">$</span><span class="p">((</span><span class="n">TOTAL_PSS</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">mem2</span><span class="p">))</span>
+<span class="w">            </span><span class="n">TOTAL_RSS</span><span class="o">=</span><span class="n">$</span><span class="p">((</span><span class="n">TOTAL_RSS</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">mem3</span><span class="p">))</span>
+<span class="w">        </span><span class="n">fi</span>
+<span class="w">    </span><span class="n">done</span>
+
+<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s">"total_mem:$TOTAL_MEM KB, free_mem:$FREE_MEM KB"</span>
+<span class="w">    </span><span class="n">echo</span><span class="w"> </span><span class="s">"slab:$SLAB KB, vmalloc:$VMALLOC KB, pagetable:$PAGETABLE KB, kernel_stack:$KERNELSTACK KB"</span>
+<span class="w">    </span><span class="n">echo</span><span class="w">  </span><span class="s">"Kernel_mem:$KERNEL_MEM KB, USS:$TOTAL_USS KB, PSS:$TOTAL_PSS KB, RSS:$TOTAL_RSS KB"</span>
+<span class="w">    </span><span class="n">sleep</span><span class="w"> </span><span class="mi">1</span>
+<span class="n">done</span>
+</code></pre></div>
+<h3 id="_6">查询占用较多内存的进程</h3>
+<div class="codehilite"><pre><span></span><code><span class="cp">#!/bin/sh</span>
+<span class="n">CURRENT_USER</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">id</span><span class="w"> </span><span class="o">-</span><span class="n">u</span><span class="p">)</span>
+<span class="n">TOTAL_USS</span><span class="o">=</span><span class="mi">0</span>
+<span class="n">TOTAL_PSS</span><span class="o">=</span><span class="mi">0</span>
+<span class="n">TOTAL_RSS</span><span class="o">=</span><span class="mi">0</span>
+<span class="k">for</span><span class="w"> </span><span class="n">pid</span><span class="w"> </span><span class="n">in</span><span class="w"> </span><span class="n">$</span><span class="p">(</span><span class="n">ls</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">grep</span><span class="w"> </span><span class="s">"^[0-9]*$"</span><span class="p">);</span><span class="w"> </span><span class="k">do</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="o">-</span><span class="n">f</span><span class="w"> </span><span class="s">"/proc/${pid}/status"</span><span class="w"> </span><span class="p">];</span><span class="w"> </span><span class="n">then</span>
+<span class="w">        </span><span class="n">username</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Uid</span><span class="o">:/</span><span class="p">{</span><span class="n">printf</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="err">'</span><span class="w"> </span><span class="s">"/proc/${pid}/status"</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s">"$username"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"$CURRENT_USER"</span><span class="w"> </span><span class="p">];</span><span class="w"> </span><span class="n">then</span>
+<span class="w">            </span><span class="n">name</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Name</span><span class="o">:/</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="err">'</span><span class="w"> </span><span class="s">"/proc/${pid}/status"</span><span class="p">)</span>
+<span class="w">            </span><span class="n">mem1</span><span class="o">=</span><span class="mi">0</span>
+<span class="w">            </span><span class="n">mem1</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$</span><span class="p">{</span><span class="n">pid</span><span class="p">}</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Private</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w">            </span><span class="n">mem2</span><span class="o">=</span><span class="mi">0</span>
+<span class="w">            </span><span class="n">mem2</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$</span><span class="p">{</span><span class="n">pid</span><span class="p">}</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Pss</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w">          </span><span class="n">mem3</span><span class="o">=</span><span class="mi">0</span>
+<span class="w">            </span><span class="n">mem3</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$</span><span class="p">{</span><span class="n">pid</span><span class="p">}</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Rss</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w">            </span><span class="n">echo</span><span class="w"> </span><span class="s">"$pid USS:$mem1, PSS:$mem2, RSS:$mem3"</span>
+<span class="w">         </span><span class="n">fi</span>
+<span class="n">fi</span>
+<span class="n">done</span>
+</code></pre></div>
+<h3 id="_7">进程内存监测</h3>
+<div class="codehilite"><pre><span></span><code><span class="cp">#!/bin/sh</span>
+
+<span class="n">count</span><span class="o">=</span><span class="mi">0</span>
+<span class="n">pid</span><span class="o">=</span><span class="n">$1</span>
+<span class="k">while</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w"> </span><span class="n">let</span><span class="w"> </span><span class="s">"count++"</span>
+<span class="w"> </span><span class="cp">#计算USS,RSS,PSS</span>
+<span class="w"> </span><span class="n">mem1</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$pid</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Private</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w"> </span><span class="n">mem2</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$pid</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Rss</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w"> </span><span class="n">mem3</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$pid</span><span class="o">/</span><span class="n">smaps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Pss</span><span class="o">/</span><span class="w"> </span><span class="p">{</span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">$2</span><span class="p">}</span><span class="w"> </span><span class="n">END</span><span class="w"> </span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">sum</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w"> </span><span class="cp">#计算Dirty，进程虚拟内存</span>
+<span class="w"> </span><span class="n">Dirty</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">pmap</span><span class="w"> </span><span class="o">-</span><span class="n">x</span><span class="w"> </span><span class="n">$pid</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">total</span><span class="o">/</span><span class="p">{</span><span class="n">dirty</span><span class="o">=</span><span class="n">$4</span><span class="p">}</span><span class="n">END</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">dirty</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w"> </span><span class="n">VSS</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">pmap</span><span class="w"> </span><span class="o">-</span><span class="n">x</span><span class="w"> </span><span class="n">$pid</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">total</span><span class="o">/</span><span class="p">{</span><span class="n">VSS</span><span class="o">=</span><span class="n">$2</span><span class="p">}</span><span class="n">END</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">VSS</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w"> </span><span class="cp">#计算系统使用内存，剩余内存</span>
+<span class="w"> </span><span class="n">used</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">free</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Mem</span><span class="o">/</span><span class="p">{</span><span class="n">used</span><span class="o">=</span><span class="n">$3</span><span class="p">}</span><span class="n">END</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">used</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w"> </span><span class="n">free</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">free</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="o">/^</span><span class="n">Mem</span><span class="o">/</span><span class="p">{</span><span class="n">free</span><span class="o">=</span><span class="n">$4</span><span class="p">}</span><span class="n">END</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">free</span><span class="p">}</span><span class="err">'</span><span class="p">)</span>
+<span class="w"> </span><span class="cp">#计算堆空间虚拟内存</span>
+<span class="n">start_addr</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$pid</span><span class="o">/</span><span class="n">maps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">grep</span><span class="w"> </span><span class="s">"</span><span class="se">\\</span><span class="s">[heap</span><span class="se">\\</span><span class="s">]"</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">$1</span><span class="p">}</span><span class="err">'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">cut</span><span class="w"> </span><span class="o">-</span><span class="n">d</span><span class="sc">'-'</span><span class="w"> </span><span class="o">-</span><span class="n">f1</span><span class="p">)</span>
+<span class="n">end_addr</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$pid</span><span class="o">/</span><span class="n">maps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">grep</span><span class="w"> </span><span class="s">"</span><span class="se">\\</span><span class="s">[heap</span><span class="se">\\</span><span class="s">]"</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">$1</span><span class="p">}</span><span class="err">'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">cut</span><span class="w"> </span><span class="o">-</span><span class="n">d</span><span class="sc">'-'</span><span class="w"> </span><span class="o">-</span><span class="n">f2</span><span class="p">)</span>
+<span class="n">start_addr</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">printf</span><span class="w"> </span><span class="s">"%d"</span><span class="w"> </span><span class="s">"0x$start_addr"</span><span class="p">)</span>
+<span class="n">end_addr</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">printf</span><span class="w"> </span><span class="s">"%d"</span><span class="w"> </span><span class="s">"0x$end_addr"</span><span class="p">)</span>
+<span class="n">heap_vs</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">expr</span><span class="w"> </span><span class="n">$end_addr</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">$start_addr</span><span class="p">)</span>
+<span class="n">heap_vs</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">expr</span><span class="w"> </span><span class="n">$heap_vs</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1024</span><span class="p">)</span>
+
+<span class="w"> </span><span class="cp">#计算栈空间虚拟内存</span>
+<span class="n">start_addr</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$pid</span><span class="o">/</span><span class="n">maps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">grep</span><span class="w"> </span><span class="s">"</span><span class="se">\\</span><span class="s">[stack</span><span class="se">\\</span><span class="s">]"</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">$1</span><span class="p">}</span><span class="err">'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">cut</span><span class="w"> </span><span class="o">-</span><span class="n">d</span><span class="sc">'-'</span><span class="w"> </span><span class="o">-</span><span class="n">f1</span><span class="p">)</span>
+<span class="n">end_addr</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">$pid</span><span class="o">/</span><span class="n">maps</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">grep</span><span class="w"> </span><span class="s">"</span><span class="se">\\</span><span class="s">[stack</span><span class="se">\\</span><span class="s">]"</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">awk</span><span class="w"> </span><span class="err">'</span><span class="p">{</span><span class="n">print</span><span class="w"> </span><span class="n">$1</span><span class="p">}</span><span class="err">'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">cut</span><span class="w"> </span><span class="o">-</span><span class="n">d</span><span class="sc">'-'</span><span class="w"> </span><span class="o">-</span><span class="n">f2</span><span class="p">)</span>
+<span class="n">start_addr</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">printf</span><span class="w"> </span><span class="s">"%d"</span><span class="w"> </span><span class="s">"0x$start_addr"</span><span class="p">)</span>
+<span class="n">end_addr</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">printf</span><span class="w"> </span><span class="s">"%d"</span><span class="w"> </span><span class="s">"0x$end_addr"</span><span class="p">)</span>
+<span class="n">stack_vs</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">expr</span><span class="w"> </span><span class="n">$end_addr</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">$start_addr</span><span class="p">)</span>
+<span class="n">stack_vs</span><span class="o">=</span><span class="n">$</span><span class="p">(</span><span class="n">expr</span><span class="w"> </span><span class="n">$stack_vs</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1024</span><span class="p">)</span>
+
+<span class="w"> </span><span class="n">echo</span><span class="w"> </span><span class="s">"count:$count,USS:$mem1 KB,VSS:$VSS KB, RSS:$mem2 KB,PSS:$mem3 KB,Dirty:$Dirty KB,heapvs:$heap_vs KB,stackvs:$stack_vs KB,used:$used KB,free:$free KB"</span>
+<span class="w"> </span><span class="n">sleep</span><span class="w"> </span><span class="mi">1</span>
+<span class="n">done</span>
+</code></pre></div>
+<p>测试代码，可配合脚本观察</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">argv</span><span class="p">[])</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">ptr1</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">ptr2</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">ptr3</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">ptr4</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">ptr5</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">mallinfo</span><span class="w"> </span><span class="n">m_info</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">size_kb</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">65</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">getchar</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">mallopt</span><span class="p">(</span><span class="n">M_TRIM_THRESHOLD</span><span class="p">,</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">128</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">"malloc ptr[0] %dkb</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ptr1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="mi">1048</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//memset(ptr1,24,1048 * size_kb); //memset不会导致USS增加,可能是由于值是一样的.</span>
+<span class="w">    </span><span class="c1">//memset(ptr1,25,1048 * size_kb); 即使用两次memset设置不同值也不会增加USS</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">1048</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">size_kb</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ptr1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">255</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">getchar</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">"malloc ptr[1] %dkb</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ptr2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="mi">1048</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//memset(ptr2,25,1048 * size_kb);</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">1048</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">size_kb</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ptr2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">255</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">getchar</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">"malloc ptr[2] %dkb</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ptr3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="mi">1048</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//memset(ptr3,26,1048 * size_kb);</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">1048</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">size_kb</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ptr3</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">255</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="n">getchar</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">"malloc ptr[3] %dkb</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ptr4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="mi">1048</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//memset(ptr4,27,1048 * size_kb);</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">1048</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">size_kb</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ptr4</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">255</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">getchar</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">"malloc ptr[4] %dkb</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ptr5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="mi">1048</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//memset(ptr5,28,1048 * size_kb);</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">1048</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">size_kb</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">ptr5</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">255</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">getchar</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">"free ptr[0] %dkb</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="n">free</span><span class="p">(</span><span class="n">ptr1</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">getchar</span><span class="p">();</span>
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">"free ptr[1] %dkb</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="n">free</span><span class="p">(</span><span class="n">ptr2</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">getchar</span><span class="p">();</span>
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">"free ptr[2] %dkb</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="n">free</span><span class="p">(</span><span class="n">ptr3</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">getchar</span><span class="p">();</span>
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">"free ptr[3] %dkb</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="n">free</span><span class="p">(</span><span class="n">ptr4</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">getchar</span><span class="p">();</span>
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">"free ptr[4] %dkb</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="w"> </span><span class="n">size_kb</span><span class="p">);</span>
+<span class="w">    </span><span class="n">free</span><span class="p">(</span><span class="n">ptr5</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">getchar</span><span class="p">();</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>操作系统对于小块内存的管理方式，如 Linux 内核中的延迟映射（Lazy Mapping）或零页复制（Zero Page COW）等技术所导致的。在某些情况下，操作系统可能会推迟实际的物理页面映射，直到首次访问相应的内存位置。这意味着即使您访问和修改了分配的内存，实际的物理页面映射可能仍然被推迟。即使使用memset修改了内存，但是可能也不会进行映射，通常可能只有在内存被修改为不同内容时，才会进行实际物理页面映射。而只有做了物理页面映射，进程的USS才会增加。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/wordpress设定固定链接.html">← wordpress设定固定链接</a>
+    <a class="next" href="/进程虚拟内存.html">进程虚拟内存 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

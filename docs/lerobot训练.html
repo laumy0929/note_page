@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>lerobot训练 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">初始化</a><ul></ul></li><li><a href="#_2">数据与模型准备</a><ul><li><a href="#_3">数据加载</a></li><li><a href="#_4">模型加载</a></li><li><a href="#_5">创建优化器</a></li></ul></li><li><a href="#_6">数据加载器配置</a><ul><li><a href="#_7">采样器选择</a></li><li><a href="#_8">数据加载管道</a></li><li><a href="#_9">循环迭代器</a></li></ul></li><li><a href="#_10">开始训练</a><ul><li><a href="#_11">训练模式设置</a></li><li><a href="#_12">指标跟踪初始化</a></li><li><a href="#_13">启动循环训练</a></li></ul></li><li><a href="#_14">训练更新</a><ul><li><a href="#_15">训练环境准备</a></li><li><a href="#_16">梯队计算</a></li><li><a href="#_17">参数优化与更新</a></li><li><a href="#_18">训练状态维护</a></li></ul></li><li><a href="#_19">训练收尾</a><ul></ul></li><li><a href="#_20">总结</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>lerobot训练</h1>
+  <div class="meta">2025-07-30 · ai</div>
+  <div class="post-content"><h2 id="_1">初始化</h2>
+<div class="codehilite"><pre><span></span><code><span class="nd">@parser</span><span class="o">.</span><span class="n">wrap</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="n">cfg</span><span class="p">:</span> <span class="n">TrainPipelineConfig</span><span class="p">):</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">validate</span><span class="p">()</span>  <span class="c1"># 验证配置合法性（如路径、超参数范围）</span>
+    <span class="n">init_logging</span><span class="p">()</span>  <span class="c1"># 初始化日志系统（本地文件+控制台输出）</span>
+    <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">set_seed</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>  <span class="c1"># 固定随机种子（确保训练可复现）</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">get_safe_torch_device</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">policy</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># 自动选择训练设备（GPU/CPU）</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cudnn</span><span class="o">.</span><span class="n">benchmark</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># 启用CuDNN自动优化（加速卷积运算）</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">matmul</span><span class="o">.</span><span class="n">allow_tf32</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># 启用TF32精度（加速矩阵乘法）</span>
+</code></pre></div>
+<p>初始化阶段主要是解析参数，初始化日志，确定训练的设备。</p>
+<p>参数解析依旧是使用了装饰器parser.wrap，通过命令后参数构建生成TrainPipelineConfig类，该类是LeRobot 框架中训练流程的核心配置类，继承自 HubMixin（支持 Hugging Face Hub 交互），通过 dataclass 定义训练全流程的参数（如数据集路径、模型超参、训练步数等）。其核心作用是：</p>
+<ul>
+<li>参数聚合：统一管理数据集、策略模型、优化器、评估等模块的配置，避免参数分散。</li>
+<li>合法性校验：通过 validate 方法确保配置参数有效（如路径存在、超参数范围合理）。</li>
+<li>可复现性支持：固定随机种子、保存/加载配置，确保训练过程可复现。</li>
+<li>Hub 集成：支持从 Hub 加载预训练配置或推送配置至 Hub，便于共享和断点续训。</li>
+</ul>
+<p><strong>（1）核心属性</strong></p>
+<ul>
+<li>dataset:DatasetConfig, 数据集配置（如 repo_id="laumy/record-07271539"、图像预处理参数）</li>
+<li>env: envs.EnvConfig,评估环境配置（如仿真环境类型、任务名称，仅用于训练中评估）</li>
+<li>policy: PreTrainedConfig,策略模型配置（如 ACT 的 Transformer 层数、视觉编码器类型）。</li>
+<li>output_dir: Path,训练输出目录（保存 checkpoint、日志、评估视频）。</li>
+<li>resume,是否从 checkpoint 续训（需指定 checkpoint_path）</li>
+<li>seed,随机种子（控制模型初始化、数据 shuffle、评估环境随机性，确保复现）。</li>
+<li>num_workers，数据加载线程数，用于加速数据预处理。</li>
+<li>batch_size,训练批次大小，即单步输入样本数。</li>
+<li>steps,总训练步数，每次参数更新计为1步。</li>
+<li>log_freq，日志记录频率，每 200 步打印一次训练指标，如 loss、梯度范数。</li>
+<li>eval_freq,评估频率（每 20,000 步在环境中测试策略性能，计算成功率、平均奖励）</li>
+<li>save_checkpoint,是否保存 checkpoint（模型权重、优化器状态）,用于续训。</li>
+<li>wandb,Weights &amp; Biases 日志配置（控制是否上传指标、视频至 WandB）</li>
+<li>use_policy_training_preset，是否使用策略内置的训练预设（如 ACT 策略默认 AdamW 优化器、学习率）。</li>
+<li>optimizer，优化器配置（如学习率、权重衰减，仅当 use_policy_training_preset=False 时需手动设置）。</li>
+<li>scheduler，学习率调度器配置（如余弦退火，同上）。</li>
+</ul>
+<p><strong>（2）核心方法</strong></p>
+<ul>
+<li><strong>post_init</strong>：初始化实例后设置 checkpoint_path（断点续训时的路径），为后续配置校验做准备。</li>
+<li>validate：确保所有配置参数合法且一致，例如续训时校验 checkpoint 路径存在，自动生成唯一输出目录（避免覆盖），强制要求非预设模式下手动指定优化器。</li>
+<li>_save_pretrained：将配置保存为 JSON 文件（train_config.json），用于 Hub 共享或本地存储。</li>
+<li>from_pretrained：：从 Hub 或本地路径加载配置（支持断点续训或复用已有配置）。</li>
+</ul>
+<h2 id="_2">数据与模型准备</h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 1. 加载离线数据集（如机器人操作轨迹数据）</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Creating dataset"</span><span class="p">)</span>
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">make_dataset</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>  <span class="c1"># 从HuggingFace Hub或本地路径加载数据集</span>
+
+<span class="c1"># 2. 初始化策略模型（如ACT、Diffusion Policy）</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Creating policy"</span><span class="p">)</span>
+<span class="n">policy</span> <span class="o">=</span> <span class="n">make_policy</span><span class="p">(</span>
+    <span class="n">cfg</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">policy</span><span class="p">,</span>  <span class="c1"># 策略配置（如ACT的transformer层数、视觉编码器类型）</span>
+    <span class="n">ds_meta</span><span class="o">=</span><span class="n">dataset</span><span class="o">.</span><span class="n">meta</span><span class="p">,</span>  <span class="c1"># 数据集元信息（输入/输出维度、特征类型）</span>
+<span class="p">)</span>
+
+<span class="c1"># 3. 创建优化器和学习率调度器</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Creating optimizer and scheduler"</span><span class="p">)</span>
+<span class="n">optimizer</span><span class="p">,</span> <span class="n">lr_scheduler</span> <span class="o">=</span> <span class="n">make_optimizer_and_scheduler</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">policy</span><span class="p">)</span>  <span class="c1"># 默认AdamW优化器</span>
+<span class="n">grad_scaler</span> <span class="o">=</span> <span class="n">GradScaler</span><span class="p">(</span><span class="n">device</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">policy</span><span class="o">.</span><span class="n">use_amp</span><span class="p">)</span>  <span class="c1"># 混合精度训练梯度缩放器</span>
+</code></pre></div>
+<ul>
+<li>make_dataset(cfg)：根据配置加载数据集（如 laumy/record-07271539），返回 LeRobotDataset 对象，包含观测（图像、关节状态）和动作序列。</li>
+<li>make_policy(...)：根据 policy.type（如 act）和数据集元信息初始化模型，自动适配输入维度（如图像分辨率、状态维度）和输出维度（如动作空间大小）。</li>
+<li>make_optimizer_and_scheduler(cfg, policy)：创建优化器（默认AdamW，学习率 1e-5）和调度器（默认无，可配置余弦退火等），支持对不同参数组设置不同学习率（如视觉 backbone 微调）。</li>
+</ul>
+<h3 id="_3">数据加载</h3>
+<p>数据加载调用的是make_dataset函数，其是LeRobot 框架中数据集创建的核心工厂函数，负责根据训练配置（TrainPipelineConfig）初始化离线机器人数据集。它整合了图像预处理、时序特征处理（delta timestamps）和数据集元信息加载，最终返回可直接用于训练的 LeRobotDataset 对象。</p>
+<p>根据数据集配置初始化图像预处理管道（如Resize、Normalize、RandomCrop等）。若 cfg.dataset.image_transforms.enable=True（通过命令行或配置文件设置），则创建 ImageTransforms 实例，加载预设的图像变换参数（如分辨率、是否翻转等），否则不进行图像预处理。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">image_transforms</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">ImageTransforms</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">image_transforms</span><span class="p">)</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">image_transforms</span><span class="o">.</span><span class="n">enable</span> <span class="k">else</span> <span class="kc">None</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><strong>（1）单数据集加载</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">repo_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="c1"># 加载数据集元信息（特征定义、统计数据、帧率等）</span>
+    <span class="n">ds_meta</span> <span class="o">=</span> <span class="n">LeRobotDatasetMetadata</span><span class="p">(</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">repo_id</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">revision</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">revision</span>
+    <span class="p">)</span>
+    <span class="c1"># 计算时序偏移（delta timestamps）</span>
+    <span class="n">delta_timestamps</span> <span class="o">=</span> <span class="n">resolve_delta_timestamps</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">policy</span><span class="p">,</span> <span class="n">ds_meta</span><span class="p">)</span>
+    <span class="c1"># 创建 LeRobotDataset 实例</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">LeRobotDataset</span><span class="p">(</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">repo_id</span><span class="p">,</span>  <span class="c1"># 数据集标识（HuggingFace Hub repo_id 或本地路径）</span>
+        <span class="n">root</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">root</span><span class="p">,</span>  <span class="c1"># 本地缓存根目录</span>
+        <span class="n">episodes</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">episodes</span><span class="p">,</span>  <span class="c1"># 指定加载的轨迹片段（如 ["ep001", "ep002"]）</span>
+        <span class="n">delta_timestamps</span><span class="o">=</span><span class="n">delta_timestamps</span><span class="p">,</span>  <span class="c1"># 时序特征偏移（见下文详解）</span>
+        <span class="n">image_transforms</span><span class="o">=</span><span class="n">image_transforms</span><span class="p">,</span>  <span class="c1"># 图像预处理管道</span>
+        <span class="n">revision</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">revision</span><span class="p">,</span>  <span class="c1"># 数据集版本（如 Git commit hash）</span>
+        <span class="n">video_backend</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">video_backend</span><span class="p">,</span>  <span class="c1"># 视频解码后端（如 "pyav"）</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p>首先实例化LeRobotDatasetMetadata，加载数据集的信息，包括特征定义如observation.images.laptop 的形状、action的维度等，以及统计信息如图像均值/方差、动作范围，还有帧率fps以便时序偏移计算。</p>
+<p>其次调用resolve_delta_timestamps根据模型计算时序特征偏移，例如如果策略需要当前帧及前2帧的观测，则生成[-0.04, -0.02, 0]（单位：秒），用于从数据中提取多时序特征。</p>
+<p>接着实例化LeRobotDataset，其实现数据加载、时序特征拼接、图像预处理等功能，为悬链提供批次化数据，具体见<a href="https://www.laumy.tech/2332.html#h37">https://www.laumy.tech/2332.html#h37</a></p>
+<p><strong>（2）多数据集支持</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">else</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"The MultiLeRobotDataset isn't supported for now."</span><span class="p">)</span>
+    <span class="c1"># 以下为预留的多数据集加载代码（暂未实现）</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">MultiLeRobotDataset</span><span class="p">(</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">repo_id</span><span class="p">,</span>  <span class="c1"># 多数据集标识列表（如 ["repo1", "repo2"]）</span>
+        <span class="n">image_transforms</span><span class="o">=</span><span class="n">image_transforms</span><span class="p">,</span>
+        <span class="n">video_backend</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">video_backend</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"多数据集索引映射: </span><span class="si">{</span><span class="n">pformat</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">repo_id_to_index</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<p>预留多数据集合并功能（如融合不同场景的机器人轨迹数据），目前未实现，直接抛出 NotImplementedError。</p>
+<p><strong>（3）imsageNet统计量替换</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">use_imagenet_stats</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">dataset</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">camera_keys</span><span class="p">:</span>  <span class="c1"># 遍历所有相机图像特征（如 "observation.images.laptop"）</span>
+        <span class="k">for</span> <span class="n">stats_type</span><span class="p">,</span> <span class="n">stats</span> <span class="ow">in</span> <span class="n">IMAGENET_STATS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>  <span class="c1"># IMAGENET_STATS = {"mean": [...], "std": [...]}</span>
+            <span class="n">dataset</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">stats_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">stats</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+</code></pre></div>
+<p>其目的主要将数据集图像的归一化统计量（均值/方差）替换为 ImageNet 预训练模型的统计量。当使用预训练视觉编码器（如 ResNet）时，用 ImageNet 统计量归一化图像，可提升模型迁移学习效果（避免因数据集自身统计量导致的分布偏移）。</p>
+<h3 id="_4">模型加载</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 初始化策略模型（如ACT、Diffusion Policy）</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Creating policy"</span><span class="p">)</span>
+<span class="n">policy</span> <span class="o">=</span> <span class="n">make_policy</span><span class="p">(</span>
+    <span class="n">cfg</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">policy</span><span class="p">,</span>  <span class="c1"># 策略配置（如ACT的transformer层数、视觉编码器类型）</span>
+    <span class="n">ds_meta</span><span class="o">=</span><span class="n">dataset</span><span class="o">.</span><span class="n">meta</span><span class="p">,</span>  <span class="c1"># 数据集元信息（输入/输出维度、特征类型）</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>make_policy 是 LeRobot 框架中策略模型实例化的核心工厂函数，负责根据配置（PreTrainedConfig）、数据集元信息（ds_meta）或环境配置（env_cfg），动态创建并初始化策略模型（如 ACT、Diffusion、TDMPC 等）。其核心作用是自动适配策略输入/输出维度（基于数据或环境特征），并支持加载预训练权重或初始化新模型。</p>
+<p>在函数中，根据策略类型cfg.type，如 "act"、"diffusion"）动态获取对应的策略类，如若 cfg.type = "act"，get_policy_class 返回 ACTPolicy 类（ACT 策略的实现）。如果模型需要明确输入特征（如图像、状态）和输出特征（如动作）的维度，需进一步通过数据集或环境解析。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">ds_meta</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">features</span> <span class="o">=</span> <span class="n">dataset_to_policy_features</span><span class="p">(</span><span class="n">ds_meta</span><span class="o">.</span><span class="n">features</span><span class="p">)</span>  <span class="c1"># 从数据集元信息提取特征</span>
+    <span class="n">kwargs</span><span class="p">[</span><span class="s2">"dataset_stats"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ds_meta</span><span class="o">.</span><span class="n">stats</span>  <span class="c1"># 数据集统计量（用于输入归一化，如图像均值/方差）</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">pretrained_path</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"无数据集统计量，归一化模块可能初始化异常"</span><span class="p">)</span>  <span class="c1"># 无预训练时，缺少数据统计量会导致归一化参数异常</span>
+    <span class="n">features</span> <span class="o">=</span> <span class="n">env_to_policy_features</span><span class="p">(</span><span class="n">env_cfg</span><span class="p">)</span>  <span class="c1"># 从环境配置提取特征（如 Gym 环境的观测/动作空间）</span>
+</code></pre></div>
+<p>如果定义了离线数据进行解析特征，否则基于环境解析特征。</p>
+<p>获取到特征后进行配置输入/输出特征。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cfg</span><span class="o">.</span><span class="n">output_features</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">ft</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">ft</span> <span class="ow">in</span> <span class="n">features</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">ft</span><span class="o">.</span><span class="n">type</span> <span class="ow">is</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">ACTION</span><span class="p">}</span>
+<span class="n">cfg</span><span class="o">.</span><span class="n">input_features</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">ft</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">ft</span> <span class="ow">in</span> <span class="n">features</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">output_features</span><span class="p">}</span>
+</code></pre></div>
+<p>将解析后的特征划分为输入特征（如图像、状态）和输出特征（仅动作，FeatureType.ACTION），并更新到策略配置 cfg 中。例如若 features 包含 "observation.images.laptop"（图像）和 "action"（动作），则：input_features = {"observation.images.laptop": ...}，output_features = {"action": ...}。</p>
+<p>接着对模型进行实例化，也就是预训练模型的加载或新模型的初始化。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">pretrained_path</span><span class="p">:</span>
+    <span class="c1"># 加载预训练策略（如从 HuggingFace Hub 或本地路径）</span>
+    <span class="n">kwargs</span><span class="p">[</span><span class="s2">"pretrained_name_or_path"</span><span class="p">]</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">pretrained_path</span>
+    <span class="n">policy</span> <span class="o">=</span> <span class="n">policy_cls</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c1"># 调用策略类的 from_pretrained 方法加载权重</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="c1"># 初始化新模型（随机权重）</span>
+    <span class="n">policy</span> <span class="o">=</span> <span class="n">policy_cls</span><span class="p">(</span><span class="o">**</span> <span class="n">kwargs</span><span class="p">)</span>  <span class="c1"># 传入配置和特征信息初始化模型结构</span>
+</code></pre></div>
+<p>最后将模型迁移到目标设备，如cuda:0或cpu。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">policy</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>  <span class="c1"># 将模型移至目标设备（如 "cuda:0"、"cpu"）</span>
+<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span>  <span class="c1"># 确保返回的是 PyTorch 模型</span>
+<span class="k">return</span> <span class="n">policy</span>
+</code></pre></div>
+<h3 id="_5">创建优化器</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">#  创建优化器和学习率调度器</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Creating optimizer and scheduler"</span><span class="p">)</span>
+<span class="n">optimizer</span><span class="p">,</span> <span class="n">lr_scheduler</span> <span class="o">=</span> <span class="n">make_optimizer_and_scheduler</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">policy</span><span class="p">)</span>  <span class="c1"># 默认AdamW优化器</span>
+<span class="n">grad_scaler</span> <span class="o">=</span> <span class="n">GradScaler</span><span class="p">(</span><span class="n">device</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">policy</span><span class="o">.</span><span class="n">use_amp</span><span class="p">)</span>  <span class="c1"># 混合精度训练梯度缩放器</span>
+</code></pre></div>
+<p>负责初始化训练核心组件：优化器（更新模型参数）、学习率调度器（动态调整学习率）和梯度缩放器（混合精度训练支持）。三者共同构成策略模型的“参数更新引擎”，直接影响训练效率和收敛稳定性。</p>
+<p><strong>（1）优化器与调度器创建</strong></p>
+<p>通过工厂函数 make_optimizer_and_scheduler 动态创建优化器和学习率调度器，参数来源于配置 cfg 和策略模型 policy。该函数根据 TrainPipelineConfig 中的 optimizer 和 scheduler 配置，或策略预设（use_policy_training_preset=True），生成优化器和调度器。其中优化器默认使用 AdamW（带权重衰减的 Adam），参数包括学习率（cfg.optimizer.lr）、权重衰减系数（cfg.optimizer.weight_decay）等，优化对象为 policy.parameters()（策略模型的可学习参数）；而调度器如果配置了 scheduler.type（如 "cosine"），则创建对应学习率调度器（如余弦退火调度器），否则返回 None。</p>
+<p>若 cfg.use_policy_training_preset=True（默认），则直接使用策略内置的优化器参数（如 ACT 策略默认 lr=3e-4，weight_decay=1e-4），无需手动配置 optimizer 和 scheduler。</p>
+<p><strong>（2）梯度缩放器初始化</strong></p>
+<p>GradScaler用于解决低精度（如 float16）训练中的梯度下溢问题。device.type参数模型所在设备类型（"cuda"/"mps"/"cpu"），确保缩放器与设备匹配。参数enabled=cfg.policy.use_amp确定是否启用混合精度训练（由策略配置 use_amp 控制）。若为 False，缩放器将禁用（梯度不缩放）。</p>
+<p>本质原理是混合精度训练时，前向传播使用低精度（加速计算），但梯度可能因数值过小而下溢（变为 0）。GradScaler 通过梯度缩放（放大损失值 → 梯度按比例放大 → 更新时反缩放）避免下溢，同时保证参数更新精度。</p>
+<h2 id="_6">数据加载器配置</h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 创建时序感知采样器（针对机器人轨迹数据）</span>
+<span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">policy</span><span class="p">,</span> <span class="s2">"drop_n_last_frames"</span><span class="p">):</span>  <span class="c1"># 如ACT策略需丢弃轨迹末尾帧</span>
+    <span class="n">sampler</span> <span class="o">=</span> <span class="n">EpisodeAwareSampler</span><span class="p">(</span>
+        <span class="n">dataset</span><span class="o">.</span><span class="n">episode_data_index</span><span class="p">,</span>  <span class="c1"># 轨迹索引信息</span>
+        <span class="n">drop_n_last_frames</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">policy</span><span class="o">.</span><span class="n">drop_n_last_frames</span><span class="p">,</span>  <span class="c1"># 丢弃每段轨迹末尾N帧</span>
+        <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># 轨迹内随机打乱</span>
+    <span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">sampler</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 普通随机采样</span>
+
+<span class="c1"># 构建DataLoader（多线程加载+内存锁定）</span>
+<span class="n">dataloader</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataLoader</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="p">,</span>
+    <span class="n">num_workers</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">num_workers</span><span class="p">,</span>  <span class="c1"># 数据加载线程数（加速IO）</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>  <span class="c1"># 批次大小</span>
+    <span class="n">sampler</span><span class="o">=</span><span class="n">sampler</span><span class="p">,</span>
+    <span class="n">pin_memory</span><span class="o">=</span><span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">"cpu"</span><span class="p">,</span>  <span class="c1"># 内存锁定（加速CPU→GPU数据传输）</span>
+<span class="p">)</span>
+<span class="n">dl_iter</span> <span class="o">=</span> <span class="n">cycle</span><span class="p">(</span><span class="n">dataloader</span><span class="p">)</span>  <span class="c1"># 循环迭代器（数据集遍历完后自动重启）</span>
+</code></pre></div>
+<ul>
+<li>EpisodeAwareSampler：确保采样的batch包含完整轨迹片段（避免时序断裂），适配机器人操作等时序依赖任务。</li>
+<li>cycle(dataloader)：将DataLoader转换为无限迭代器，支持训练步数（cfg.steps）远大于数据集长度的场景。</li>
+</ul>
+<h3 id="_7">采样器选择</h3>
+<p>hasattr(cfg.policy, "drop_n_last_frames")用于检查模型中是否支持drop_n_last_frames 属性（如 ACT 策略需丢弃每段轨迹的最后 N 帧，避免无效数据）。如果支持，则启用时序感知采样EpisodeAwareSampler。器策略依赖时序连续的轨迹数据（如机器人操作的连贯动作序列）。核心参数如下：</p>
+<ul>
+<li>dataset.episode_data_index：数据集轨迹索引（记录每段轨迹的起始/结束位置），确保采样时不跨轨迹断裂时序。</li>
+<li>drop_n_last_frames=cfg.policy.drop_n_last_frames：丢弃每段轨迹的最后 N 帧（如因传感器延迟导致的无效帧）。</li>
+<li>shuffle=True：轨迹内部随机打乱（但保持轨迹内时序连续性），平衡随机性与时序完整性。</li>
+</ul>
+<p>若模型策略中不支持时序感知采样，那么则采用普通的随机采样，使用默认随机采样（shuffle=True，sampler=None），DataLoader 直接对数据集全局打乱。</p>
+<h3 id="_8">数据加载管道</h3>
+<p>dataloader = torch.utils.data.DataLoader基于采样器配置，创建 PyTorch DataLoader，实现多线程并行数据加载，为训练循环提供高效的批次数据。</p>
+<ul>
+<li>num_workers=cfg.num_workers：使用配置的线程数并行加载数据（如 8 线程），避免数据加载成为训练瓶颈。</li>
+<li>pin_memory=True（当使用 GPU 时）：将数据加载到固定内存页，加速数据从 CPU 异步传输到 GPU，减少等待时间。</li>
+<li>drop_last=False：保留最后一个可能不完整的批次（尤其在小数据集场景，避免数据浪费）。</li>
+<li>batch_size：控制每个批次的样本数量。batch_size=8 时，所有张量第一维度为 8。</li>
+<li>sampler：控制采样顺序（时序连续/随机）。EpisodeAwareSampler 确保动作序列来自同一段轨迹。</li>
+<li>num_workers：控制并行加载的子进程数，影响数据加载速度（非数据结构）。num_workers=8 比单线程加载快 5-10 倍（取决于硬件）。注意其并行只会影响数据加载速度，不会影响训练速度，当前数据加载是持续循环进行，而非一次性完成，但是这个相对训练时间。通过控制并行数据加载进程数，减少 GPU 等待时间，提升整体效率。</li>
+</ul>
+<p>dataloader 是 torch.utils.data.DataLoader 类的实例，本质是一个可迭代对象（iterable），用于按批次加载数据。其核心作用是将原始数据集（LeRobotDataset）转换为训练可用的批次化数据，支持多线程并行加载、自定义采样顺序等功能。</p>
+<p>DataLoader 通过以下步骤将原始数据集（LeRobotDataset）转换为批次化数据</p>
+<ul>
+<li>数据集索引采样：原始数据集 dataset（LeRobotDataset 实例），包含所有机器人轨迹数据。通过 sampler 参数（如 EpisodeAwareSampler 或默认随机采样）生成样本索引序列，决定数据加载顺序。</li>
+<li>多线程并行加载：num_workers=cfg.num_workers：启动 num_workers 个子进程并行执行 dataset.<strong>getitem</strong>(index)，从磁盘/内存中加载单个样本数据（如读取图像、解析状态）。</li>
+<li>样本拼接：默认行为：DataLoader 使用 torch.utils.data.default_collate 函数，将多个单样本字典（来自不同子进程）拼接为批次字典，对每个特征键（如 "observation.images.laptop"），将所有单样本张量（shape=[C, H, W]）堆叠为批次张量（shape=[B, C, H, W]）；非张量数据（如列表）会被转换为张量或保留为列表（取决于数据类型）。</li>
+<li>内存优化：pin_memory=device.type != "cpu"：当使用 GPU 时，启用内存锁定（pin memory），将加载的张量数据存入 CPU 的固定内存页，加速后续异步传输到 GPU 的过程（batch[key].to(device, non_blocking=True)）</li>
+</ul>
+<h3 id="_9">循环迭代器</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">dl_iter</span> <span class="o">=</span> <span class="n">cycle</span><span class="p">(</span><span class="n">dataloader</span><span class="p">)</span>
+</code></pre></div>
+<p>将 DataLoader 转换为无限迭代器，支持按“训练步数”（cfg.steps）而非“ epochs” 训练。离线训练通常以固定步数（如 100,000 步）为目标，而非遍历数据集次数（epochs）。当数据集较小时，cycle(dataloader) 可在数据集遍历结束后自动重启，确保训练步数达标。</p>
+<p>那dataloader输出的批次数据结构长什么样的？</p>
+<p>当通过 next(dl_iter) 获取批次数据时（如代码中 first_batch = next(dl_iter)），返回的是一个字典类型的批次数据，结构如下：</p>
+<div class="codehilite"><pre><span></span><code>    <span class="n">dl_iter</span> <span class="o">=</span> <span class="n">cycle</span><span class="p">(</span><span class="n">dataloader</span><span class="p">)</span>
+
+    <span class="n">first_batch</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">dl_iter</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">first_batch</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: shape=</span><span class="si">{</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">, dtype=</span><span class="si">{</span><span class="n">value</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: type=</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="n">打印如下</span><span class="err">：</span>
+
+<span class="n">observation</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">handeye</span><span class="p">:</span> <span class="n">shape</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">480</span><span class="p">,</span> <span class="mi">640</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+<span class="n">observation</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">fixed</span><span class="p">:</span> <span class="n">shape</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">480</span><span class="p">,</span> <span class="mi">640</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+<span class="n">action</span><span class="p">:</span> <span class="n">shape</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">8</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">6</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+<span class="n">observation</span><span class="o">.</span><span class="n">state</span><span class="p">:</span> <span class="n">shape</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+<span class="n">timestamp</span><span class="p">:</span> <span class="n">shape</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">8</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+<span class="n">frame_index</span><span class="p">:</span> <span class="n">shape</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">8</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span>
+<span class="n">episode_index</span><span class="p">:</span> <span class="n">shape</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">8</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span>
+<span class="n">index</span><span class="p">:</span> <span class="n">shape</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">8</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span>
+<span class="n">task_index</span><span class="p">:</span> <span class="n">shape</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">8</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span>
+<span class="n">action_is_pad</span><span class="p">:</span> <span class="n">shape</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">8</span><span class="p">,</span> <span class="mi">100</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span>
+<span class="n">task</span><span class="p">:</span> <span class="nb">type</span><span class="o">=&lt;</span><span class="k">class</span> <span class="err">'</span><span class="nc">list</span><span class="s1">'&gt;</span>
+</code></pre></div>
+<p>可以看到一个batch有8组数据，因为TrainPipelineConfig::batch_size设置的8，控制每个批次的样本数量，batch_size定义了每次参数更新是输入模型的样本数量，如这里的8，就是表示输入8个样本更新一次参数。batch_size的设定要根据模型大小、GPU内存、数据特征综合确定。</p>
+<p>如果batch_size过小，批次（如 batch_size=1）的梯度受单个样本噪声影响大，导致参数更新方向不稳定，Loss 曲线剧烈震荡（如下图示例），难以收敛到稳定最小值，如果模型使用了BN层，过小的批次会导致BN统计量（均值/方差）估计不准，影响特征表达。同时GPU利用率低，训练速度会变慢；</p>
+<p>如果batch_size过大最直接的影响就是GPU内存会溢出，同时会导致收敛速度变慢或陷入次优解。</p>
+<p>一般情况下，若数据集样本量少（如仅 1k 样本），可设 batch_size=32（全量数据集的 3%），避免批次占比过大导致过拟合；若模型中含有BN层，batch_size 建议 ≥ 16，确保 BN 统计量稳定。</p>
+<table>
+<thead>
+<tr>
+<th>batch_size 状态</th>
+<th>典型问题</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>过大（OOM）</td>
+<td>GPU 内存溢出，收敛慢</td>
+<td>减小批次/降低图像分辨率/梯度累积</td>
+</tr>
+<tr>
+<td>过小（&lt;4）</td>
+<td>Loss 波动大，GPU 利用率低</td>
+<td>增大批次至 8-32（需满足内存）</td>
+</tr>
+<tr>
+<td>合理（8-32）</td>
+<td>梯度稳定，GPU 利用率高（80%-90%）</td>
+<td>维持默认或根据模型/数据微调</td>
+</tr>
+</tbody>
+</table>
+<p>batch_size 的核心是平衡内存、速度与收敛性，建议从默认值开始，结合硬件条件和训练监控动态调整。</p>
+<h2 id="_10">开始训练</h2>
+<h3 id="_11">训练模式设置</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">policy</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+</code></pre></div>
+<p>将策略模型切换为训练模式，确保所有层（如 Dropout、BatchNorm）按训练逻辑运行。PyTorch模型模式有差异，分为训练模式和评估模式。</p>
+<ul>
+<li>训练模式：启用 Dropout（随机丢弃神经元防止过拟合）、BatchNorm 更新运行时统计量（均值/方差）。</li>
+<li>评估模式（policy.eval()）：关闭 Dropout、BatchNorm 使用训练阶段累积的统计量。</li>
+</ul>
+<p>在训练循环前显式调用，避免因模型残留评估模式导致训练效果异常（如 Dropout 未激活导致过拟合）。</p>
+<h3 id="_12">指标跟踪初始化</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">train_metrics</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"loss"</span><span class="p">:</span> <span class="n">AverageMeter</span><span class="p">(</span><span class="s2">"loss"</span><span class="p">,</span> <span class="s2">":.3f"</span><span class="p">),</span>          <span class="c1"># 训练损失（格式：保留3位小数）</span>
+    <span class="s2">"grad_norm"</span><span class="p">:</span> <span class="n">AverageMeter</span><span class="p">(</span><span class="s2">"grdn"</span><span class="p">,</span> <span class="s2">":.3f"</span><span class="p">),</span>      <span class="c1"># 梯度范数（格式：缩写"grdn"，保留3位小数）</span>
+    <span class="s2">"lr"</span><span class="p">:</span> <span class="n">AverageMeter</span><span class="p">(</span><span class="s2">"lr"</span><span class="p">,</span> <span class="s2">":0.1e"</span><span class="p">),</span>              <span class="c1"># 学习率（格式：科学计数法，保留1位小数）</span>
+    <span class="s2">"update_s"</span><span class="p">:</span> <span class="n">AverageMeter</span><span class="p">(</span><span class="s2">"updt_s"</span><span class="p">,</span> <span class="s2">":.3f"</span><span class="p">),</span>     <span class="c1"># 单步更新耗时（格式：缩写"updt_s"，保留3位小数）</span>
+    <span class="s2">"dataloading_s"</span><span class="p">:</span> <span class="n">AverageMeter</span><span class="p">(</span><span class="s2">"data_s"</span><span class="p">,</span> <span class="s2">":.3f"</span><span class="p">),</span><span class="c1"># 数据加载耗时（格式：缩写"data_s"，保留3位小数）</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>通过 AverageMeter 类（来自 lerobot.utils.logging_utils）定义需跟踪的核心训练指标，支持实时平均计算和格式化输出训练信息，这个类实例最终通过参数传递给MetricsTracker。AverageMeter 功能为内部维护 sum（累积和）、count（样本数）、avg（平均值），通过 update 方法更新指标，并按指定格式（如 ":.3f"）输出。例：每步训练后调用 train_metrics["loss"].update(loss.item())，自动累积并计算平均 loss。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">train_tracker</span> <span class="o">=</span> <span class="n">MetricsTracker</span><span class="p">(</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>                <span class="c1"># 批次大小（用于计算每样本指标）</span>
+    <span class="n">dataset</span><span class="o">.</span><span class="n">num_frames</span><span class="p">,</span>            <span class="c1"># 数据集总帧数（用于进度比例计算）</span>
+    <span class="n">dataset</span><span class="o">.</span><span class="n">num_episodes</span><span class="p">,</span>          <span class="c1"># 数据集总轨迹数（辅助日志上下文）</span>
+    <span class="n">train_metrics</span><span class="p">,</span>                 <span class="c1"># 上述定义的指标跟踪器字典</span>
+    <span class="n">initial_step</span><span class="o">=</span><span class="n">step</span>              <span class="c1"># 初始步数（支持断点续训时从上次步数开始跟踪）</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>创建 MetricsTracker 实例（来自 lerobot.utils.logging_utils），用于聚合、格式化和记录所有训练指标，主要的作用如下：</p>
+<ul>
+<li>指标更新：训练循环中通过 train_tracker.loss = loss.item() 便捷更新单个指标。</li>
+<li>平均计算：自动对 AverageMeter 指标进行滑动平均（如每 log_freq 步输出平均 loss）。</li>
+<li>日志输出：调用 logging.info(train_tracker) 时，按统一格式打印所有指标（如 loss: 0.523 | grdn: 1.234 | lr: 3.0e-4）。</li>
+<li>断点续训支持：通过 initial_step=step 确保从断点恢复训练时，指标统计不重复计算。</li>
+</ul>
+<p>总结下该代码段是训练前的关键初始化步骤，通过 AverageMeter 和 MetricsTracker 构建训练全流程的指标监控框架，为后续训练循环中的指标更新、日志记录和性能调优提供参考。</p>
+<h3 id="_13">启动循环训练</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Start offline training on a fixed dataset"</span><span class="p">)</span>
+<span class="c1"># 启动训练循环，从当前 step（初始为 0 或断点续训的步数）迭代至 cfg.steps（配置文件中定义的总训练步数，如 100,000 步）。</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">steps</span><span class="p">):</span>
+    <span class="c1"># 1. 加载数据batch</span>
+    <span class="n">batch</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">dl_iter</span><span class="p">)</span>  <span class="c1"># 从循环迭代器获取batch</span>
+    <span class="n">batch</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)}</span>  <span class="c1"># 数据移至设备</span>
+
+    <span class="c1"># 2. 单步训练（前向传播→损失计算→反向传播→参数更新）</span>
+    <span class="n">train_tracker</span><span class="p">,</span> <span class="n">output_dict</span> <span class="o">=</span> <span class="n">update_policy</span><span class="p">(</span>
+        <span class="n">train_tracker</span><span class="p">,</span>
+        <span class="n">policy</span><span class="p">,</span>
+        <span class="n">batch</span><span class="p">,</span>
+        <span class="n">optimizer</span><span class="p">,</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">grad_clip_norm</span><span class="p">,</span>  <span class="c1"># 梯度裁剪阈值（默认1.0）</span>
+        <span class="n">grad_scaler</span><span class="o">=</span><span class="n">grad_scaler</span><span class="p">,</span>
+        <span class="n">use_amp</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">policy</span><span class="o">.</span><span class="n">use_amp</span><span class="p">,</span>  <span class="c1"># 启用混合精度训练</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 3. 训练状态更新与记录</span>
+    <span class="n">step</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">is_log_step</span><span class="p">:</span>  <span class="c1"># 按log_freq记录训练指标（loss、梯度范数等）</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">train_tracker</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">is_saving_step</span><span class="p">:</span>  <span class="c1"># 按save_freq保存模型checkpoint</span>
+        <span class="n">save_checkpoint</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">cfg</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">lr_scheduler</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">is_eval_step</span><span class="p">:</span>  <span class="c1"># 按eval_freq在环境中评估策略性能</span>
+        <span class="n">eval_info</span> <span class="o">=</span> <span class="n">eval_policy</span><span class="p">(</span><span class="n">eval_env</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">eval</span><span class="o">.</span><span class="n">n_episodes</span><span class="p">)</span>  <span class="c1"># 执行评估</span>
+</code></pre></div>
+<ul>
+<li>update_policy(...)：核心训练函数，实现： -- 前向传播：policy.forward(batch) 计算损失（如动作预测MSE损失+VAE KL散度）。 -- 反向传播：grad_scaler.scale(loss).backward() 缩放损失梯度（混合精度训练）。 -- 梯度裁剪：torch.nn.utils.clip_grad_norm_ 限制梯度范数（防止梯度爆炸）。 -- 参数更新：grad_scaler.step(optimizer) 更新模型参数，optimizer.zero_grad() 清空梯度缓存。</li>
+<li>save_checkpoint(...)：保存模型权重、优化器状态、学习率调度器状态和当前步数，支持断点续训。</li>
+<li>eval_policy(...)：在仿真环境中测试策略性能，计算平均奖励、成功率等指标，并保存评估视频。</li>
+</ul>
+<p>上面代码是train 函数的核心训练循环，负责执行离线训练的完整流程：从数据加载、模型参数更新，到指标记录、模型保存与策略评估。循环以“训练步数”（step）为驱动，从初始步数（0 或断点续训的步数）运行至目标步数（cfg.steps），确保模型充分训练并实时监控性能。</p>
+<p><strong>（1）循环初始化，按步数迭代</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">steps</span><span class="p">):</span>
+</code></pre></div>
+<p>启动训练循环，从当前 step（初始为 0 或断点续训的步数）迭代至 cfg.steps（配置文件中定义的总训练步数，如 100,000 步）。</p>
+<p><strong>（2）数据加载与耗时记录</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+<span class="n">batch</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">dl_iter</span><span class="p">)</span>  <span class="c1"># 从无限迭代器获取批次数据</span>
+<span class="n">train_tracker</span><span class="o">.</span><span class="n">dataloading_s</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>  <span class="c1"># 记录数据加载耗时</span>
+</code></pre></div>
+<ul>
+<li>dl_iter = cycle(dataloader)：cycle 将 DataLoader 转换为无限迭代器，数据集遍历完毕后自动重启，确保训练步数达标（而非受限于数据集大小）。</li>
+<li>dataloading_s 指标：通过 train_tracker 记录单批次加载时间，用于监控数据加载是否成为训练瓶颈（若该值接近模型更新时间 update_s，需优化数据加载）。</li>
+</ul>
+<p><strong>（3）批次数据设备迁移</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">batch</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p>将批次中的张量数据（如图像、动作）异步传输到目标设备（GPU/CPU）。其中non_blocking=True：启用异步数据传输，允许 CPU 在数据传输至 GPU 的同时执行后续计算（如模型前向传播准备），提升硬件利用率。</p>
+<p><strong>（4）模型参数更新</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">train_tracker</span><span class="p">,</span> <span class="n">output_dict</span> <span class="o">=</span> <span class="n">update_policy</span><span class="p">(</span>
+    <span class="n">train_tracker</span><span class="p">,</span>
+    <span class="n">policy</span><span class="p">,</span>
+    <span class="n">batch</span><span class="p">,</span>
+    <span class="n">optimizer</span><span class="p">,</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">grad_clip_norm</span><span class="p">,</span>
+    <span class="n">grad_scaler</span><span class="o">=</span><span class="n">grad_scaler</span><span class="p">,</span>
+    <span class="n">lr_scheduler</span><span class="o">=</span><span class="n">lr_scheduler</span><span class="p">,</span>
+    <span class="n">use_amp</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">policy</span><span class="o">.</span><span class="n">use_amp</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>调用 update_policy 函数执行单次参数更新，流程包括：</p>
+<ul>
+<li>前向传播：计算模型输出和损失（loss = policy.forward(batch)）。</li>
+<li>混合精度训练：通过 torch.autocast 启用低精度计算（若 use_amp=True），加速训练并节省显存。</li>
+<li>反向传播：梯度缩放（grad_scaler.scale(loss).backward()）避免数值下溢，梯度裁剪（clip_grad_norm_）防止梯度爆炸。</li>
+<li>参数更新：优化器.step() 更新参数，学习率调度器.step() 动态调整学习率。</li>
+<li>指标记录：返回更新后的训练指标（loss、梯度范数、学习率等）。</li>
+</ul>
+<p><strong>（5）步数递增与状态跟踪</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">step</span> <span class="o">+=</span> <span class="mi">1</span>  <span class="c1"># 步数递增（在更新后，确保日志/评估对应已完成的更新）</span>
+<span class="n">train_tracker</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>  <span class="c1"># 更新指标跟踪器的当前步数</span>
+</code></pre></div>
+<p>step用于更新当前系统的训练步数，是整个训练过程的基础计算器。train_tracker.step()通知训练指标跟踪器进入新阶段。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">is_log_step</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">log_freq</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">step</span> <span class="o">%</span> <span class="n">cfg</span><span class="o">.</span><span class="n">log_freq</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="n">is_saving_step</span> <span class="o">=</span> <span class="n">step</span> <span class="o">%</span> <span class="n">cfg</span><span class="o">.</span><span class="n">save_freq</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">step</span> <span class="o">==</span> <span class="n">cfg</span><span class="o">.</span><span class="n">steps</span>
+<span class="n">is_eval_step</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">eval_freq</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">step</span> <span class="o">%</span> <span class="n">cfg</span><span class="o">.</span><span class="n">eval_freq</span> <span class="o">==</span> <span class="mi">0</span>
+</code></pre></div>
+<p>通过计算这些标志，用于后续的逻辑控制。</p>
+<ul>
+<li>is_log_step：日志打印标志位，当配置的日志频率（cfg.log_freq）大于0且当前步数是cfg.log_freq 倍数时激活日志的打印。cfg.log_freq是来自用户的命令行参数的配置。默认是200步打印一次。</li>
+<li>is_saving_step：保存标志位，当配置的保存频率相等或是其倍数时激活保存。默认是20000步保存一次。</li>
+<li>is_eval_step：模型评估标志为。默认是20000评估一次。</li>
+</ul>
+<p>标志通过模块化设计实现了训练过程的精细化控制，参数均来自TrainConfig配置类。</p>
+<p><strong>（6）训练指标日志（按频率触发）</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">is_log_step</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">log_freq</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">step</span> <span class="o">%</span> <span class="n">cfg</span><span class="o">.</span><span class="n">log_freq</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="k">if</span> <span class="n">is_log_step</span><span class="p">:</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">train_tracker</span><span class="p">)</span>  <span class="c1"># 控制台打印平均指标（如 loss: 0.523 | grdn: 1.234）</span>
+    <span class="k">if</span> <span class="n">wandb_logger</span><span class="p">:</span>
+        <span class="n">wandb_log_dict</span> <span class="o">=</span> <span class="n">train_tracker</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">output_dict</span><span class="p">:</span>
+            <span class="n">wandb_log_dict</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">output_dict</span><span class="p">)</span>  <span class="c1"># 合并模型输出指标（如策略特定的辅助损失）</span>
+        <span class="n">wandb_logger</span><span class="o">.</span><span class="n">log_dict</span><span class="p">(</span><span class="n">wandb_log_dict</span><span class="p">,</span> <span class="n">step</span><span class="p">)</span>  <span class="c1"># 上传至 WandB</span>
+    <span class="n">train_tracker</span><span class="o">.</span><span class="n">reset_averages</span><span class="p">()</span>  <span class="c1"># 重置平均计数器，准备下一轮统计</span>
+</code></pre></div>
+<p>根据前面计算的is_log_step满足时，默认是200步，则调用logging.info()输出训练的指标，如损失、准确率。如果启动了wandb，则将跟踪器数据转换为字典，合并额外输出（output_dict）后记录到WandB，关联当前步数。最后调用train_tracker.reset_averages() 清除跟踪累计值，为下一周期计数做准备。</p>
+<p><strong>（7）模型 checkpoint 保存（按频率触发）</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">save_checkpoint</span> <span class="ow">and</span> <span class="n">is_saving_step</span><span class="p">:</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Checkpoint policy after step </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">checkpoint_dir</span> <span class="o">=</span> <span class="n">get_step_checkpoint_dir</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">steps</span><span class="p">,</span> <span class="n">step</span><span class="p">)</span>
+    <span class="n">save_checkpoint</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">cfg</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">lr_scheduler</span><span class="p">)</span>  <span class="c1"># 保存模型、优化器、调度器状态</span>
+    <span class="n">update_last_checkpoint</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="p">)</span>  <span class="c1"># 更新 "last" 软链接指向最新 checkpoint</span>
+    <span class="k">if</span> <span class="n">wandb_logger</span><span class="p">:</span>
+        <span class="n">wandb_logger</span><span class="o">.</span><span class="n">log_policy</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="p">)</span>  <span class="c1"># 上传 checkpoint 至 WandB  artifacts</span>
+</code></pre></div>
+<p>默认是启动了save_checkpoint, 每20000步将训练结束的状态进行保存一次，便于支持断点续训和模型版本管理。其中save_checkpoint函数和输出目录结构如下：</p>
+<div class="codehilite"><pre><span></span><code>    <span class="mi">005000</span><span class="o">/</span>  <span class="c1">#  training step at checkpoint</span>
+    <span class="err">├──</span> <span class="n">pretrained_model</span><span class="o">/</span>
+    <span class="err">│</span>   <span class="err">├──</span> <span class="n">config</span><span class="o">.</span><span class="n">json</span>  <span class="c1"># 存储模型架构定义，包括网络层数、隐藏维度、激活函数类型等拓扑结构信息</span>
+    <span class="err">│</span>   <span class="err">├──</span> <span class="n">model</span><span class="o">.</span><span class="n">safetensors</span>  <span class="c1"># 采用SafeTensors格式存储模型权重，包含所有可学习参数的张量数据，具有内存安全和高效加载特性</span>
+    <span class="err">│</span>   <span class="err">└──</span> <span class="n">train_config</span><span class="o">.</span><span class="n">json</span>  <span class="c1"># 序列化的训练配置对象，包含超参数（学习率、批大小）、数据路径、预处理策略等完整训练上下文</span>
+    <span class="err">└──</span> <span class="n">training_state</span><span class="o">/</span>
+        <span class="err">├──</span> <span class="n">optimizer_param_groups</span><span class="o">.</span><span class="n">json</span>  <span class="c1">#  记录参数分组信息，包括不同层的学习率、权重衰减等差异化配置</span>
+        <span class="err">├──</span> <span class="n">optimizer_state</span><span class="o">.</span><span class="n">safetensors</span>  <span class="c1"># 保存优化器动态状态，如Adam的一阶矩（momentum）和二阶矩（variance）估计，SGD的动量缓冲区等</span>
+        <span class="err">├──</span> <span class="n">rng_state</span><span class="o">.</span><span class="n">safetensors</span>  <span class="c1"># 捕获PyTorch全局RNG和CUDA（如使用）的随机数状态，确保恢复训练时数据采样和权重初始化的一致性</span>
+        <span class="err">├──</span> <span class="n">scheduler_state</span><span class="o">.</span><span class="n">json</span>  <span class="c1">#学习率调度器的内部状态，包括当前调度阶段、预热状态、周期信息等</span>
+        <span class="err">└──</span> <span class="n">training_step</span><span class="o">.</span><span class="n">json</span>  <span class="c1">#当前训练迭代次数，用于精确定位训练数据读取位置</span>
+
+<span class="n">pretrained_dir</span> <span class="o">=</span> <span class="n">checkpoint_dir</span> <span class="o">/</span> <span class="n">PRETRAINED_MODEL_DIR</span>
+<span class="n">policy</span><span class="o">.</span><span class="n">save_pretrained</span><span class="p">(</span><span class="n">pretrained_dir</span><span class="p">)</span>  <span class="c1"># 保存模型架构和权重</span>
+<span class="n">cfg</span><span class="o">.</span><span class="n">save_pretrained</span><span class="p">(</span><span class="n">pretrained_dir</span><span class="p">)</span>      <span class="c1"># 保存训练配置</span>
+<span class="n">save_training_state</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">scheduler</span><span class="p">)</span>  <span class="c1"># 保存训练动态状态</span>
+</code></pre></div>
+<p>update_last_checkpoint用于维护一个指向最新检查点目录的符号链接（symlink），在训练过程中跟踪和管理最新的模型检查点。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">update_last_checkpoint</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+    <span class="c1"># 1. 构建符号链接路径：在检查点父目录下创建名为 LAST_CHECKPOINT_LINK 的链接</span>
+    <span class="n">last_checkpoint_dir</span> <span class="o">=</span> <span class="n">checkpoint_dir</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">LAST_CHECKPOINT_LINK</span>
+    <span class="c1"># 2. 如果符号链接已存在，则先删除旧链接</span>
+    <span class="k">if</span> <span class="n">last_checkpoint_dir</span><span class="o">.</span><span class="n">is_symlink</span><span class="p">():</span>
+        <span class="n">last_checkpoint_dir</span><span class="o">.</span><span class="n">unlink</span><span class="p">()</span>
+
+    <span class="c1"># 3. 计算当前检查点目录相对于父目录的相对路径</span>
+    <span class="n">relative_target</span> <span class="o">=</span> <span class="n">checkpoint_dir</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
+
+    <span class="c1"># 4. 创建新的符号链接，指向当前检查点目录</span>
+    <span class="n">last_checkpoint_dir</span><span class="o">.</span><span class="n">symlink_to</span><span class="p">(</span><span class="n">relative_target</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>（8）策略评估（按频率触发）</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">is_eval_step</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">eval_freq</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">step</span> <span class="o">%</span> <span class="n">cfg</span><span class="o">.</span><span class="n">eval_freq</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">env</span> <span class="ow">and</span> <span class="n">is_eval_step</span><span class="p">:</span>
+    <span class="n">step_id</span> <span class="o">=</span> <span class="n">get_step_identifier</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">steps</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Eval policy at step </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">(),</span> <span class="n">torch</span><span class="o">.</span><span class="n">autocast</span><span class="p">(</span><span class="o">...</span><span class="p">)</span> <span class="k">if</span> <span class="n">use_amp</span> <span class="k">else</span> <span class="n">nullcontext</span><span class="p">():</span>
+        <span class="n">eval_info</span> <span class="o">=</span> <span class="n">eval_policy</span><span class="p">(</span><span class="n">eval_env</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">eval</span><span class="o">.</span><span class="n">n_episodes</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>  <span class="c1"># 在环境中执行策略评估</span>
+    <span class="c1"># 记录评估指标（平均奖励、成功率、耗时）并上传至 WandB</span>
+    <span class="n">eval_tracker</span> <span class="o">=</span> <span class="n">MetricsTracker</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+    <span class="n">eval_tracker</span><span class="o">.</span><span class="n">avg_sum_reward</span> <span class="o">=</span> <span class="n">eval_info</span><span class="p">[</span><span class="s2">"aggregated"</span><span class="p">][</span><span class="s2">"avg_sum_reward"</span><span class="p">]</span>
+    <span class="o">...</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">eval_tracker</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">wandb_logger</span><span class="p">:</span>
+        <span class="n">wandb_logger</span><span class="o">.</span><span class="n">log_dict</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+        <span class="n">wandb_logger</span><span class="o">.</span><span class="n">log_video</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># 上传评估视频</span>
+</code></pre></div>
+<p>在强化学习和机器人控制领域，策略评估（Policy Evaluation） 是指在特定环境中系统性测试智能体策略（Policy）性能的过程。它通过执行预设数量的评估回合，收集关键指标（如奖励、成功率、执行时间等），客观衡量策略的实际效果。总结一下就是有以下4个核心作用。</p>
+<ul>
+<li>性能监控：跟踪训练过程中策略性能的变化趋势，判断模型是否收敛或退化</li>
+<li>过拟合检测：通过独立评估集验证策略泛化能力，避免在训练数据上过拟合</li>
+<li>决策依据：基于评估指标决定是否保存模型、调整超参数或终止训练</li>
+<li>行为分析：通过可视化记录（如代码中的评估视频）观察策略执行细节，发现异常行为</li>
+</ul>
+<p>负责在指定训练步骤对策略进行系统性评估，并记录关键指标与可视化结果。代码块实现了周期性策略评估机制，当满足环境配置（cfg.env）和评估步骤标志（is_eval_step）时才会触发。</p>
+<p>按 cfg.eval_freq（这里默认是20000步）在环境中评估策略性能，核心功能：</p>
+<ul>
+<li>无梯度推理：torch.no_grad() 禁用梯度计算，节省显存并加速评估。</li>
+<li>指标计算：通过 eval_policy 获取平均奖励（avg_sum_reward）、成功率（pc_success）等关键指标。</li>
+<li>可视化：保存评估视频（如机器人执行任务的轨迹）并上传至 WandB，直观观察策略行为。</li>
+</ul>
+<h2 id="_14">训练更新</h2>
+<h3 id="_15">训练环境准备</h3>
+<div class="codehilite"><pre><span></span><code>    <span class="n">device</span> <span class="o">=</span> <span class="n">get_device_from_parameters</span><span class="p">(</span><span class="n">policy</span><span class="p">)</span>
+    <span class="n">policy</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">autocast</span><span class="p">(</span><span class="n">device_type</span><span class="o">=</span><span class="n">device</span><span class="o">.</span><span class="n">type</span><span class="p">)</span> <span class="k">if</span> <span class="n">use_amp</span> <span class="k">else</span> <span class="n">nullcontext</span><span class="p">():</span>
+        <span class="n">loss</span><span class="p">,</span> <span class="n">output_dict</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</code></pre></div>
+<p>先调用get_device_from_parameters从模型参数自动推断当前计算设备，确保后续张量操作与模型参数在同医社保上，避免跨设备数据传输错误。</p>
+<p>接着调用policy.train()将模型切换为训练模式，主要是启动dropout层随机失活功能，激活BatchNormalization层的移动平均统计更新等，与评估模式区别推理时需要调用policy.eval()。</p>
+<p>最后使用了with预计用于创建一个上下文管理器，在进入代码块是调用管理器<strong>enter</strong>()方法，退出时调用<strong>exit</strong>()方法，这种机制确保资源被正确获取和释放或在特定上下文中执行代码，其代码等价于如下。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">use_amp</span><span class="p">:</span>
+    <span class="n">context_manager</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autocast</span><span class="p">(</span><span class="n">device_type</span><span class="o">=</span><span class="n">device</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">context_manager</span> <span class="o">=</span> <span class="n">nullcontext</span><span class="p">()</span>
+<span class="k">with</span> <span class="n">context_manager</span><span class="p">:</span>
+    <span class="n">loss</span><span class="p">,</span> <span class="n">output_dict</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</code></pre></div>
+<p>也就是当条件激活use_amp启用混合精度训练，否则使用空上下文，torch.autocast会动态选择最优精度，对数值稳定性要求高的操作保留FP32。</p>
+<p>最后就是调用loss, output_dict = policy.forward(batch)这是模型前向计算的核心函数，返回的是损失值和输出字典。</p>
+<p>batch包含的是训练数据（图像、关节动作等），policy.forward()处理输入并生成预测值并计算与真实值的差距loss，然后loss将用于后续梯队的计算。</p>
+<p>这里在总结一下什么是混合精度训练？</p>
+<p>混合精度训练（Mixed Precision Training）主要指 FP16（半精度浮点数）与 FP32（单精度浮点数）的混合使用。</p>
+<ul>
+<li>FP16：用于模型前向/反向传播的计算（如矩阵乘法、激活函数等），占用内存少（仅为 FP32 的一半），且支持 GPU 硬件加速（如 NVIDIA Tensor Cores）。</li>
+<li>FP32：用于存储模型参数、梯度和优化器状态，避免低精度导致的数值精度损失（如梯度下溢、参数更新不稳定）。</li>
+</ul>
+<p>默认是使用F32精度进行，因为使用低精度FP16可以加速训练速度（计算量小，可以并发更多数据）、降低内存（仅占用FP32一半的内存）等好处，所以代码中如果use_amp=True，将启动混合精度训练。但是低精度也有个坏处就是数值精度会损失导致梯度为0参数不稳定，但是可以通过GradScaler进行放大loss进而放大梯度，反向传播计算完了之后再反缩放回来，确保梯度进行不丢失。</p>
+<h3 id="_16">梯队计算</h3>
+<div class="codehilite"><pre><span></span><code>    <span class="n">grad_scaler</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="n">grad_scaler</span><span class="o">.</span><span class="n">unscale_</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
+    <span class="n">grad_norm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">clip_grad_norm_</span><span class="p">(</span>
+        <span class="n">policy</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span>
+        <span class="n">grad_clip_norm</span><span class="p">,</span>
+        <span class="n">error_if_nonfinite</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p>这段代码是训练处理计算梯队的核心流程，主要就是用于计算梯队。</p>
+<p>首先grad_scaler.scale(loss).backward()是将损失放大然后间接放大梯队，grad_scaler 是 PyTorch 的 GradScaler 实例，用于自动混合精度训练中管理梯度缩放，scale(loss)将损失值放大scaler倍（通常是2^n），避免梯度在反向传播中因数值过小而下溢为0。在混合精度训练（如使用 FP16）时，小梯度可能因数值精度不足而“下溢”（变为 0）。通过 scale(loss) 将损失值放大（例如放大 2^k 倍），反向传播时梯度也会同步放大，避免梯度下溢。最后backward()触发反向传播，计算所有可训练参数的梯度（此时梯度已被放大）。</p>
+<p>其次再调用grad_scaler.unscale_(optimizer)将放大的梯度恢复到原始尺寸，由于损失被放大，方向传播的梯队也被同等放大，使用unscale_对所有参数梯度执行反缩放，相当于处于scaler。</p>
+<p>最后是调用 torch.nn.utils.clip_grad_norm_执行梯度裁剪（Gradient Clipping），限制梯度的 L2 范数，防止梯度爆炸。其返回结果grad_norm是一个标量float，表示 梯度裁剪后所有参数梯度的总 L2 范数。</p>
+<p>总结一下，段代码是混合精度训练中梯度处理的标准流程，解决了两个核心问题。</p>
+<ul>
+<li>数值精度问题：通过 scale(loss) 和 unscale_(optimizer) 确保小梯度在低精度（如 FP16）下不丢失，同时恢复梯度原始范围用于后续优化。</li>
+<li>梯度爆炸问题：通过 clip_grad_norm_ 限制梯度大小，避免过大梯度导致参数更新不稳定（例如权重跳变、Loss 震荡）。</li>
+</ul>
+<p>但需要注意的是，如果没有启动混合精度grad_scaler.scale(loss)和grad_scaler.unscale_(optimizer)没有缩放和反缩放作用，但梯队采集逻辑正常运作。为启动混合精度时整个流程与标准 FP32 训练完全一致，grad_scaler 相关操作因「禁用状态」而自动失效，不会引入额外计算开销。</p>
+<h3 id="_17">参数优化与更新</h3>
+<div class="codehilite"><pre><span></span><code>    <span class="k">with</span> <span class="n">lock</span> <span class="k">if</span> <span class="n">lock</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">nullcontext</span><span class="p">():</span>
+        <span class="n">grad_scaler</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
+    <span class="n">grad_scaler</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+    <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">lr_scheduler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">lr_scheduler</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</code></pre></div>
+<p>先试用with lock条件性启动线程锁，确保参数更新的线程安全。</p>
+<p>grad_scaler.step(optimizer)执行参数更新，为了下一次重新计算损失。</p>
+<p>接着调用grad_scaler.update()动态调整梯度的缩放因子，主要是自动平衡FP16的数值范围限制，在避免梯度下溢和溢出之间找到最优缩放比例。</p>
+<p>最后就是调用optimizer.zero_grad()清除优化器中所有参数梯度缓存，因为Pytorch梯队计算默认都是累积模式（param.grad会累加），需要手动清零与loss.backward()配对，形成成"清零→前向→反向→更新→清零"的完整循环。</p>
+<p>lr_scheduler.step()是按照批次更新学习率，可以使用循环学习率、余弦退化调度以及梯队的自适应调度等策略。</p>
+<p>对于训练的闭环可以看成：scale(loss)→backward()→unscale_()→clip_grad_norm_()→step()→update()形成完整的混合精度训练流程，解决FP16数值范围限制问题。</p>
+<p>最后update_policy返回的是train_metrics和output_dict。前者是传递给日志系统（如TensorBoard/WandB）进行可视化，后者是包含模型前向传播的详细输出（如预测值、中间特征），可用于后续分析</p>
+<h3 id="_18">训练状态维护</h3>
+<div class="codehilite"><pre><span></span><code>    <span class="k">if</span> <span class="n">has_method</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span> <span class="s2">"update"</span><span class="p">):</span>
+        <span class="n">policy</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+    <span class="n">train_metrics</span><span class="o">.</span><span class="n">loss</span> <span class="o">=</span> <span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="n">train_metrics</span><span class="o">.</span><span class="n">grad_norm</span> <span class="o">=</span> <span class="n">grad_norm</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="n">train_metrics</span><span class="o">.</span><span class="n">lr</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">param_groups</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">"lr"</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">train_metrics</span><span class="p">,</span> <span class="n">output_dict</span>
+</code></pre></div>
+<p>如果policy有update的方法，则调用进行更新，这里主要是做兼容性设计。</p>
+<p>最后train_metrics主要是记录量化训练过程中的关键特征，为监控、调试和优化提供数据支撑。</p>
+<h2 id="_19">训练收尾</h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 训练结束后清理</span>
+<span class="k">if</span> <span class="n">eval_env</span><span class="p">:</span>
+    <span class="n">eval_env</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>  <span class="c1"># 关闭评估环境（释放资源）</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"End of training"</span><span class="p">)</span>
+
+<span class="c1"># 推送模型至HuggingFace Hub（若启用）</span>
+<span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">policy</span><span class="o">.</span><span class="n">push_to_hub</span><span class="p">:</span>
+    <span class="n">policy</span><span class="o">.</span><span class="n">push_model_to_hub</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>  <span class="c1"># 保存模型配置、权重至Hub，支持后续部署</span>
+</code></pre></div>
+<ul>
+<li>eval_env.close()：关闭仿真环境（如Gym/DM Control），释放显存和CPU资源。</li>
+<li>policy.push_model_to_hub(cfg)：将训练好的模型（权重+配置）推送至HuggingFace Hub，支持跨设备共享和部署。</li>
+</ul>
+<h2 id="_20">总结</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_7077df4feaf6c6704d392f459123e847.jpg"><img alt="" src="/assets/doc/04-ai/lerobot/lerobot训练/images/wp_editor_md_7077df4feaf6c6704d392f459123e847.jpg"/></a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/lerobot学习率调度器.html">← lerobot学习率调度器</a>
+    <a class="next" href="/lerobot录制.html">lerobot录制 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>进程创建 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">进程创建</a><ul></ul></li><li><a href="#_2">写时复制</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>进程创建</h1>
+  <div class="meta">2023-03-19 · linux</div>
+  <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8eb9f02bb6ced6af4038bd27cef6a33d.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/2-进程创建/images/wp_editor_md_8eb9f02bb6ced6af4038bd27cef6a33d.jpg"/></a></p>
+<ul>
+<li>fork创建了一个新的进程，也就是fork执行后就会返回两次，分别是父进程返回和子进程返回。</li>
+<li>exec可以加载新的程序运行（原程序是A，可以在A中运行后加载可执行程序B，B是A的子进程）。而如果没有exec，A程序执行fork后，仅只是将fork之后的代码复制了一份。exec最早是为了实现shell而涉及的，目的是能够A程序启动B程序后，可以改变进程的环境变量实现如 ps &gt; 1.txt这种处理。</li>
+<li>父进程可以调用wait来等待子进程退出，子进程结束后会销毁其使用的资源，但是会保留task_struct+栈空间（一般累计4K或8K大小），这块空间子进程不能销毁，只能等父进程使用wait来进行销毁。如果父进程没有wait来销毁这块内存，子进程就会变成僵尸进程。如果父进程没有调用wait而先于子进程结束，那么init进程会收留这个子进程，调用wait进行销毁掉。</li>
+<li>进程终止一是自愿终止包括显式调用exit()系统调用或者从某个程序主函数返回；另外一个式被动收到终止信号或者异常终止。进程主动终止：在main函数中返回，链接程序会自动添加exit系统调用或主动调用exit函数两种方式。进程被动终止：进程收到一个自己不能处理的信号、进程在内核态执行时产生异常、进程收到SIGKILL等终止信号。</li>
+</ul>
+<h2 id="_1">进程创建</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_deeef361806a15721a119e12b5d80d8e.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/2-进程创建/images/wp_editor_md_deeef361806a15721a119e12b5d80d8e.jpg"/></a></p>
+<p>Linux系统中，创建进程用户空间一般有3个函数，fork、vfork、clone，3个函数最终调用的是kernel_clone（旧一点的内核版本调用_do_fork）。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ba6a48f146fca96622ceef6b176afb34.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/2-进程创建/images/wp_editor_md_ba6a48f146fca96622ceef6b176afb34.jpg"/></a></p>
+<ul>
+<li>fork：子进程是父进程的翻版，完成复制了一份栈、数据段、堆、文件等等。在操作系统中使用写时复制的技术，当fork一个进程后，父子进程是共享一份系统资源的，当父进程或子进程有任一进程有写操作时，就会触发缺页异常复制一份属于自己的一份资源，从此父子进程的这类资源无任何关系。</li>
+<li>vfork：fork和vfork函数类似，vfork的父进程会一直阻塞，直到子进程调用exit或者execve为止。vfork比fork实现多了两个标志位，分别是CLONE_VFORK和CLONE_VM。CLONE_VFORK会让父进程被挂起，直到子进程释放虚拟内存资源，CLONE_VM表示父子进程执行在相同的进程地址空间中。vfork与fork的区别是，父子进程是共享内存空间的，也就是说子进程修改了内存，父进程也会受影响。同时父进程需要等待子进程运行结束才能运行。vfork最初的设计是系统没有MMU而设计的，没法实现COW机制。</li>
+<li>clone：Clone通常用于创建用线程，在linux系统中没有专门的线程，而是把线程当成普通进程来看待，在内核中还是以task_struct数据结构来描述线程，并没有使用特殊的数据结构或者调度算法来描述线程。Clone函数功能强调，可以传递众多参数，可以有选择性的继承父进程的资源（共享使用），如可以和vfork一样，与父进程共享一个进程地址空间，从而创建线程，也可以不和父进程共享进程地址空间，甚至可以创建兄弟关系进程。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_4fadba16f150116d17e1c3543728f173.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/2-进程创建/images/wp_editor_md_4fadba16f150116d17e1c3543728f173.jpg"/></a></p>
+<h2 id="_2">写时复制</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_2df6847736eb1b73b7830ccdd234ec0e.jpg"><img alt="" src="/assets/doc/01-linux/进程调度/2-进程创建/images/wp_editor_md_2df6847736eb1b73b7830ccdd234ec0e.jpg"/></a></p>
+<p>子进程在被创建后，父子进程是共享所有资源的，当父进程或子进程任一进程先触发写操作，触发写保护缺页异常，然后复制一份页面内容。Linux使用写时复制技术使得创建新进程的开销变得很小，免去了复制父进程整个进程地址空间中的内容避免巨大开销，只需要复制父进程页表的一点开销。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/进程调度简介.html">← 进程调度简介</a>
+    <a class="next" href="/markdown使用说明.html">markdown使用说明 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

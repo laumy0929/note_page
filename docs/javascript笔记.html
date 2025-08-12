@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Javascript笔记 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#js">JS</a><ul><li><a href="#js_1">JS简介</a></li><li><a href="#js_4">JS函数</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>Javascript笔记</h1>
+  <div class="meta">2024-03-17 · 语言</div>
+  <div class="post-content"><h2 id="js">JS</h2>
+<h3 id="js_1">JS简介</h3>
+<h4 id="js_2">JS实现网页交互过程</h4>
+<div class="codehilite"><pre><span></span><code>javascript：
+1.让用户和网页进行交互
+<span class="w">    </span>网站登录功能，
+<span class="w">    </span>点击，弹出一个按钮
+<span class="w">    </span>滚动加载
+<span class="w">    </span>返回底部
+
+2.交互三要素
+<span class="w">    </span>目标：网页中的那些html元素
+<span class="w">    </span>事件：触发了什么事件
+<span class="w">    </span>事件处理程序：针对事件要做什么要的动作
+<span class="nt">&lt;body&gt;</span>
+<span class="w">    </span><span class="nt">&lt;button</span><span class="w"> </span><span class="na">id=</span><span class="s">\"chsize\"</span><span class="nt">&gt;</span>
+<span class="w">        </span>增大字体
+<span class="w">    </span><span class="nt">&lt;/button&gt;</span>
+
+<span class="w">    </span><span class="nt">&lt;script&gt;</span>
+<span class="w">        </span>document.querySelector(\"#chsize\").addEventListener(\'click\',function(e))<span class="w"> </span>{
+<span class="w">            </span>alert(\"按钮被单击了\")
+<span class="w">            </span>document.querySelect(\'body\').style.fontSize<span class="w"> </span>=<span class="w"> </span>\'30px\';
+<span class="w">                                                           </span>/*具体的事件处理程序*/
+<span class="w">        </span>}
+<span class="w">    </span><span class="nt">&lt;/script&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+</code></pre></div>
+<h4 id="js_3">JS脚本引入方式</h4>
+<div class="codehilite"><pre><span></span><code>1.内敛脚本
+<span class="w"> </span><span class="nt">&lt;button</span><span class="w"> </span><span class="na">onclik=</span><span class="s">\"alert(\'我被点击了\');\"</span><span class="nt">&gt;</span>
+
+<span class="nt">&lt;/button&gt;</span>
+2.内部脚本
+<span class="w">  </span>如十三章节事例
+3.外部脚本
+<span class="w">    </span>创建一个xxx.js
+<span class="w">    </span><span class="nt">&lt;script</span><span class="w"> </span><span class="na">src=</span><span class="s">\"xxxx/xxx.js\"</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;/script&gt;</span>
+<span class="w">    </span>脚本的引用可以放在任意位置
+<span class="w">    </span>为了效率一般情况下放在<span class="nt">&lt;/body&gt;</span>的上方
+</code></pre></div>
+<p>访问网页最终得到什么</p>
+<ul>
+<li>网页开发者模式：网络面板</li>
+<li>network-&gt;response可以看源码</li>
+</ul>
+<p>静态网页、资源和动态网页区别</p>
+<ul>
+<li>静态网页、资源：网页的内容直接展示，文字、图片，脚本</li>
+<li>动态网页：先执行，才会得到结果。</li>
+</ul>
+<p>参考：https://liaoxuefeng.com/books/javascript/introduction/index.html</p>
+<h3 id="js_4">JS函数</h3>
+<h4 id="_1">普通函数</h4>
+<div class="codehilite"><pre><span></span><code><span class="nv">function</span><span class="w"> </span><span class="nv">add</span><span class="ss">(</span><span class="nv">num1</span>,<span class="w"> </span><span class="nv">num2</span><span class="ss">)</span><span class="w"> </span>{
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nv">num1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nv">num2</span><span class="c1">;</span>
+}
+</code></pre></div>
+<p>通过 function 关键字进行定义，有返回值，与C语言相比，省略的变量的类型。</p>
+<h4 id="_2">匿名函数</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">var</span><span class="w"> </span><span class="n">add</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">function</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">//</span><span class="w"> </span><span class="err">调用匿名函数</span>
+<span class="n">console</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">add</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">));</span><span class="w">  </span><span class="o">//</span><span class="w"> </span><span class="err">输出</span><span class="w"> </span><span class="mi">5</span>
+</code></pre></div>
+<p>匿名函数是指没有名称的函数。它通常用于用作回调函数或立即调用函数表达式（IIFE）等场景。匿名函数是JavaScript中的常见编程模式，其目的是不污染全局命名空间的情况下定义和使用函数。</p>
+<h4 id="_3">自调用函数</h4>
+<p>自调用函数实际是匿名函数的变体，即匿名函数立即调用执行。</p>
+<div class="codehilite"><pre><span></span><code>(function() {
+  // 这里是函数体
+})();
+</code></pre></div>
+<p>定义了一个函数并且会立即调用它执行，没有函数名称，它仍然可以执行其所需的操作。</p>
+<p>匿名函数被圆括号包裹起来，紧接着又跟上一个空的圆括号，这样就创建了一个立即执行的函数。如果我们需要在函数内部传入参数，可以在定义函数时给它传入参数：</p>
+<div class="codehilite"><pre><span></span><code>(function(x, y) {
+  console.log(x + y);
+})(2, 3); // 输出5
+</code></pre></div>
+<p>自调用函数适用于需要在定义时就立即执行而不保存函数引用的场合。它可以被用于命名空间以及防止变量污染等编程模式中。</p>
+<h4 id="_4">箭头函数</h4>
+<p>简写函数表达式的语法形式，在匿名函数的基础上，把function也去掉了，它的语法形式如下，</p>
+<div class="codehilite"><pre><span></span><code>(argument1, argument2, …, argumentN) =&gt; { 
+  // 函数体 
+}
+</code></pre></div>
+<p>特点如下：</p>
+<ul>
+<li>简写语法：省略了function关键字，使用箭头“=&gt;”来代替。</li>
+<li>省略return关键字：如果函数体只有一行语句，则可以省略花括号和return关键字，直接返回这一行语句的结果。</li>
+<li>this绑定：箭头函数中的“this”指向的是定义时所在的对象，而不是调用时的对象。</li>
+</ul>
+<p>下面</p>
+<div class="codehilite"><pre><span></span><code><span class="o">//</span><span class="w"> </span><span class="err">传统函数声明</span>
+<span class="n">function</span><span class="w"> </span><span class="n">foo</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="o">//</span><span class="w"> </span><span class="err">箭头函数</span>
+<span class="k">const</span><span class="w"> </span><span class="n">bar</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="o">//</span><span class="w"> </span><span class="err">简写语法</span>
+<span class="k">const</span><span class="w"> </span><span class="n">baz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="p">;</span>
+
+<span class="o">//</span><span class="w"> </span><span class="n">this绑定的示例</span>
+<span class="k">const</span><span class="w"> </span><span class="n">person</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">name</span><span class="p">:</span><span class="w"> </span>\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\<span class="s1">'Alice</span><span class="se">\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'</span><span class="s1">,</span>
+<span class="w">  </span><span class="n">sayHello</span><span class="p">:</span><span class="w"> </span><span class="n">function</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">console</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="err">`</span><span class="n">Hello</span><span class="p">,</span><span class="w"> </span><span class="n">my</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="o">$</span><span class="p">{</span><span class="n">this</span><span class="o">.</span><span class="n">name</span><span class="p">}</span><span class="err">`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="n">sayBye</span><span class="p">:</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">console</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="err">`</span><span class="n">Bye</span><span class="p">,</span><span class="w"> </span><span class="n">my</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="o">$</span><span class="p">{</span><span class="n">this</span><span class="o">.</span><span class="n">name</span><span class="p">}</span><span class="err">`</span><span class="p">);</span><span class="w"> </span><span class="o">//</span><span class="err">没有</span><span class="n">this关键词</span><span class="err">，</span><span class="n">name无效</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="n">person</span><span class="o">.</span><span class="n">sayHello</span><span class="p">();</span><span class="w"> </span><span class="o">//</span><span class="w"> </span><span class="err">输出：</span><span class="n">Hello</span><span class="p">,</span><span class="w"> </span><span class="n">my</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">Alice</span>
+<span class="n">person</span><span class="o">.</span><span class="n">sayBye</span><span class="p">();</span><span class="w"> </span><span class="o">//</span><span class="w"> </span><span class="err">输出：</span><span class="n">Bye</span><span class="p">,</span><span class="w"> </span><span class="n">my</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">undefined</span>
+</code></pre></div>
+<h4 id="_5">回调函数</h4>
+<p>回调函数是作为参数传递给另一个函数的函数。当这个外部函数执行到某个特定阶段或满足某种条件时，就会调用（执行）这个作为参数的函数。简单来说，回调函数就是把函数当作一个变量一样传递给其他函数，让其他函数来决定何时执行它。 事件处理是回调函数的常见应用。例如，当用户点击一个按钮时，我们可以通过回调函数来定义点击按钮后要执行的操作。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">const</span><span class="w"> </span><span class="n">button</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span>\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\<span class="s1">'myButton</span><span class="se">\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'</span><span class="s1">);</span>
+
+<span class="o">//</span><span class="w"> </span><span class="err">定义一个回调函数，用于处理按钮点击事件</span>
+<span class="n">function</span><span class="w"> </span><span class="n">handleClick</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">console</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\<span class="s1">'按钮被点击啦，这是通过赋值方式使用的回调函数在起作用哦！</span><span class="se">\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'</span><span class="s1">);</span>
+<span class="p">}</span>
+
+<span class="o">//</span><span class="w"> </span><span class="err">通过赋值的方式，将回调函数绑定到按钮的</span><span class="n">onclick属性上</span>
+<span class="n">button</span><span class="o">.</span><span class="n">onclick</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">handleClick</span><span class="p">;</span>
+</code></pre></div>
+<ul>
+<li>首先，通过 document.getElementById(\'myButton\') 获取到页面中 id 为 myButton 的按钮元素，并将其赋值给变量 button。</li>
+<li>接着，定义了一个名为 handleClick 的函数，这个函数就是回调函数，其内部代码实现了当按钮被点击时要执行的具体逻辑，在这里只是简单地在控制台输出一段提示信息。</li>
+<li>最后，通过 button.onclick = handleClick 这种赋值的方式，将 handleClick 函数赋值给按钮的 onclick 属性。当用户点击这个按钮时，浏览器就会自动调用 handleClick 函数，从而执行函数内部定义的代码，实现了基于回调函数的事件处理。</li>
+</ul>
+<p>上面的方式还可以进行简写，直接使用箭头函数，函数名也省掉了。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">const</span><span class="w"> </span><span class="n">button</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span>\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\<span class="s1">'myButton</span><span class="se">\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'</span><span class="s1">);</span>
+
+<span class="o">//</span><span class="w"> </span><span class="err">直接使用箭头函数表达式赋值给按钮的</span><span class="n">onclick属性</span><span class="err">，省略函数名</span>
+<span class="n">button</span><span class="o">.</span><span class="n">onclick</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">console</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\<span class="s1">'按钮被点击啦，直接使用箭头函数表达式作为回调函数在起作用哦！</span><span class="se">\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'</span><span class="s1">);</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>回调函数常用语事件处理。而且常与匿名函数、箭头函数一起配合。匿名函数和箭头函数可以省略掉返回值。</p>
+<h4 id="_6">嵌套函数</h4>
+<p>JS嵌套函数指在一个函数内部定义一个或多个函数。这些内部函数可以被外部函数调用，也可以在内部函数内部再次定义其它函数。</p>
+<div class="codehilite"><pre><span></span><code>function outer() {
+  console.log(\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'outer function\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\');
+
+  function inner1() {
+    console.log(\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'inner1 function\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\');
+  }
+  function inner2() {
+    console.log(\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'inner2 function\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\');
+  }
+
+  inner1();
+  inner2();
+}
+
+// 调用外部函数
+outer();
+</code></pre></div>
+<p>上面的代码中，定义了一个外部函数outer()，在其中定义了两个内部函数inner1()和inner2()。在outer()被调用时，内部函数inner1()和inner2()也被调用。内部函数可以访问外部函数的变量和参数，而外部函数不能访问内部函数的变量。通过嵌套函数，可以有效地组织代码，并使代码更易于阅读和维护。</p>
+<h4 id="_7">高阶函数</h4>
+<p>函数就可以接收另一个函数作为参数，这种函数就称之为高阶函数，如下所示add函数中，接收了f函数作为参数。</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">function</span><span class="w"> </span><span class="nv">add</span><span class="ss">(</span><span class="nv">x</span>,<span class="w"> </span><span class="nv">y</span>,<span class="w"> </span><span class="nv">f</span><span class="ss">)</span><span class="w"> </span>{
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nv">f</span><span class="ss">(</span><span class="nv">x</span><span class="ss">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nv">f</span><span class="ss">(</span><span class="nv">y</span><span class="ss">)</span><span class="c1">;</span>
+}
+</code></pre></div>
+<p>调用add(-5, 6, Math.abs)时，参数x，y和f分别接收-5，6和函数Math.abs，根据函数定义，可以推导计算过程为：</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="mi">5</span><span class="c1">;</span>
+<span class="nv">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="c1">;</span>
+<span class="nv">f</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">Math</span>.<span class="nv">abs</span><span class="c1">;</span>
+<span class="nv">f</span><span class="ss">(</span><span class="nv">x</span><span class="ss">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nv">f</span><span class="ss">(</span><span class="nv">y</span><span class="ss">)</span><span class="w"> </span><span class="o">==&gt;</span><span class="w"> </span><span class="nv">Math</span>.<span class="nv">abs</span><span class="ss">(</span><span class="o">-</span><span class="mi">5</span><span class="ss">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nv">Math</span>.<span class="nv">abs</span><span class="ss">(</span><span class="mi">6</span><span class="ss">)</span><span class="w"> </span><span class="o">==&gt;</span><span class="w"> </span><span class="mi">11</span><span class="c1">;</span>
+<span class="k">return</span><span class="w"> </span><span class="mi">11</span><span class="c1">;</span>
+</code></pre></div>
+<h4 id="_8">闭包</h4>
+<p>高阶函数除了可以接受函数作为参数外，还可以把函数作为结果值返回。</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">function</span><span class="w"> </span><span class="nv">outerFunction</span><span class="ss">()</span><span class="w"> </span>{
+<span class="w">  </span><span class="nv">let</span><span class="w"> </span><span class="nv">counter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="c1">;</span>
+
+<span class="w">  </span><span class="nv">function</span><span class="w"> </span><span class="nv">innerFunction</span><span class="ss">()</span><span class="w"> </span>{
+<span class="w">    </span><span class="nv">counter</span><span class="o">++</span><span class="c1">;</span>
+<span class="w">    </span><span class="nv">console</span>.<span class="nv">log</span><span class="ss">(</span><span class="nv">counter</span><span class="ss">)</span><span class="c1">;</span>
+<span class="w">  </span>}
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nv">innerFunction</span><span class="c1">;</span>
+}
+
+<span class="nv">let</span><span class="w"> </span><span class="nv">increment</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">outerFunction</span><span class="ss">()</span><span class="c1">; //将innerFunction作为函数值返回赋值为increment。</span>
+
+<span class="nv">increment</span><span class="ss">()</span><span class="c1">; // 输出 1</span>
+<span class="nv">increment</span><span class="ss">()</span><span class="c1">; // 输出 2</span>
+<span class="nv">increment</span><span class="ss">()</span><span class="c1">; // 输出 3</span>
+</code></pre></div>
+<p>参考：</p>
+<ol>
+<li>https://blog.csdn.net/weixin_65789931/article/details/132697866</li>
+<li>https://liaoxuefeng.com/books/javascript/function/closure/index.html</li>
+</ol></div>
+  <div class="post-nav">
+    <a class="prev" href="/html-css学习随记.html">← HTML+CSS学习随记</a>
+    <a class="next" href="/环境搭建.html">环境搭建 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

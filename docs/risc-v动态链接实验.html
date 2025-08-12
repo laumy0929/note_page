@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RISC-V动态链接实验 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">准备</a><ul><li><a href="#_2">实验环境</a></li><li><a href="#_3">代码</a></li><li><a href="#_4">编译</a></li><li><a href="#qemu-gdb">qemu gdb</a></li></ul></li><li><a href="#plt">第一次跳转到PLT表</a><ul></ul></li><li><a href="#procedure-linkage-table">procedure linkage table</a><ul></ul></li><li><a href="#swap">再次调用swap函数</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>RISC-V动态链接实验</h1>
+  <div class="meta">2024-05-18 · risc-v</div>
+  <div class="post-content"><h2 id="_1">准备</h2>
+<h3 id="_2">实验环境</h3>
+<p>qemu linux启动环境： <a href="https://www.laumy.tech/1186.html">https://www.laumy.tech/1186.html</a></p>
+<h3 id="_3">代码</h3>
+<p>动态库</p>
+<div class="codehilite"><pre><span></span><code><span class="w"> </span><span class="n">cat</span><span class="w"> </span><span class="n">swap</span><span class="p">.</span><span class="n">c</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdio.h&gt;</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">shared</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">z</span><span class="p">;</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">swap</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="o">*</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="o">*</span><span class="n">b</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="n">printf</span><span class="p">(</span><span class="s">"%s,%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">);</span>
+<span class="w">        </span><span class="o">*</span><span class="n">a</span><span class="w"> </span><span class="o">^=</span><span class="w"> </span><span class="o">*</span><span class="n">b</span><span class="w"> </span><span class="o">^=</span><span class="w"> </span><span class="o">*</span><span class="n">a</span><span class="w"> </span><span class="o">^=</span><span class="w"> </span><span class="o">*</span><span class="n">b</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>主程序</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdio.h&gt;</span>
+<span class="k">extern</span><span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">shared</span><span class="p">;</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">s</span><span class="p">;</span>
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">100</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">200</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">300</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">swap</span><span class="p">(</span><span class="o">&amp;</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">shared</span><span class="p">);</span>
+<span class="w">        </span><span class="n">printf</span><span class="p">(</span><span class="s">"a:%d,b:%d,c:%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">,</span><span class="n">c</span><span class="p">);</span>
+<span class="w">        </span><span class="n">sleep</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span>
+<span class="w">        </span><span class="n">swap</span><span class="p">(</span><span class="o">&amp;</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">b</span><span class="p">);</span>
+<span class="w">        </span><span class="n">printf</span><span class="p">(</span><span class="s">"a:%d,b:%d,c:%d</span><span class="se">\\</span><span class="s">n"</span><span class="p">,</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">,</span><span class="n">c</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="_4">编译</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">生成动态库</span><span class="err">：</span><span class="n">riscv64</span><span class="o">-</span><span class="n">unknown</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnu</span><span class="o">-</span><span class="n">gcc</span><span class="w"> </span><span class="o">-</span><span class="n">g</span><span class="w"> </span><span class="o">-</span><span class="n">fPIC</span><span class="w"> </span><span class="o">-</span><span class="n">shared</span><span class="w"> </span><span class="n">swap</span><span class="p">.</span><span class="n">c</span><span class="w"> </span><span class="o">-</span><span class="n">o</span><span class="w"> </span><span class="n">libswap</span><span class="p">.</span><span class="n">so</span>
+<span class="n">生成可执行程序</span><span class="err">：</span><span class="n">riscv64</span><span class="o">-</span><span class="n">unknown</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnu</span><span class="o">-</span><span class="n">gcc</span><span class="w"> </span><span class="o">-</span><span class="n">g</span><span class="w"> </span><span class="n">main</span><span class="p">.</span><span class="n">c</span><span class="w"> </span><span class="p">.</span><span class="o">/</span><span class="n">libswap</span><span class="p">.</span><span class="n">so</span>
+</code></pre></div>
+<p>将生成的可执行程序通过通过mount方式挂载到qemu linux中。</p>
+<h3 id="qemu-gdb">qemu gdb</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">启动gdb</span><span class="err">：</span><span class="w"> </span><span class="n">riscv64</span><span class="o">-</span><span class="n">unknown</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnu</span><span class="o">-</span><span class="n">gdb</span>
+<span class="n">连接</span><span class="err">：</span><span class="w"> </span><span class="n">target</span><span class="w"> </span><span class="n">remote</span><span class="err">：</span><span class="mi">1234</span>
+<span class="n">加载符号</span><span class="err">：</span><span class="n">file</span><span class="w"> </span><span class="n">xxx</span><span class="o">/</span><span class="n">a</span><span class="p">.</span><span class="n">out</span>
+<span class="n">打断点</span><span class="err">：</span><span class="n">b</span><span class="w"> </span><span class="n">main</span>
+<span class="n">执行显示信息</span><span class="err">：（</span><span class="n">可实现在gdbinit中写好</span><span class="err">）</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$ra</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$sp</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$s0</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$s1</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$s2</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$s3</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$s4</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$s5</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a0</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a1</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a2</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a3</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a4</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a5</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a6</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a7</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$t0</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$t1</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$t2</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$t3</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$t4</span>
+<span class="w">    </span><span class="n">display</span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$t5</span>
+<span class="w">    </span><span class="n">set</span><span class="w"> </span><span class="n">disassemble</span><span class="o">-</span><span class="n">next</span><span class="o">-</span><span class="n">line</span><span class="w"> </span><span class="n">on</span>
+<span class="n">在qemu</span><span class="w"> </span><span class="n">linux中</span><span class="err">：</span><span class="p">.</span><span class="o">/</span><span class="n">a</span><span class="p">.</span><span class="n">out</span>
+</code></pre></div>
+<h2 id="plt">第一次跳转到PLT表</h2>
+<p>准备跳转到swap@plt表</p>
+<div class="codehilite"><pre><span></span><code><span class="mh">0x00000000000105d0</span><span class="w">      </span><span class="mi">7</span><span class="w">               </span><span class="n">swap</span><span class="p">(</span><span class="o">&amp;</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">shared</span><span class="p">);</span>
+<span class="w">   </span><span class="mh">0x00000000000105c6</span><span class="w"> </span><span class="o">&lt;</span><span class="n">main</span><span class="o">+</span><span class="mi">16</span><span class="o">&gt;:</span><span class="w">        </span><span class="n">fec40713</span><span class="w">        </span><span class="n">addi</span><span class="w">    </span><span class="n">a4</span><span class="p">,</span><span class="n">s0</span><span class="p">,</span><span class="mi">-20</span>
+<span class="w">   </span><span class="mh">0x00000000000105ca</span><span class="w"> </span><span class="o">&lt;</span><span class="n">main</span><span class="o">+</span><span class="mi">20</span><span class="o">&gt;:</span><span class="w">        </span><span class="mi">83818593</span><span class="w">        </span><span class="n">addi</span><span class="w">    </span><span class="n">a1</span><span class="p">,</span><span class="n">gp</span><span class="p">,</span><span class="mi">-1992</span>
+<span class="w">   </span><span class="mh">0x00000000000105ce</span><span class="w"> </span><span class="o">&lt;</span><span class="n">main</span><span class="o">+</span><span class="mi">24</span><span class="o">&gt;:</span><span class="w">        </span><span class="mi">853</span><span class="n">a</span><span class="w">            </span><span class="n">mv</span><span class="w">      </span><span class="n">a0</span><span class="p">,</span><span class="n">a4</span>
+<span class="o">=&gt;</span><span class="w"> </span><span class="mh">0x00000000000105d0</span><span class="w"> </span><span class="o">&lt;</span><span class="n">main</span><span class="o">+</span><span class="mi">26</span><span class="o">&gt;:</span><span class="w">        </span><span class="n">f11ff0ef</span><span class="w">        </span><span class="n">jal</span><span class="w">     </span><span class="n">ra</span><span class="p">,</span><span class="mh">0x104e0</span><span class="w"> </span><span class="o">&lt;</span><span class="n">swap</span><span class="err">@</span><span class="n">plt</span><span class="o">&gt;</span>
+
+<span class="n">寄存器信息如下</span><span class="err">：</span>
+<span class="mi">10</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$ra</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x00000000000105d4</span>
+<span class="mi">11</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$sp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000003fd23d4bf0</span>
+<span class="mi">12</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$s0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000003fd23d4c10</span>
+<span class="mi">13</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$s1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000000000000000</span>
+<span class="mi">14</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$s2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000000000145f60</span>
+<span class="mi">15</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$s3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000000000000000</span>
+<span class="mi">16</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$s4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x00000000001a2828</span>
+<span class="mi">17</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$s5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000000000000000</span>
+<span class="mi">18</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000003fd23d4bfc</span>
+<span class="mi">19</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000000000012038</span>
+<span class="mi">20</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000003fd23d4d98</span>
+<span class="mi">21</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000000000000000</span>
+<span class="mi">22</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000003fd23d4bfc</span>
+<span class="mi">23</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000000000000064</span>
+<span class="mi">24</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000003f81c60d90</span>
+<span class="mi">25</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$a7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x7a2f5b5a40014e00</span>
+<span class="mi">26</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$t0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000003f81b61e18</span>
+<span class="mi">27</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$t1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000003f81b7e6d2</span>
+<span class="mi">28</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$t2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0xffffffffffffffff</span>
+<span class="mi">29</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$t3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x00000000000206d2</span>
+<span class="mi">30</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$t4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000003f81c86a8c</span>
+<span class="mi">31</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">z</span><span class="w"> </span><span class="n">$t5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0000000000000004</span>
+</code></pre></div>
+<p>下面是.plt的代码，先关注swap@plt</p>
+<div class="codehilite"><pre><span></span><code><span class="n">Disassembly</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">section</span><span class="w"> </span><span class="p">.</span><span class="n">plt</span><span class="o">:</span>
+
+<span class="mo">00000000000104</span><span class="n">a0</span><span class="w"> </span><span class="o">&lt;</span><span class="n">_PROCEDURE_LINKAGE_TABLE_</span><span class="o">&gt;:</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">a0</span><span class="o">:</span><span class="w">   </span><span class="mo">000023</span><span class="mi">97</span><span class="w">            </span><span class="n">auipc</span><span class="w">   </span><span class="n">t2</span><span class="p">,</span><span class="mh">0x2</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">a4</span><span class="o">:</span><span class="w">   </span><span class="mi">41</span><span class="n">c30333</span><span class="w">            </span><span class="n">sub</span><span class="w"> </span><span class="n">t1</span><span class="p">,</span><span class="n">t1</span><span class="p">,</span><span class="n">t3</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">a8</span><span class="o">:</span><span class="w">   </span><span class="n">b683be03</span><span class="w">            </span><span class="n">ld</span><span class="w">  </span><span class="n">t3</span><span class="p">,</span><span class="mi">-1176</span><span class="p">(</span><span class="n">t2</span><span class="p">)</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mi">12008</span><span class="w"> </span><span class="o">&lt;</span><span class="n">__TMC_END__</span><span class="o">&gt;</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">ac</span><span class="o">:</span><span class="w">   </span><span class="n">fd430313</span><span class="w">            </span><span class="n">addi</span><span class="w">    </span><span class="n">t1</span><span class="p">,</span><span class="n">t1</span><span class="p">,</span><span class="mi">-44</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">b0</span><span class="o">:</span><span class="w">   </span><span class="n">b6838293</span><span class="w">            </span><span class="n">addi</span><span class="w">    </span><span class="n">t0</span><span class="p">,</span><span class="n">t2</span><span class="p">,</span><span class="mi">-1176</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">b4</span><span class="o">:</span><span class="w">   </span><span class="mo">00135313</span><span class="w">            </span><span class="n">srli</span><span class="w">    </span><span class="n">t1</span><span class="p">,</span><span class="n">t1</span><span class="p">,</span><span class="mh">0x1</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">b8</span><span class="o">:</span><span class="w">   </span><span class="mo">00</span><span class="mi">82</span><span class="n">b283</span><span class="w">            </span><span class="n">ld</span><span class="w">  </span><span class="n">t0</span><span class="p">,</span><span class="mi">8</span><span class="p">(</span><span class="n">t0</span><span class="p">)</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">bc</span><span class="o">:</span><span class="w">   </span><span class="mf">000e0067</span><span class="w">            </span><span class="n">jr</span><span class="w">  </span><span class="n">t3</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mi">1</span><span class="n">a000</span><span class="w"> </span><span class="o">&lt;</span><span class="n">__global_pointer$</span><span class="o">+</span><span class="mh">0x7800</span><span class="o">&gt;</span>
+
+<span class="mo">00000000000104</span><span class="n">c0</span><span class="w"> </span><span class="o">&lt;</span><span class="n">__libc_start_main</span><span class="err">@</span><span class="n">plt</span><span class="o">&gt;:</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">c0</span><span class="o">:</span><span class="w">   </span><span class="mf">00002e17</span><span class="w">            </span><span class="n">auipc</span><span class="w">   </span><span class="n">t3</span><span class="p">,</span><span class="mh">0x2</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">c4</span><span class="o">:</span><span class="w">   </span><span class="n">b58e3e03</span><span class="w">            </span><span class="n">ld</span><span class="w">  </span><span class="n">t3</span><span class="p">,</span><span class="mi">-1192</span><span class="p">(</span><span class="n">t3</span><span class="p">)</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mi">12018</span><span class="w"> </span><span class="o">&lt;</span><span class="n">__libc_start_main</span><span class="err">@</span><span class="n">GLIBC_2</span><span class="mf">.27</span><span class="o">&gt;</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">c8</span><span class="o">:</span><span class="w">   </span><span class="mf">000e0367</span><span class="w">            </span><span class="n">jalr</span><span class="w">    </span><span class="n">t1</span><span class="p">,</span><span class="n">t3</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">cc</span><span class="o">:</span><span class="w">   </span><span class="mo">00000013</span><span class="w">            </span><span class="n">nop</span>
+
+<span class="mo">00000000000104</span><span class="n">d0</span><span class="w"> </span><span class="o">&lt;</span><span class="n">sleep</span><span class="err">@</span><span class="n">plt</span><span class="o">&gt;:</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">d0</span><span class="o">:</span><span class="w">   </span><span class="mf">00002e17</span><span class="w">            </span><span class="n">auipc</span><span class="w">   </span><span class="n">t3</span><span class="p">,</span><span class="mh">0x2</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">d4</span><span class="o">:</span><span class="w">   </span><span class="n">b50e3e03</span><span class="w">            </span><span class="n">ld</span><span class="w">  </span><span class="n">t3</span><span class="p">,</span><span class="mi">-1200</span><span class="p">(</span><span class="n">t3</span><span class="p">)</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mi">12020</span><span class="w"> </span><span class="o">&lt;</span><span class="n">sleep</span><span class="err">@</span><span class="n">GLIBC_2</span><span class="mf">.27</span><span class="o">&gt;</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">d8</span><span class="o">:</span><span class="w">   </span><span class="mf">000e0367</span><span class="w">            </span><span class="n">jalr</span><span class="w">    </span><span class="n">t1</span><span class="p">,</span><span class="n">t3</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">dc</span><span class="o">:</span><span class="w">   </span><span class="mo">00000013</span><span class="w">            </span><span class="n">nop</span>
+
+<span class="mf">00000000000104e0</span><span class="w"> </span><span class="o">&lt;</span><span class="n">swap</span><span class="err">@</span><span class="n">plt</span><span class="o">&gt;:</span>
+<span class="w">   </span><span class="mf">104e0</span><span class="o">:</span><span class="w">   </span><span class="mf">00002e17</span><span class="w">            </span><span class="n">auipc</span><span class="w">   </span><span class="n">t3</span><span class="p">,</span><span class="mh">0x2</span>
+<span class="w">   </span><span class="mf">104e4</span><span class="o">:</span><span class="w">   </span><span class="n">b48e3e03</span><span class="w">            </span><span class="n">ld</span><span class="w">  </span><span class="n">t3</span><span class="p">,</span><span class="mi">-1208</span><span class="p">(</span><span class="n">t3</span><span class="p">)</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mi">12028</span><span class="w"> </span><span class="o">&lt;</span><span class="n">swap</span><span class="o">&gt;</span>
+<span class="w">   </span><span class="mf">104e8</span><span class="o">:</span><span class="w">   </span><span class="mf">000e0367</span><span class="w">            </span><span class="n">jalr</span><span class="w">    </span><span class="n">t1</span><span class="p">,</span><span class="n">t3</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">ec</span><span class="o">:</span><span class="w">   </span><span class="mo">00000013</span><span class="w">            </span><span class="n">nop</span>
+</code></pre></div>
+<p>从上面发现，swap@plt，是从12028处加载一个地址，然后跳转运行。下面则是12028的地址，发现是.got表。注意12028: 04a0 addi s0,sp,584，不要被这个误导，正好反汇编翻译2字节对应是addi s0,sp,584。实际上0x12028处存储的地址是：0x104a0,因此上面加载的t3值就是0x104a0，即jalr将跳转到该值运行。而0x104a0正好是_PROCEDURE_LINKAGE_TABLE_。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">Disassembly</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">section</span><span class="w"> </span><span class="p">.</span><span class="n">got</span><span class="o">:</span>
+
+<span class="mo">000000000001200</span><span class="mi">8</span><span class="w"> </span><span class="o">&lt;</span><span class="n">__TMC_END__</span><span class="o">&gt;:</span>
+<span class="w">   </span><span class="mi">12008</span><span class="o">:</span><span class="w">   </span><span class="n">ffffffff</span><span class="w">            </span><span class="mh">0xffffffff</span>
+<span class="w">   </span><span class="mi">1200</span><span class="n">c</span><span class="o">:</span><span class="w">   </span><span class="n">ffffffff</span><span class="w">            </span><span class="mh">0xffffffff</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">   </span><span class="mi">12018</span><span class="o">:</span><span class="w">   </span><span class="mo">04</span><span class="n">a0</span><span class="w">                    </span><span class="n">addi</span><span class="w">    </span><span class="n">s0</span><span class="p">,</span><span class="n">sp</span><span class="p">,</span><span class="mi">584</span>
+<span class="w">   </span><span class="mi">1201</span><span class="n">a</span><span class="o">:</span><span class="w">   </span><span class="mo">0001</span><span class="w">                    </span><span class="n">nop</span>
+<span class="w">   </span><span class="mi">1201</span><span class="n">c</span><span class="o">:</span><span class="w">   </span><span class="mo">0000</span><span class="w">                    </span><span class="n">unimp</span>
+<span class="w">   </span><span class="mi">1201</span><span class="n">e</span><span class="o">:</span><span class="w">   </span><span class="mo">0000</span><span class="w">                    </span><span class="n">unimp</span>
+<span class="w">   </span><span class="mi">12020</span><span class="o">:</span><span class="w">   </span><span class="mo">04</span><span class="n">a0</span><span class="w">                    </span><span class="n">addi</span><span class="w">    </span><span class="n">s0</span><span class="p">,</span><span class="n">sp</span><span class="p">,</span><span class="mi">584</span>
+<span class="w">   </span><span class="mi">12022</span><span class="o">:</span><span class="w">   </span><span class="mo">0001</span><span class="w">                    </span><span class="n">nop</span>
+<span class="w">   </span><span class="mi">12024</span><span class="o">:</span><span class="w">   </span><span class="mo">0000</span><span class="w">                    </span><span class="n">unimp</span>
+<span class="w">   </span><span class="mi">12026</span><span class="o">:</span><span class="w">   </span><span class="mo">0000</span><span class="w">                    </span><span class="n">unimp</span>
+<span class="w">   </span><span class="mi">12028</span><span class="o">:</span><span class="w">   </span><span class="mo">04</span><span class="n">a0</span><span class="w">                    </span><span class="n">addi</span><span class="w">    </span><span class="n">s0</span><span class="p">,</span><span class="n">sp</span><span class="p">,</span><span class="mi">584</span>
+<span class="w">   </span><span class="mi">1202</span><span class="n">a</span><span class="o">:</span><span class="w">   </span><span class="mo">0001</span><span class="w">                    </span><span class="n">nop</span>
+<span class="w">   </span><span class="mi">1202</span><span class="n">c</span><span class="o">:</span><span class="w">   </span><span class="mo">0000</span><span class="w">                    </span><span class="n">unimp</span>
+<span class="w">    </span><span class="p">...</span>
+</code></pre></div>
+<p>从上面分析可知，swap函数地址存储在.got表0x12028处，而该值初值是_PROCEDURE_LINKAGE_TABLE_，这是因为在编译完还没有运行前，swap在动态库中地址并没有确定，实际的地址需要程序运行加载才会确定，所以了默认先填_PROCEDURE_LINKAGE_TABLE_，而该标签中的代码，正好就是处理寻址swap地址的功能。</p>
+<p>下面是gdb单步调试的信息，下面的跳转跟我们分析的一致。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_37f368d5fce10c18a29432289ae7c530.jpg"><img alt="" src="/assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_37f368d5fce10c18a29432289ae7c530.jpg"/></a></p>
+<p>也可以通过x命令查询.got表的信息 <a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_26aefb61cc01ad30e21489a341dce805.jpg"><img alt="" src="/assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_26aefb61cc01ad30e21489a341dce805.jpg"/></a></p>
+<p>小结：跳转到.plt表，第一次执行对应的.got表中没有存储swap的地址，将先跳转到_PROCEDURE_LINKAGE_TABLE_，即.plt的第一表项。</p>
+<h2 id="procedure-linkage-table">procedure linkage table</h2>
+<p>.plt的地址一表项存储的是链接器表。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">Disassembly</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">section</span><span class="w"> </span><span class="p">.</span><span class="n">plt</span><span class="o">:</span>
+
+<span class="mo">00000000000104</span><span class="n">a0</span><span class="w"> </span><span class="o">&lt;</span><span class="n">_PROCEDURE_LINKAGE_TABLE_</span><span class="o">&gt;:</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">a0</span><span class="o">:</span><span class="w">   </span><span class="mo">000023</span><span class="mi">97</span><span class="w">            </span><span class="n">auipc</span><span class="w">   </span><span class="n">t2</span><span class="p">,</span><span class="mh">0x2</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">a4</span><span class="o">:</span><span class="w">   </span><span class="mi">41</span><span class="n">c30333</span><span class="w">            </span><span class="n">sub</span><span class="w"> </span><span class="n">t1</span><span class="p">,</span><span class="n">t1</span><span class="p">,</span><span class="n">t3</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">a8</span><span class="o">:</span><span class="w">   </span><span class="n">b683be03</span><span class="w">            </span><span class="n">ld</span><span class="w">  </span><span class="n">t3</span><span class="p">,</span><span class="mi">-1176</span><span class="p">(</span><span class="n">t2</span><span class="p">)</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mi">12008</span><span class="w"> </span><span class="o">&lt;</span><span class="n">__TMC_END__</span><span class="o">&gt;</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">ac</span><span class="o">:</span><span class="w">   </span><span class="n">fd430313</span><span class="w">            </span><span class="n">addi</span><span class="w">    </span><span class="n">t1</span><span class="p">,</span><span class="n">t1</span><span class="p">,</span><span class="mi">-44</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">b0</span><span class="o">:</span><span class="w">   </span><span class="n">b6838293</span><span class="w">            </span><span class="n">addi</span><span class="w">    </span><span class="n">t0</span><span class="p">,</span><span class="n">t2</span><span class="p">,</span><span class="mi">-1176</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">b4</span><span class="o">:</span><span class="w">   </span><span class="mo">00135313</span><span class="w">            </span><span class="n">srli</span><span class="w">    </span><span class="n">t1</span><span class="p">,</span><span class="n">t1</span><span class="p">,</span><span class="mh">0x1</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">b8</span><span class="o">:</span><span class="w">   </span><span class="mo">00</span><span class="mi">82</span><span class="n">b283</span><span class="w">            </span><span class="n">ld</span><span class="w">  </span><span class="n">t0</span><span class="p">,</span><span class="mi">8</span><span class="p">(</span><span class="n">t0</span><span class="p">)</span>
+<span class="w">   </span><span class="mi">104</span><span class="n">bc</span><span class="o">:</span><span class="w">   </span><span class="mf">000e0067</span><span class="w">            </span><span class="n">jr</span><span class="w">  </span><span class="n">t3</span><span class="w"> </span><span class="err">#</span><span class="w"> </span><span class="mi">1</span><span class="n">a000</span><span class="w"> </span><span class="o">&lt;</span><span class="n">__global_pointer$</span><span class="o">+</span><span class="mh">0x7800</span><span class="o">&gt;</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_0e265ddce2c26dd3b9dc7c7485c872db.jpg"><img alt="" src="/assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_0e265ddce2c26dd3b9dc7c7485c872db.jpg"/></a></p>
+<p>上面的汇编最终会跳转到链接器里面，所做的工作就是通过链接器查询swap的地址，然后填充到.got中，然后进行跳转swap，这里就不再分析，直接看最后的结果。当执行完链接器的处理后，会更新.got表。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_20bfcc0baef3046a41cb61db33b1ba68.jpg"><img alt="" src="/assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_20bfcc0baef3046a41cb61db33b1ba68.jpg"/></a></p>
+<p>从上面可知swap函数在got表中，地址被更新为0x3f9a69f4c2。</p>
+<h2 id="swap">再次调用swap函数</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_e06e8b04edb2d3c652b2138483b7bed3.jpg"><img alt="" src="/assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_e06e8b04edb2d3c652b2138483b7bed3.jpg"/></a></p>
+<p>当再次调用swap函数的时候，ld t3,-1208(t3)，这里的t3就变成了0x3f9a69f4c2，这样就不会再执行_PROCEDURE_LINKAGE_TABLE_，直接跳转到swap的地址。</p>
+<p>还可以使用cat /proc/xx/maps确定so落在的范围，下面的地址不一定匹配了， 重新运行了一次a.out,只是给个示例。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_ca610d8932d06d8923344a1c46ab0239.jpg"><img alt="" src="/assets/doc/02-risc-v/risc-v动态链接实验/images/wp_editor_md_ca610d8932d06d8923344a1c46ab0239.jpg"/></a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/risc-v-backtrace实现原理.html">← RISC-V backtrace实现原理</a>
+    <a class="next" href="/opensbi分析-二.html">opensbi分析（二） →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

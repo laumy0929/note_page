@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>内存地址对齐 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">数据类型对齐</a><ul></ul></li><li><a href="#_2">结构体类型对齐</a><ul></ul></li><li><a href="#alignedpacked">aligned与packed</a><ul><li><a href="#aligned">aligned</a></li><li><a href="#packed">packed</a></li><li><a href="#alignedpacked_1">aligned与packed一起使用</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>内存地址对齐</h1>
+  <div class="meta">2024-09-03 · 调试</div>
+  <div class="post-content"><p>内存地址对齐是在内存中的数据（具体为变量的地址、内存块的地址）按照指定地址长度对齐，包含了基本的变量数据对齐和结构体数据对齐。</p>
+<p>为什么需要内存对齐？ 可以提高CPU和内存交互的效率，比如一个32位的系统，CPU读取内存，硬件设计上只支持4字节或4字节的倍数对齐进行地址访问，CPU在每次访问内存时，一个周期可以访问4字节，如果要访问的数据是4字节对齐的地址，CPU一次就可以把数据访问完毕；如果访问的数据不是4字节对齐，cpu就需要分两次才能把4字节数据访问完成。</p>
+<p>什么时候完成的内存对齐？</p>
+<p>为了与具体的arch设计提高运行效率，编译器会自动完成内存对齐操作，在编译程序时，对应基本的数据类型，如int，char,short,float等，会按照其数据类的大小进行地址对齐，这样对齐方式分配的存储地址，CPU一次就可以访问完毕。这样即使会造成内存的空洞，浪费一些内存单位，但是对于硬件设计和运行效率可以极大的简化和提升。除了了基本的数据类型外，包括一些复合数据类型如结构体也要满足对齐要求。</p>
+<h2 id="_1">数据类型对齐</h2>
+<div class="codehilite"><pre><span></span><code><span class="mi">32</span><span class="n">位系统</span><span class="err">，</span><span class="n">编译对齐规则</span>
+
+<span class="nl">char</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="n">字节对齐</span>
+<span class="kt">short</span><span class="err">：</span><span class="mi">2</span><span class="n">字节对齐</span>
+<span class="n">init</span><span class="err">：</span><span class="mi">4</span><span class="n">字节对齐</span>
+<span class="kt">float</span><span class="err">：</span><span class="mi">4</span><span class="n">字节对齐</span>
+<span class="kt">double</span><span class="err">：</span><span class="mi">8</span><span class="n">字节对齐</span>
+<span class="n">指针</span><span class="err">：</span><span class="mi">4</span><span class="n">字节对齐</span>
+
+<span class="mi">64</span><span class="n">为系统</span><span class="err">，</span><span class="n">编译对齐规则</span>
+<span class="n">指针</span><span class="err">：</span><span class="mi">8</span><span class="n">字节对齐</span>
+</code></pre></div>
+<h2 id="_2">结构体类型对齐</h2>
+<p>结构体数据内存对齐，具体是结构体内的各个数据对齐。结构体作为一种复合数据类型，编译器在分配存储空间时，不仅要考虑结构体内各个基本成员的地址对齐，还要考虑结构体整体的对齐。</p>
+<ul>
+<li>成员变量对齐：按照各自成员变量类型对齐，如32位系统 int 为4字节对齐</li>
+<li>结构体整体对齐：成员变量最大对齐字节或其整数倍对齐，在尾部补齐。如最大成员对齐是4，那么就需要是4的整数倍。</li>
+</ul>
+<p>结构体的大小为什么需要按照最大成员变量填充对齐？</p>
+<p>当数据按照一定的对齐规则进行排列时，CPU可以更高效地访问这些数据。这是因为CPU在读取内存数据时，通常是按照固定的大小块来读取的。例如，在64位系统中，CPU从内存的0-7位置开始读取，然后是8-15，16-23以此类推。如果结构体的成员没有按照最大成员变量的大小进行对齐，那么在连续的结构体数据（如结构体数组）中，变量的位置可能不再合理，导致读取效率下降。例如，如果一个int64类型的变量原本应该从0-7位置开始连续读取，但如果前面的成员没有对齐，下一个结构体的起始位置就可能不对，导致需要多次读取和拼接数据，进而影响性能‌1。</p>
+<p>示例1</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="w"> </span><span class="p">{</span>
+<span class="w">     </span><span class="kt">char</span><span class="w"> </span><span class="n">a</span><span class="p">;</span><span class="w">    </span><span class="c1">//1字节对齐， 实际占用4字节，由于后面的c变量</span>
+<span class="w">     </span><span class="kt">int</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="p">;</span><span class="w">    </span><span class="c1">//4字节对齐， 因此a后面要填补3字节数据，相当于a占用了4字节</span>
+<span class="w">     </span><span class="kt">short</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="p">;</span><span class="w">  </span><span class="c1">//2字节对齐，但是后面要补2字节，因为3个成员变量占了4+4+2=10,</span>
+<span class="w">                </span><span class="c1">//成员中最大的变量长度是4字节对齐，因此整个数据结构要是4个整数倍</span>
+<span class="w">                </span><span class="c1">//因此后面要补2字节。</span>
+<span class="p">};</span>
+
+<span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">12</span>
+</code></pre></div>
+<p>示例2</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">{</span>
+<span class="w">     </span><span class="kt">char</span><span class="w"> </span><span class="n">a</span><span class="p">;</span><span class="w">   </span><span class="c1">//1字节对齐，由于后面的short是2字节对齐，因此后面补了1字节</span>
+<span class="w">     </span><span class="kt">short</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="c1">//2字节对齐</span>
+<span class="w">     </span><span class="kt">int</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="p">;</span><span class="w">   </span><span class="c1">//4字节对齐</span>
+<span class="p">};</span>
+
+<span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span>
+</code></pre></div>
+<p>从上面的示例可知，结构体中的变量排列会影响实际的空间大小，因此在定义结构体时，尽量的从小变量到大变量排列，这样节省内存。</p>
+<h2 id="alignedpacked">aligned与packed</h2>
+<p>GNU C通过 <strong>atttribute</strong> 来声明 aligned 和 packed 属性，指定一个变量或类型的对齐方式。这两个属性用来告诉编译器：在给变量分配存储空间时，要按指定的地址对齐方式给变量分配地址。</p>
+<h3 id="aligned">aligned</h3>
+<p>如果你想定义一个变量，在内存中以8字节地址对齐，就可以这样定义。</p>
+<div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="nf">__attribute__</span><span class="p">((</span><span class="n">aligned</span><span class="p">(</span><span class="mi">8</span><span class="p">));</span>
+</code></pre></div>
+<p>通过 aligned 属性，我们可以直接显式指定变量 a 在内存中的地址对齐方式。aligned 有一个参数，表示要按几字节对齐，使用时要注意地址对齐的字节数必须是2的幂次方，否则编译就会出错。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">{</span>
+<span class="w">     </span><span class="kt">char</span><span class="w"> </span><span class="n">a</span><span class="p">;</span><span class="w">   </span><span class="c1">//4</span>
+<span class="w">     </span><span class="kt">short</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="nf">__attribute__</span><span class="p">((</span><span class="n">aligned</span><span class="p">(</span><span class="mi">4</span><span class="p">)));</span><span class="w">  </span><span class="c1">//4</span>
+<span class="w">     </span><span class="kt">int</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="p">;</span><span class="w">  </span><span class="c1">//4</span>
+<span class="p">};</span>
+
+<span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">12</span>
+</code></pre></div>
+<p>上述的示例表示struct data成员变量中的short b要按4字节强行对齐。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">{</span>
+<span class="w">     </span><span class="kt">char</span><span class="w"> </span><span class="n">a</span><span class="p">;</span><span class="w"> </span><span class="c1">//4</span>
+<span class="w">     </span><span class="kt">short</span><span class="w"> </span><span class="n">b</span><span class="p">;</span><span class="w"> </span><span class="c1">//4</span>
+<span class="w">     </span><span class="kt">int</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="c1">//8</span>
+<span class="w"> </span><span class="p">}</span><span class="n">__attribute__</span><span class="p">((</span><span class="n">aligned</span><span class="p">(</span><span class="mi">16</span><span class="p">)));</span>
+
+<span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">16</span>
+</code></pre></div>
+<p>可以显示指定了整个结构体的对齐方式，如上示例显式指定结构体整体以16字节对齐，所以编译器就会在这个结构体的末尾填充8个字节以满足16字节对齐的要求，导致结构体的总长度变为16字节。</p>
+<h3 id="packed">packed</h3>
+<p>aligned属性一般用来增大变量的地址对齐，元素之间因为地址对齐会造成一定的内存空洞。而 packed属性则与之相反，用来减少地址对齐，用来指定变量或类型使用最可能小的地址对齐方式。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">{</span>
+<span class="w">     </span><span class="kt">char</span><span class="w"> </span><span class="n">a</span><span class="p">;</span><span class="w">  </span><span class="c1">//1</span>
+<span class="w">     </span><span class="kt">short</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="nf">__attribute__</span><span class="p">((</span><span class="n">packed</span><span class="p">));</span><span class="w"> </span><span class="c1">//2</span>
+<span class="w">     </span><span class="kt">int</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="nf">__attribute__</span><span class="p">((</span><span class="n">packed</span><span class="p">));</span><span class="w"> </span><span class="c1">//4</span>
+<span class="w"> </span><span class="p">};</span>
+
+<span class="k">sizeof</span><span class="p">(</span><span class="n">strut</span><span class="w"> </span><span class="n">data</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="mi">7</span>
+</code></pre></div>
+<p>使用了packed属性，告诉编译器使用最小的对齐方式。</p>
+<h3 id="alignedpacked_1">aligned与packed一起使用</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">{</span>
+<span class="w">     </span><span class="kt">char</span><span class="w"> </span><span class="n">a</span><span class="p">;</span><span class="w"> </span><span class="c1">//1</span>
+<span class="w">     </span><span class="kt">short</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="c1">//2</span>
+<span class="w">     </span><span class="kt">int</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="c1">//5</span>
+<span class="p">}</span><span class="n">__attribute__</span><span class="p">((</span><span class="n">packed</span><span class="p">,</span><span class="n">aligned</span><span class="p">(</span><span class="mi">8</span><span class="p">)));</span>
+
+<span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span>
+</code></pre></div>
+<p>aligned 和 packed 一起使用，即对一个变量或类型同时使用 aligned 和 packed 属性声明。这样做的好处是，既避免了结构体内因地址对齐产生的内存空洞，又指定了整个结构体的对齐方式。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/视频编码示例.html">← 视频编码示例</a>
+    <a class="next" href="/function-graph-tracer原理.html">function graph tracer原理 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>qemu-system-riscv64 virt平台ROM代码启动分析 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#memory-mapping">从memory mapping角度</a><ul></ul></li><li><a href="#_1">跟踪启动流程</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>qemu-system-riscv64 virt平台ROM代码启动分析</h1>
+  <div class="meta">2024-04-12 · risc-v</div>
+  <div class="post-content"><p>为什么下面qemu启动elf时，text地址要从0x80000000开始？</p>
+<div class="codehilite"><pre><span></span><code><span class="n">qemu</span><span class="o">-</span><span class="n">system</span><span class="o">-</span><span class="n">riscv64</span><span class="w"> </span><span class="o">-</span><span class="n">machine</span><span class="w"> </span><span class="n">virt</span><span class="w"> </span><span class="o">-</span><span class="n">cpu</span><span class="w"> </span><span class="n">c910v</span><span class="w"> </span><span class="o">-</span><span class="n">nographic</span><span class="w"> </span><span class="o">-</span><span class="n">smp</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="n">bios</span><span class="w"> </span><span class="n">none</span><span class="w"> </span><span class="o">-</span><span class="n">kernel</span><span class="w"> </span><span class="n">xxx</span><span class="p">.</span><span class="n">elf</span><span class="w"> </span>
+</code></pre></div>
+<h2 id="memory-mapping">从memory mapping角度</h2>
+<p>下面是qemu virt平台的memory mapping</p>
+<p><a href="https://github.com/qemu/qemu/blob/master/hw/riscv/virt.c">https://github.com/qemu/qemu/blob/master/hw/riscv/virt.c</a></p>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">MemMapEntry</span><span class="w"> </span><span class="n">virt_memmap</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_DEBUG</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">        </span><span class="p">{</span><span class="w">        </span><span class="mh">0x0</span><span class="p">,</span><span class="w">         </span><span class="mh">0x100</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_MROM</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">         </span><span class="p">{</span><span class="w">     </span><span class="mh">0x1000</span><span class="p">,</span><span class="w">        </span><span class="mh">0xf000</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_TEST</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">         </span><span class="p">{</span><span class="w">   </span><span class="mh">0x100000</span><span class="p">,</span><span class="w">        </span><span class="mh">0x1000</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_RTC</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">          </span><span class="p">{</span><span class="w">   </span><span class="mh">0x101000</span><span class="p">,</span><span class="w">        </span><span class="mh">0x1000</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_CLINT</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">        </span><span class="p">{</span><span class="w">  </span><span class="mh">0x2000000</span><span class="p">,</span><span class="w">       </span><span class="mh">0x10000</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_ACLINT_SSWI</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">  </span><span class="p">{</span><span class="w">  </span><span class="mh">0x2F00000</span><span class="p">,</span><span class="w">        </span><span class="mh">0x4000</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_PCIE_PIO</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">     </span><span class="p">{</span><span class="w">  </span><span class="mh">0x3000000</span><span class="p">,</span><span class="w">       </span><span class="mh">0x10000</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_PLATFORM_BUS</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w">  </span><span class="mh">0x4000000</span><span class="p">,</span><span class="w">     </span><span class="mh">0x2000000</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_PLIC</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">         </span><span class="p">{</span><span class="w">  </span><span class="mh">0xc000000</span><span class="p">,</span><span class="w"> </span><span class="n">VIRT_PLIC_SIZE</span><span class="p">(</span><span class="n">VIRT_CPUS_MAX</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_APLIC_M</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">      </span><span class="p">{</span><span class="w">  </span><span class="mh">0xc000000</span><span class="p">,</span><span class="w"> </span><span class="n">APLIC_SIZE</span><span class="p">(</span><span class="n">VIRT_CPUS_MAX</span><span class="p">)</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_APLIC_S</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">      </span><span class="p">{</span><span class="w">  </span><span class="mh">0xd000000</span><span class="p">,</span><span class="w"> </span><span class="n">APLIC_SIZE</span><span class="p">(</span><span class="n">VIRT_CPUS_MAX</span><span class="p">)</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_UART0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="mh">0x10000000</span><span class="p">,</span><span class="w">         </span><span class="mh">0x100</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_VIRTIO</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">       </span><span class="p">{</span><span class="w"> </span><span class="mh">0x10001000</span><span class="p">,</span><span class="w">        </span><span class="mh">0x1000</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_FW_CFG</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">       </span><span class="p">{</span><span class="w"> </span><span class="mh">0x10100000</span><span class="p">,</span><span class="w">          </span><span class="mh">0x18</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_FLASH</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="mh">0x20000000</span><span class="p">,</span><span class="w">     </span><span class="mh">0x4000000</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_IMSIC_M</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="mh">0x24000000</span><span class="p">,</span><span class="w"> </span><span class="n">VIRT_IMSIC_MAX_SIZE</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_IMSIC_S</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="mh">0x28000000</span><span class="p">,</span><span class="w"> </span><span class="n">VIRT_IMSIC_MAX_SIZE</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_PCIE_ECAM</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="mh">0x30000000</span><span class="p">,</span><span class="w">    </span><span class="mh">0x10000000</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_PCIE_MMIO</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="mh">0x40000000</span><span class="p">,</span><span class="w">    </span><span class="mh">0x40000000</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="n">VIRT_DRAM</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w">         </span><span class="p">{</span><span class="w"> </span><span class="mh">0x80000000</span><span class="p">,</span><span class="w">           </span><span class="mh">0x0</span><span class="w"> </span><span class="p">},</span>
+<span class="p">};</span>
+</code></pre></div>
+<ul>
+<li>MROM: 是virt平台的rom化启动代码，所以qemu启动时会默认从该地址开始运行。</li>
+<li>DRAM：DRAM的映射地址为0x80000000，从这里大概能猜出来elf的地址为什么要那么设置了。</li>
+</ul>
+<p>qemu启动时，使用-kernel参数带上elf，与实际硬件平台的差异相比，就会默认根据elf的程序入口地址将elf加载到对应DRAM内存上，如下图所示。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_3f4a793f5a7f526d2387778306628293.jpg"><img alt="" src="/assets/doc/02-risc-v/qemu-system-riscv64-virt平台启动分析/images/wp_editor_md_3f4a793f5a7f526d2387778306628293.jpg"/></a></p>
+<h2 id="_1">跟踪启动流程</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_5034064e9e2df35dbaf655a0a746cddc.jpg"><img alt="" src="/assets/doc/02-risc-v/qemu-system-riscv64-virt平台启动分析/images/wp_editor_md_5034064e9e2df35dbaf655a0a746cddc.jpg"/></a></p>
+<p>上面是启动qemu后的初始化代码，连接上gdb后，可以使用layout asm查看汇编指令，并且使用si可进行单步调试。可见qemu启动就会跳转到0x1000进行执行，即对应上面memory mapping的VIRT_MROM。上面代码主要逻辑是，跳转到t0，传递参数a0/a1/a2。下面来看看具体的值。</p>
+<div class="codehilite"><pre><span></span><code><span class="mh">0x0000000000001000</span><span class="o">:</span><span class="w">  </span><span class="mi">97</span><span class="w"> </span><span class="mo">02</span><span class="w"> </span><span class="mo">00</span><span class="w"> </span><span class="mo">00</span><span class="w">     </span><span class="n">auipc</span><span class="w">   </span><span class="n">t0</span><span class="p">,</span><span class="mh">0x0</span><span class="w"> </span><span class="c1">//t0=PC+0x0&lt;&lt;12,即t0=0x1000</span>
+<span class="mh">0x0000000000001004</span><span class="o">:</span><span class="w">  </span><span class="mi">13</span><span class="w"> </span><span class="mi">86</span><span class="w"> </span><span class="mi">82</span><span class="w"> </span><span class="mo">02</span><span class="w">     </span><span class="n">addi</span><span class="w">    </span><span class="n">a2</span><span class="p">,</span><span class="n">t0</span><span class="p">,</span><span class="mi">40</span><span class="c1">//a2=t0+40,即0x1028</span>
+<span class="mh">0x0000000000001008</span><span class="o">:</span><span class="w">  </span><span class="mi">73</span><span class="w"> </span><span class="mi">25</span><span class="w"> </span><span class="mi">40</span><span class="w"> </span><span class="n">f1</span><span class="w">     </span><span class="n">csrr</span><span class="w">    </span><span class="n">a0</span><span class="p">,</span><span class="n">mhartid</span><span class="c1">//a0=0</span>
+<span class="mh">0x000000000000100c</span><span class="o">:</span><span class="w">  </span><span class="mi">83</span><span class="w"> </span><span class="n">b5</span><span class="w"> </span><span class="mo">02</span><span class="w"> </span><span class="mo">02</span><span class="w">     </span><span class="n">ld</span><span class="w">      </span><span class="n">a1</span><span class="p">,</span><span class="mi">32</span><span class="p">(</span><span class="n">t0</span><span class="p">)</span><span class="w"> </span><span class="c1">//a1=t0+0x20地址的值即0x1020地址处</span>
+<span class="w">                     </span><span class="n">ld是加载8字节</span><span class="err">，</span><span class="n">由于是小端</span><span class="err">，</span><span class="n">所以a1</span><span class="o">=</span><span class="mh">0x87e00000</span>
+<span class="mh">0x0000000000001010</span><span class="o">:</span><span class="w">  </span><span class="mi">83</span><span class="w"> </span><span class="n">b2</span><span class="w"> </span><span class="mi">82</span><span class="w"> </span><span class="mo">01</span><span class="w">     </span><span class="n">ld</span><span class="w">      </span><span class="n">t0</span><span class="p">,</span><span class="mi">24</span><span class="p">(</span><span class="n">t0</span><span class="p">)</span><span class="w"> </span><span class="c1">//t0=t0+0x18地址的值即0x1018地址处</span>
+<span class="w">                     </span><span class="n">同理ld是加载8字节且小端</span><span class="err">，</span><span class="n">所有t0</span><span class="o">=</span><span class="mi">80000000</span>
+<span class="mh">0x0000000000001014</span><span class="o">:</span><span class="w">  </span><span class="mi">67</span><span class="w"> </span><span class="mi">80</span><span class="w"> </span><span class="mo">02</span><span class="w"> </span><span class="mo">00</span><span class="w">     </span><span class="n">jr</span><span class="w">      </span><span class="n">t0</span><span class="w"> </span><span class="c1">//跳转到0x80000000执行。</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/risc-v指令集架构.html">← RISC-V指令集架构</a>
+    <a class="next" href="/risc-v汇编指令.html">RISC-V汇编指令 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

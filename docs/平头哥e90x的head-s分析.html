@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>平头哥E90X的head.S分析 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">关闭中断</a><ul></ul></li><li><a href="#_2">设置异常处理入口</a><ul></ul></li><li><a href="#_3">设置中断处理入口</a><ul></ul></li><li><a href="#_4">中断向量表</a><ul></ul></li><li><a href="#bss">清除BSS段</a><ul></ul></li><li><a href="#sp">设置栈SP</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>平头哥E90X的head.S分析</h1>
+  <div class="meta">2024-05-09 · risc-v</div>
+  <div class="post-content"><h2 id="_1">关闭中断</h2>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="cm">/* disable interrupt */</span>
+<span class="w">    </span><span class="n">li</span><span class="w"> </span><span class="n">t0</span><span class="p">,</span><span class="w"> </span><span class="n">MR_MIE</span><span class="w">      </span><span class="o">---</span><span class="w"> </span><span class="n">t0</span><span class="o">=</span><span class="mh">0x08</span>
+<span class="w">    </span><span class="n">csrc</span><span class="w"> </span><span class="n">mstatus</span><span class="p">,</span><span class="w"> </span><span class="n">t0</span><span class="w">   </span><span class="o">---</span><span class="w"> </span><span class="n">mstatus</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mstatus</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="o">~</span><span class="n">t0</span>
+<span class="w">    </span><span class="n">csrw</span><span class="w"> </span><span class="n">mie</span><span class="p">,</span><span class="w"> </span><span class="n">zero</span><span class="w">     </span><span class="o">---</span><span class="w"> </span><span class="n">mie</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">zero</span>
+</code></pre></div>
+<p>mstatus第4bit清0，mie清0。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_654ac9ad45d1a7b860525a5fce358d03.jpg"><img alt="" src="/assets/doc/02-risc-v/平头哥e90x的head-s分析/images/wp_editor_md_654ac9ad45d1a7b860525a5fce358d03.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_087b9e60788d7e4b8068b7d65606c5b5.jpg"><img alt="" src="/assets/doc/02-risc-v/平头哥e90x的head-s分析/images/wp_editor_md_087b9e60788d7e4b8068b7d65606c5b5.jpg"/></a></p>
+<h2 id="_2">设置异常处理入口</h2>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="cm">/* setup the address of exception handler */</span>
+<span class="w">    </span><span class="n">la</span><span class="w">      </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">risc_v_trap_handler</span>
+<span class="w">    </span><span class="n">ori</span><span class="w">     </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">    </span><span class="n">csrw</span><span class="w">    </span><span class="n">mtvec</span><span class="p">,</span><span class="w"> </span><span class="n">a0</span>
+</code></pre></div>
+<p>E90X异常和中断使用了CLINT和CLIC两个控制器，对于异常的服务程序入口函数有MTVEC寄存器指定，这里的异常指的是同步异常，这类异常没法屏蔽，通常是执行指令、取指令、非法内存访问等的异常。MTVEC寄存器的低2位，设置为3,表示使用模式3，该模式下CPU使用MTVEC[31:6]&lt;&lt;6作为异常（同步异常）的服务程序入口地址并跳转执行。</p>
+<h2 id="_3">设置中断处理入口</h2>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="cm">/* setup the address of vector interrupt handler */</span>
+<span class="w">    </span><span class="n">la</span><span class="w">      </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">interrupt_vectors</span>
+<span class="w">    </span><span class="n">csrw</span><span class="w">    </span><span class="n">mtvt</span><span class="p">,</span><span class="w"> </span><span class="n">a0</span>
+</code></pre></div>
+<p>当MTVEC的低两位设置MODE[1:0]=3时，CPU使用MTVEC[31:6]&lt;&lt;6作为异常（同步异常）的服务程序入口地址并跳转执行，而对于中断服务程序入口分两种情况，当使能了CLIC.CLICINTATTR中的shv域设置是否为硬件矢量中断，如果是硬件矢量中断，CPU首先使用MTVT+4*中断ID为地址，去取中断服务程序入口地址，并跳转到该入口地址执行，如果是非矢量中断，CPU使用MTVEC[31:6]&lt;&lt;作为中断服务程序入口地址并跳转执行。MTVT为矢量中断基址寄存器，在CLIC模式存在。在E907中MODE[1:0]硬件固定设置为3，软件不可设置。</p>
+<h2 id="_4">中断向量表</h2>
+<div class="codehilite"><pre><span></span><code><span class="p">.</span><span class="n">section</span><span class="w"> </span><span class="p">.</span><span class="n">vectors</span><span class="p">,</span><span class="w"> </span><span class="err">\</span><span class="s">"xx</span><span class="se">\"</span><span class="s">, @progbits</span>
+<span class="w">    </span><span class="p">.</span><span class="n">balign</span><span class="w"> </span><span class="mi">64</span>
+<span class="w">    </span><span class="p">.</span><span class="n">globl</span><span class="w">  </span><span class="n">clic_interrupt_vectors</span>
+<span class="w">    </span><span class="p">.</span><span class="n">type</span><span class="w">   </span><span class="n">clic_interrupt_vectors</span><span class="p">,</span><span class="w"> </span><span class="err">@</span><span class="n">object</span>
+<span class="w">    </span><span class="nl">clic_interrupt_vectors</span><span class="p">:</span>
+<span class="w">    </span><span class="p">.</span><span class="n">rept</span><span class="w">   </span><span class="p">(</span><span class="n">PLAT_CLIC_IRQ_CNT</span><span class="p">)</span>
+<span class="w">    </span><span class="p">.</span><span class="kt">long</span><span class="w">   </span><span class="n">clic_interrupt_handler</span>
+<span class="w">    </span><span class="p">.</span><span class="n">endr</span>
+<span class="p">.</span><span class="n">text</span>
+</code></pre></div>
+<p>这里默认设置为中断硬件矢量模式，所以需要注册向量表，但是这里向量表统一入口为clic_interrupt_handler。</p>
+<h2 id="bss">清除BSS段</h2>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="cp"># clear mscratch register.</span>
+<span class="w">    </span><span class="n">csrw</span><span class="w">   </span><span class="n">mscratch</span><span class="p">,</span><span class="n">zero</span>
+
+<span class="w">    </span><span class="cm">/* Clear bss section */</span>
+<span class="w">    </span><span class="n">la</span><span class="w">      </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">__bss_start__</span>
+<span class="w">    </span><span class="n">la</span><span class="w">      </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="n">__bss_end__</span>
+<span class="w">    </span><span class="n">bgeu</span><span class="w">    </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="mf">2f</span><span class="w">   </span><span class="o">---</span><span class="w"> </span><span class="mf">2f</span><span class="n">标签后面跟着一个字符</span><span class="err">（</span><span class="n">如f</span><span class="err">）</span><span class="n">是一种常见的命名约定</span><span class="err">，</span><span class="n">帮助区分不同类型的标签</span><span class="err">，</span><span class="n">这里暗示这是一个向前跳转的目标</span><span class="err">（</span><span class="n">forward</span><span class="w"> </span><span class="n">jump</span><span class="w"> </span><span class="n">target</span><span class="err">）</span><span class="p">,</span><span class="n">如果a0</span><span class="o">&gt;=</span><span class="n">a1</span><span class="p">,</span><span class="n">向前跳转到标签2的地方</span><span class="err">。</span>
+<span class="mi">1</span><span class="o">:</span>
+<span class="w">    </span><span class="n">sw</span><span class="w">      </span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="n">a0</span><span class="p">)</span>
+<span class="w">    </span><span class="n">addi</span><span class="w">    </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">    </span><span class="n">bltu</span><span class="w">    </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="n">b</span><span class="w"> </span><span class="o">--</span><span class="mi">-1</span><span class="n">bb也是一个标签</span><span class="err">，</span><span class="n">但与之前的2f不同</span><span class="err">，</span><span class="n">它指示了一个向后跳转</span><span class="err">（</span><span class="n">backward</span><span class="w"> </span><span class="n">jump</span><span class="err">）</span><span class="n">的目标</span><span class="err">。</span><span class="n">这里的b后缀表明这是一个向后的跳转</span><span class="err">，</span><span class="n">意味着如果条件满足</span><span class="err">（</span><span class="n">即a0</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">a1</span><span class="err">）</span>
+
+<span class="mi">2</span><span class="o">:</span>
+<span class="w">   </span><span class="n">xxxx</span>
+</code></pre></div>
+<p>上面的汇编代码的作用就是获取到bss段的起始地址，然后写入0；</p>
+<h2 id="sp">设置栈SP</h2>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="cm">/* setup stack pointer for C runtime environment */</span>
+<span class="w">    </span><span class="n">la</span><span class="w">      </span><span class="n">sp</span><span class="p">,</span><span class="w"> </span><span class="n">__init_process_stack_end__</span>
+</code></pre></div>
+<p><strong>init_process_stack_end</strong>是在链接脚本中栈空间结束地址，这里直接复制为sp即可。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/risc-v架构与freertos任务栈变化.html">← RISC-V架构与FreeRTOS任务栈变化</a>
+    <a class="next" href="/平头哥e90x异常处理.html">平头哥E90X异常处理 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

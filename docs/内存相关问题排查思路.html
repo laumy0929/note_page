@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>内存相关问题排查思路 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#magic">添加额外的magic</a><ul></ul></li><li><a href="#_1">记录最近申请和释放的内存</a><ul></ul></li><li><a href="#asan">asan机制</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>内存相关问题排查思路</h1>
+  <div class="meta">2024-01-08 · rtos</div>
+  <div class="post-content"><p>最近在项目上遇到一个棘手问题，有一块内存在运行过程中概率性的被异常修改，由于牵扯到多方的应用程序，受限于调试手段排查了不少时间，现简单总结下遇到此类问题的排查思路。</p>
+<h2 id="magic">添加额外的magic</h2>
+<p>核心原理就是在malloc的时候，额外多申请一些内存，通常情况下是在头部和尾部多申请一块空间，填充固定的值如0x55,待调用free函数的时候就检测该头部和尾部的数据是否还是原来填充的值如0x55,如果不是那说明该内存已经被修改了，打印释放的backtrace,即可初步定为是那段内存被踩。</p>
+<h2 id="_1">记录最近申请和释放的内存</h2>
+<p>核心原理使用一个大数组记录最近申请和释放的内存，在调用malloc和free的时候都可以backtrace谁调用的，当出现问题时将记录的数据dump出来，检查哪些内存申请了没有释放或者二次释放。</p>
+<h2 id="asan">asan机制</h2>
+<p>每个字节的内存使用1个bit来进行权限管理，在申请内存时将bit设置为可读写，在释放内存时将对应的bit设置为不可读写。当在进行内存读写操作时检查权限，这种方法对应use after free有很好的效果，缺点就是需要工具链支持kernel-address编译参数，在读写内存时进行插桩代码检查权限，这样也损耗性能，同时需要额外分配1/8的内存资源来管理权限。</p>
+<p><a href="https://github.com/ErichStyger/mcuoneclipse/blob/master/Examples/MCUXpresso/tinyK22/tinyK22_FreeRTOS_ASAN/source/McuASAN.c">https://github.com/ErichStyger/mcuoneclipse/blob/master/Examples/MCUXpresso/tinyK22/tinyK22_FreeRTOS_ASAN/source/McuASAN.c</a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="/spi与dbi概念.html">← SPI与DBI概念</a>
+    <a class="next" href="/使用wordpress搭建https-client的测试服务器.html">使用wordpress搭建https client的测试服务器 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

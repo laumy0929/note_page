@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>中断基本概念 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#gicv2">GICv2架构</a><ul></ul></li><li><a href="#gicv3">GICv3架构</a><ul></ul></li><li><a href="#_1">中断处理过程</a><ul><li><a href="#_2">状态机</a></li><li><a href="#_3">触发方式</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>中断基本概念</h1>
+  <div class="meta">2023-03-04 · linux</div>
+  <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_bd1e88299326e42a275b6466b0fa2bbb.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/中断基本概念/images/wp_editor_md_bd1e88299326e42a275b6466b0fa2bbb.jpg"/></a></p>
+<p>在现代嵌入式系统中，处理器上会挂接很多个外设，CPU在执行任务的时候，可能会同时由多个中断发生，那么中断必要要进行响应处理并维护一个队列一一运行，这样自然会影响CPU的效率，为了让CPU专注于实际运算，中断控制器孕育而生，各中断信号源都先交给中断控制器处理，由中断控制器进行管理，同时接受多个中断请求并进行优先级判断，然后选中一个最高优先级的请求送个CPU进行处理，在CPU响应处理中断时，中断控制器仍然可以响应外部中期的请求，在多核系统中，中断控制器还可以承担路由的作用，将某些中断送到指定CPU进行处理，以达到中断处理的负载均衡。在X86架构中断控制器称为APIC(Advanced Programmable Interrupt Controller)，ARM架构的中断控制器则称为GIC（Generic Interrupt Controller），本文主要探讨的是GIC模块。 ARM架构的GIC目前已经发展了多个版本，不同的GIC IP使用于不同的ARM架构，下面是不同版本直接的关键features。</p>
+<table>
+<thead>
+<tr>
+<th>Version</th>
+<th>Key features</th>
+<th>Architecture</th>
+<th>Tpically used with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GICv1</td>
+<td>Support for up to eight PEs.Support for up to 1020 interrupt IDs.Support for two Security states.</td>
+<td></td>
+<td>A5/A9/R7</td>
+</tr>
+<tr>
+<td>GICv2</td>
+<td>All key features of GICv1.Support for virtualization.</td>
+<td>GIC400</td>
+<td>A7/A15/A53/A57</td>
+</tr>
+<tr>
+<td>GICv3</td>
+<td>All key features of GICv2.Support for more than eight PEs.Support for message-based interrupts.Support for more than 1020 interrupt IDs.System register access to the CPU Interface registers.An enhanced security model, separating Secure and Non-secure Group 1 interrupts.</td>
+<td>GIC500</td>
+<td>A72/A53/A57</td>
+</tr>
+<tr>
+<td>GICv4</td>
+<td>All key features of GICv3 and.Direct injection of virtual interrupts</td>
+<td>GIC600</td>
+<td>A53/A57/A72</td>
+</tr>
+</tbody>
+</table>
+<h2 id="gicv2">GICv2架构</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f7b036c7cd3d5668193c5abf22618559.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/中断基本概念/images/wp_editor_md_f7b036c7cd3d5668193c5abf22618559.jpg"/></a></p>
+<p>GICv2将中断源类型进行分类。</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>中断号范围</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SGI</td>
+<td>ID0~ID15</td>
+<td>Software Generated Interrupt，软件触发中断，通常用于多核之间通信。</td>
+</tr>
+<tr>
+<td>PPI</td>
+<td>ID16~ID31</td>
+<td>Pivate Peripheral Interrupt，每个处理核私有中断，如timer，hw fault等。</td>
+</tr>
+<tr>
+<td>SPI</td>
+<td>ID32~ID1019</td>
+<td>Shared Peripheral Interrupt，公用外设中断，最多支持998个。</td>
+</tr>
+</tbody>
+</table>
+<p>中断源类型的划分是输入给GIC的角度进行的，而GIC输出到CPU只有IRQ（Interrupt Request）和FIQ（Fast Interupt Request），FIQ主要用于安全OS，不适用于Linux内核本文也暂不讨论。 GIC在GICv2中，有两大模块组成，distributor和interface。</p>
+<ul>
+<li>Distributor：实现中断的分发，从上图可以看出，SPIs Interrupt ID 32~1019中断是共享的，将会根据事先配置的寄存器GICD_xxx选择最高优先级的中断发往CPU核，PPI、SGI是各CPU独有的中断，不参与目的core的仲裁。distributor对中断主要提供全局中断使能、每个中断使能、中断优先级、中断分组、中断目的CPU核、中断触发方式、中断状态管理、可修改中断的Pending状态等。</li>
+<li>Interface：将GICD发送的中断信息，通过IRQ/FIQ传输给CPU核。这里分为CPU interface和Virtual CPU interface，后者暂未接触先不讨论。interface提供将中断请求发送给CPU、CPU对中断进行确认、中断处理通知完成、设置中断优先级屏蔽等。</li>
+</ul>
+<h2 id="gicv3">GICv3架构</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f0b8270c76f67b928429fa7f892524cb.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/中断基本概念/images/wp_editor_md_f0b8270c76f67b928429fa7f892524cb.jpg"/></a></p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>中断号范围</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SIGs</td>
+<td>ID0~ID15</td>
+<td>Software Generated Interrupt，软件触发中断，通常用于多核之间通信。</td>
+</tr>
+<tr>
+<td>PPIs</td>
+<td>ID16~ID31</td>
+<td>Pivate Peripheral Interrupt，每个处理核私有中断，如timer，hw fault等。</td>
+</tr>
+<tr>
+<td>SPIs</td>
+<td>ID32~ID1019</td>
+<td>Shared Peripheral Interrupt，公用外设中断，最多支持998个。</td>
+</tr>
+<tr>
+<td></td>
+<td>ID1020~ID1023</td>
+<td>Used to signal special cases</td>
+</tr>
+<tr>
+<td></td>
+<td>1024~8191</td>
+<td>Reserved</td>
+</tr>
+<tr>
+<td>LIPs</td>
+<td>8192~</td>
+<td>Locality-specific Peripheral Interrupt，外设不通过专用中断线向GIC发中断，而是基于消息的中断，配置信息存储在memmory中，通过ITS可以解析消息发送给Redistributor触发中断。</td>
+</tr>
+</tbody>
+</table>
+<p>相对于GICv2架构GICv3多一个模块，Resdistributor。</p>
+<ul>
+<li>Distributor：主要用来管理配置SPIs类型的中断。</li>
+<li>Resdistributor：每个PE（process element，即cpu核）都对应一个，所以想要的配置是针对某个CPU核的，主要用来配置SGI和PPI类型中断。</li>
+<li>CPU Interface：每个PE对应一个interface，与GICv2的interface一致。</li>
+</ul>
+<p>引入LPIs后，对于中断源触发信号给中断控制器就可以分为两类，peripheral interrupt signal和Peripheral interrupt message。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_daf8640e8d5324072f798b8058ee9256.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/中断基本概念/images/wp_editor_md_daf8640e8d5324072f798b8058ee9256.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1b37a5dbf692a80745832cd33c5351ea.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/中断基本概念/images/wp_editor_md_1b37a5dbf692a80745832cd33c5351ea.jpg"/></a></p>
+<p>在GICv3,SPIs类型也是可以配置成message 类型中断，但是LPIs只能是message类型中断。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_707c0959d2d943f0230b84eaca03d760.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/中断基本概念/images/wp_editor_md_707c0959d2d943f0230b84eaca03d760.jpg"/></a></p>
+<p>GIC V3版本中寄存器如上图所示，提供了两种方式访问，memory-mapped和系统寄存器访问。</p>
+<table>
+<thead>
+<tr>
+<th>寄存器</th>
+<th>说明(memory-mapped访问方式)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GICC</td>
+<td>CPU interface寄存器</td>
+</tr>
+<tr>
+<td>GICD</td>
+<td>Distributor寄存器</td>
+</tr>
+<tr>
+<td>GICR</td>
+<td>Redistributor寄存器</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>寄存器</th>
+<th>说明（系统寄存器方式方式）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ICC</td>
+<td>物理 CPU interface系统寄存器</td>
+</tr>
+</tbody>
+</table>
+<h2 id="_1">中断处理过程</h2>
+<h3 id="_2">状态机</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fa983c1d0a0d6ec0b6d58b7a27c9ccca.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/中断基本概念/images/wp_editor_md_fa983c1d0a0d6ec0b6d58b7a27c9ccca.jpg"/></a></p>
+<p>上图是中断控制器的状态机，四种状态适用于SPI,PPI和SGI类型的中断源，而LPIs没有active或active and pending状态。</p>
+<ul>
+<li>Inactive：中断源没有触发信号。</li>
+<li>Pending：中断源触发了信号，GIC会将IAR（Interrupt Acklowlege Register）中该中断源对应bit置1，然后通知了CPU，但CPU没有响应ACK给GIC。</li>
+<li>Active：CPU读取了IAR寄存器置1的位，CPU通过interface读取IAR的寄存器表示确认了这个中断并开始处理，此时中断源进入Active状态。</li>
+<li>Active and Pending：CPU ACK了这个中断请求后，中断控制器就解除了对该中断源的屏蔽，控制器可以继续响应中断，那么当CPU还在处理中断服务器程序时，此时中断源又触发了信号给中断控制器，此时的状态就处于Acitive and Pending，简称AP。</li>
+</ul>
+<p>当CPU完成了中断程序处理，就会写中断控制器的EOI（End of Interrupt）寄存器，中断源的状态就会再次回到inactive状态。 CPU在处理中断程序期间是屏蔽掉IRQ的响应的，处理完成之后才会打开中断响应。这里要注意的是CPU的中断屏蔽和中断控制器的屏蔽是两回事，CPU屏蔽的是IRQ而中断控制器屏蔽的是SPIs/PPIs/SGIs/LPIs。</p>
+<h3 id="_3">触发方式</h3>
+<h4 id="_4">电平触发</h4>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ce0b379952db99a0b2951e833420cd7e.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/中断基本概念/images/wp_editor_md_ce0b379952db99a0b2951e833420cd7e.jpg"/></a></p>
+<p>电平触发方式时序图如上，可以分为以下几个阶段变化：</p>
+<ul>
+<li>Inactive to Pending：中断源触发了信号给到中断控制器，GIC收到信号后，如果CPU使能了该中断则触发信号给PE。上图Peripheral To GIC的信号被拉高，继而触发GIC To Core的信号被拉高。</li>
+<li>Pending to AP：PE通过CPU interface读取了IARs寄存器，状态转为Active。由于CPU操作的是中断控制器，但并没有对设备进行处理，所以设备给中断控制器的触发信号高电平会一直维持，因此会再次触发中断控制器对应bit置位，表示中断又来了。</li>
+<li>AP to Active：对应高电平的触发类型，通常需要CPU收到中断信号后再去响应外设，如写外设相关寄存器或读写外设的数据等，外设的中断源才会取消触发（高电平-&gt;低电平）。状态再次从AP转到Active。</li>
+<li>Active to Inactive：CPU处理完了中断响应程序，然后写中断控制器EOIRs寄存器，表示中断处理完成。</li>
+</ul>
+<h4 id="_5">边沿触发</h4>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a59bb37d1e754ef0195954ee34406d54.jpg"><img alt="" src="/assets/doc/01-linux/中断管理/中断基本概念/images/wp_editor_md_a59bb37d1e754ef0195954ee34406d54.jpg"/></a></p>
+<ul>
+<li>Inactive to Pending：中断源触发了信号给到中断控制器，GIC收到信号后，如果CPU使能了该中断则触发信号给PE，在CPU没有ACK之前，GIC to Core的电平会被一直拉高，直到CPU做出ACK动作。</li>
+<li>Pending to Active：与电平触发类似。</li>
+<li>Active to A&amp;P：Linux在处理中断过程中是不允许中断嵌套的，但此时如果有外设再次触发中断，但也不影响，因为中断控制器可以进行处理相当于锁存主第二个中断的到来，这样第二个中断也不会丢失。</li>
+<li>A&amp;P to Pending：边沿触发方式通常不需要CPU对外设进行中断信号清除，当cpu处理完了当前中断后，会转入准备处理第二个中断。</li>
+<li>边沿触发有丢中断的可能，一般情况下可靠性高的使用电平触发方式。</li>
+</ul>
+<p>中断控制器的pengding位，在软件处理完成写eoi寄存器后硬件自己会清除，所以软件不需要清pending，但是对于外设是电平类型触发来说，需要清除外设的电平触发源（操作的不是中断控制器，是外设）。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/arm64体系结构简介.html">← Arm64体系结构简介</a>
+    
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

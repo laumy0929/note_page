@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>webrtc网页代码分析二 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">交互流程</a><ul></ul></li><li><a href="#url">获取URL参数</a><ul></ul></li><li><a href="#_2">页面加载时的初始化操作</a><ul></ul></li><li><a href="#mqtt">MQTT操作</a><ul><li><a href="#_3">发起连接</a></li><li><a href="#_4">事件处理</a></li></ul></li><li><a href="#webrtc">WebRTC操作</a><ul><li><a href="#_5">创建对象</a></li><li><a href="#pc">获取PC录音</a></li><li><a href="#_6">连接状态</a></li><li><a href="#ice">ICE候选者</a></li><li><a href="#_7">接收音视频</a></li><li><a href="#_8">数据通道</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>webrtc网页代码分析二</h1>
+  <div class="meta">2024-12-14 · 其他</div>
+  <div class="post-content"><h2 id="_1">交互流程</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_7a3e5882d13fb51eecfaaf7fc8c53b59.jpg"><img alt="" src="/assets/doc/10-其他/webrtc网页代码分析二/images/wp_editor_md_7a3e5882d13fb51eecfaaf7fc8c53b59.jpg"/></a></p>
+<p>上图是完整的处理流程。</p>
+<h2 id="url">获取URL参数</h2>
+<div class="codehilite"><pre><span></span><code><span class="k">const</span><span class="w"> </span><span class="n">queryString</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">window</span><span class="o">.</span><span class="n">location</span><span class="o">.</span><span class="n">search</span><span class="p">;</span>
+<span class="k">const</span><span class="w"> </span><span class="n">urlParams</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new</span><span class="w"> </span><span class="n">URLSearchParams</span><span class="p">(</span><span class="n">queryString</span><span class="p">);</span>
+<span class="k">const</span><span class="w"> </span><span class="n">deviceId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">urlParams</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'deviceId'</span><span class="p">);</span>
+</code></pre></div>
+<p>这段代码先获取当前页面 URL 中的查询字符串部分（window.location.search），然后使用 URLSearchParams 对象解析查询字符串，尝试获取名为 deviceId 的参数值，后续很多操作会根据这个 deviceId 的有无来进行不同的逻辑处理。</p>
+<h2 id="_2">页面加载时的初始化操作</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">window</span><span class="o">.</span><span class="n">onload</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">function</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">deviceId</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">undefined</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span><span class="s1">'video'</span><span class="p">)</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">display</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'none'</span><span class="p">;</span>
+<span class="w">    </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span><span class="s1">'getting-started'</span><span class="p">)</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">display</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'block'</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="n">canvas</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">createElement</span><span class="p">(</span><span class="s1">'canvas'</span><span class="p">)</span>
+<span class="w">  </span><span class="n">canvas</span><span class="o">.</span><span class="n">width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">640</span>
+<span class="w">  </span><span class="n">canvas</span><span class="o">.</span><span class="n">height</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">480</span>
+
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="n">ctx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">canvas</span><span class="o">.</span><span class="n">getContext</span><span class="p">(</span><span class="s1">'2d'</span><span class="p">)</span>
+<span class="w">  </span><span class="n">ctx</span><span class="o">.</span><span class="n">fillStyle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'rgba(200, 200, 200, 100)'</span>
+<span class="w">  </span><span class="n">ctx</span><span class="o">.</span><span class="n">fillRect</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">640</span><span class="p">,</span><span class="w"> </span><span class="mi">480</span><span class="p">)</span>
+
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="n">img</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new</span><span class="w"> </span><span class="n">Image</span><span class="p">(</span><span class="mi">640</span><span class="p">,</span><span class="w"> </span><span class="mi">480</span><span class="p">)</span>
+<span class="w">  </span><span class="n">img</span><span class="o">.</span><span class="n">src</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">canvas</span><span class="o">.</span><span class="n">toDataURL</span><span class="p">()</span>
+
+<span class="w">  </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span><span class="s1">'imgStream'</span><span class="p">)</span><span class="o">.</span><span class="n">src</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">img</span><span class="o">.</span><span class="n">src</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>window.onload是页面加载完成后的回调函数，上面使用的是匿名函数，即当页面所有内容加载完成后执行的逻辑。具体逻辑如下</p>
+<p>这里判断如果deviceId未定义（也就是可能页面直接访问，没有带上对应的参数），则隐藏视频相关区域（id为video的div），显示初始引导内容区域（id 为 getting-started 的 div）。在函数内创建了一个 canvas 元素，绘制了一个半透明的矩形，将其转换为图片数据后设置给img id=\\\\"imgStream\\\\"元素作为初始显示内容。</p>
+<h2 id="mqtt">MQTT操作</h2>
+<h3 id="_3">发起连接</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">var</span><span class="w"> </span><span class="n">options</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">keepalive</span><span class="p">:</span><span class="w"> </span><span class="mi">600</span><span class="p">,</span>
+<span class="w">  </span><span class="n">username</span><span class="p">:</span><span class="w"> </span><span class="s1">'xxx'</span><span class="p">,</span>
+<span class="w">  </span><span class="n">password</span><span class="p">:</span><span class="w"> </span><span class="s1">'xxxx'</span><span class="p">,</span>
+<span class="p">};</span>
+<span class="k">const</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mqtt</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s1">'wss://xxx.xxx.com:8084/mqtt'</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">);</span>
+</code></pre></div>
+<p>定义了 MQTT连接的相关选项（如保活时间、用户名、密码等），然后尝试连接到指定的MQTT服务器地址（wss://xxx.xxx.xxx:8084/mqtt），后续通过client对象来处理 MQTT 的各种消息收发以及相关操作。</p>
+<h3 id="_4">事件处理</h3>
+<h4 id="connect">connect事件</h4>
+<div class="codehilite"><pre><span></span><code><span class="nt">client</span><span class="p">.</span><span class="nc">on</span><span class="o">(</span><span class="s1">'connect'</span><span class="o">,</span><span class="w"> </span><span class="nt">function</span><span class="w"> </span><span class="o">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="err">console.log("connected")</span>
+<span class="w">  </span><span class="err">client.subscribe('webrtc/'</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="err">deviceId</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="err">'/jsonrpc-reply',</span><span class="w"> </span><span class="err">function</span><span class="w"> </span><span class="err">(err)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">    </span><span class="err">if</span><span class="w"> </span><span class="err">(!err)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="err">}</span><span class="o">);</span>
+<span class="w">  </span><span class="nt">console</span><span class="p">.</span><span class="nc">log</span><span class="o">(</span><span class="s1">'publish to webrtc/'</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nt">deviceId</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">'/jsonrpc'</span><span class="o">);</span>
+<span class="w">  </span><span class="nt">client</span><span class="p">.</span><span class="nc">publish</span><span class="o">(</span><span class="s1">'webrtc/'</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nt">deviceId</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">'/jsonrpc'</span><span class="o">,</span><span class="w"> </span><span class="nt">JSON</span><span class="p">.</span><span class="nc">stringify</span><span class="o">(</span><span class="p">{</span>
+<span class="w">    </span><span class="n">jsonrpc</span><span class="p">:</span><span class="w"> </span><span class="s1">'2.0'</span><span class="p">,</span>
+<span class="w">    </span><span class="n">method</span><span class="o">:</span><span class="w"> </span><span class="s1">'offer'</span><span class="p">,</span>
+<span class="w">    </span><span class="n">id</span><span class="o">:</span><span class="w"> </span><span class="n">offerId</span><span class="p">,</span>
+<span class="w">  </span><span class="p">}</span><span class="o">),</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">qos</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="p">}</span><span class="o">);</span>
+<span class="err">}</span><span class="o">)</span>
+</code></pre></div>
+<p>结构为client.on(\\\\'connect\\\\', function () {... })； client.on这里是mqtt对象的事件回调，这里将function(){...}作为回调函数注册进去，funciton实现是匿名函数的方式。当前收到connect事件时，就会执行function的内容。具体逻辑如下。 当成功连接到MQTT服务器后，先在控制台输出 connected 表示连接成功，然后订阅一个特定主题（webrtc/\\\\' + deviceId + \\\\'/jsonrpc-reply）用于接收回复消息，接着向另一个特定主题（webrtc/\\\\' + deviceId + \\\\'/jsonrpc）发布一条包含offer信息的 JSON 格式消息（设置了消息质量等级 qos 为 2），用于发起某种交互（可能与 WebRTC 相关的会话建立等操作）。</p>
+<p>（1）订阅函数subscribe</p>
+<div class="codehilite"><pre><span></span><code>client.subscribe(topic, options, callback);
+</code></pre></div>
+<ul>
+<li>topic: 需要订阅的主题，可以是一个字符串或者一个主题数组。主题是 MQTT 中用于分类消息的方式。主题的命名规则通常是层级的，使用斜杠（/）分隔每一层级，例如 \\\\'home/livingroom/temperature\\\\'。</li>
+<li>options: 可选参数，配置订阅的一些选项，如 QoS（服务质量）级别。常见的选项包括： -- qos: 服务质量（Quality of Service）级别，取值范围是： -- 0 - 至多一次：消息最多发送一次，不做确认。 -- 1 - 至少一次：消息至少发送一次，可能会重复。 -- 2 - 只有一次：消息只能传递一次，不会丢失，也不会重复。</li>
+<li>callback: 可选的回调函数，当订阅成功时会被调用。回调函数接受一个错误对象作为参数，如果订阅成功，err 为 null；如果订阅失败，则返回相应的错误信息。</li>
+</ul>
+<p>（2）发布函数publish</p>
+<div class="codehilite"><pre><span></span><code>client.publish(topic, message, options, callback);
+</code></pre></div>
+<ul>
+<li>
+<p>topic: 需要发布消息的主题，可以是一个字符串，表示主题名称。</p>
+</li>
+<li>
+<p>message: 需要发布的消息内容，可以是字符串、Buffer、对象等。一般情况下，消息会被自动转换为字符串或 Buffer（如果传入对象，会自动通过 JSON.stringify() 转换为字符串）。</p>
+</li>
+<li>
+<p>options: 可选参数，配置发布消息的选项，常见的选项包括： -- qos: 服务质量（Quality of Service）级别（如前述），默认是 0。 -- retain: 是否保留消息，若为 true，代理服务器会保存消息并在新订阅者连接时发送该消息。</p>
+</li>
+<li>
+<p>callback: 可选的回调函数，发布消息成功后会被调用。回调函数接受一个错误对象作为参数，如果发布成功，err 为 null；如果发布失败，则返回相应的错误信息。</p>
+</li>
+</ul>
+<h4 id="messange">messange事件</h4>
+<p>MQTT消息接收处理（client.on(\\\\'message\\\\', function (topic, message) {... })），语法与上面类似，逻辑如下。</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">client</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="err">'</span><span class="nx">message</span><span class="err">'</span><span class="p">,</span><span class="w"> </span><span class="nx">function</span><span class="w"> </span><span class="p">(</span><span class="nx">topic</span><span class="p">,</span><span class="w"> </span><span class="nx">message</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">msg</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">message</span><span class="p">.</span><span class="nx">toString</span><span class="p">());</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">msg</span><span class="p">.</span><span class="nx">id</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">offerId</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">sdp</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">msg</span><span class="p">.</span><span class="nx">result</span><span class="p">;</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">offer</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">type</span><span class="p">:</span><span class="w"> </span><span class="err">'</span><span class="nx">offer</span><span class="err">'</span><span class="p">,</span><span class="w"> </span><span class="nx">sdp</span><span class="p">:</span><span class="w"> </span><span class="nx">sdp</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">(</span><span class="nx">offer</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">pc</span><span class="p">.</span><span class="nx">setRemoteDescription</span><span class="p">(</span><span class="nx">offer</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">pc</span><span class="p">.</span><span class="nx">createAnswer</span><span class="p">().</span><span class="k">then</span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nx">pc</span><span class="p">.</span><span class="nx">setLocalDescription</span><span class="p">(</span><span class="nx">d</span><span class="p">)).</span><span class="nx">catch</span><span class="p">(</span><span class="nx">log</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">msg</span><span class="p">.</span><span class="nx">id</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">answerId</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">(</span><span class="err">'</span><span class="nx">receive</span><span class="w"> </span><span class="nx">answer</span><span class="w"> </span><span class="nx">ok</span><span class="err">'</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">})</span>
+</code></pre></div>
+<p>当接收到MQTT消息时，先将消息内容解析为 JSON 对象，然后根据消息中的 id 判断消息类型，如果 id 与之前定义的 offerId 相等，说明是对之前 offer 的回复，会提取其中的 sdp 信息设置为远程描述（setRemoteDescription），并创建一个本地回答（createAnswer）然后设置本地描述（setLocalDescription）；如果 id 等于 answerId，则只是在控制台输出表示接收到了回答消息。</p>
+<h2 id="webrtc">WebRTC操作</h2>
+<h3 id="_5">创建对象</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">var</span><span class="w"> </span><span class="n">pc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new</span><span class="w"> </span><span class="n">RTCPeerConnection</span><span class="p">({</span>
+<span class="w">  </span><span class="n">iceServers</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="n">urls</span><span class="p">:</span><span class="w"> </span><span class="s2">"turn:rtpeer.allwinnertech.com:3478"</span><span class="p">,</span>
+<span class="w">      </span><span class="n">username</span><span class="p">:</span><span class="w"> </span><span class="s2">"pctest"</span><span class="p">,</span>
+<span class="w">      </span><span class="n">credential</span><span class="p">:</span><span class="w"> </span><span class="s2">"Aa123456"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="p">});</span>
+</code></pre></div>
+<p>创建了一个 RTCPeerConnection 对象用于建立 WebRTC 连接，配置了 iceServers，这里指定了一个 TURN 服务器的相关信息（地址、用户名、密码），有助于在复杂网络环境（如存在 NAT 等情况）下建立稳定的点对点连接，确保音视频数据能顺利传输。</p>
+<h3 id="pc">获取PC录音</h3>
+<div class="codehilite"><pre><span></span><code><span class="nt">navigator</span><span class="p">.</span><span class="nc">mediaDevices</span><span class="p">.</span><span class="nc">getUserMedia</span><span class="o">(</span><span class="p">{</span><span class="w"> </span><span class="n">video</span><span class="p">:</span><span class="w"> </span><span class="n">false</span><span class="p">,</span><span class="w"> </span><span class="n">audio</span><span class="o">:</span><span class="w"> </span><span class="n">true</span><span class="w"> </span><span class="p">}</span><span class="o">)</span>
+<span class="w"> </span><span class="p">.</span><span class="nc">then</span><span class="o">(</span><span class="nt">stream</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="err">stream.getTracks().forEach(track</span><span class="w"> </span><span class="err">=&gt;</span><span class="w"> </span><span class="err">pc.addTrack(track,</span><span class="w"> </span><span class="err">stream))</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span><span class="o">)</span><span class="p">.</span><span class="nc">catch</span><span class="o">(</span><span class="nt">log</span><span class="o">);</span>
+</code></pre></div>
+<p>通过 navigator.mediaDevices.getUserMedia 方法请求获取音频媒体流（这里明确只要音频，video: false, audio: true），如果获取成功，将音频轨道添加到 RTCPeerConnection 对象（pc）中，以便后续传输音频数据，如果出现错误则通过 log 函数（也就是在控制台输出错误信息）进行处理。</p>
+<h3 id="_6">连接状态</h3>
+<div class="codehilite"><pre><span></span><code><span class="nv">pc</span>.<span class="nv">oniceconnectionstatechange</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">e</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span>{
+<span class="w">  </span><span class="nv">log</span><span class="ss">(</span><span class="nv">pc</span>.<span class="nv">iceConnectionState</span><span class="ss">)</span><span class="c1">;</span>
+<span class="w">  </span><span class="nv">document</span>.<span class="nv">getElementById</span><span class="ss">(</span><span class="s1">'status'</span><span class="ss">)</span>.<span class="nv">innerHTML</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">pc</span>.<span class="nv">iceConnectionState</span><span class="c1">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="ss">(</span><span class="nv">pc</span>.<span class="nv">iceConnectionState</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'connected'</span><span class="ss">)</span><span class="w"> </span>{
+<span class="w">    </span><span class="o">//</span><span class="w"> </span><span class="nv">default</span><span class="w"> </span><span class="nv">to</span><span class="w"> </span><span class="nv">muted</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="ss">(</span><span class="o">!</span><span class="nv">isMuted</span><span class="ss">)</span>
+<span class="w">      </span><span class="nv">onMuted</span><span class="ss">()</span><span class="c1">;</span>
+<span class="w">  </span>}
+}
+</code></pre></div>
+<p>当 WebRTC 连接的 ICE 连接状态发生变化时，先在控制台输出当前连接状态（通过 log 函数），然后更新页面上 id 为 status 的元素文本内容为当前连接状态，并且当连接状态变为 connected（已连接）时，如果当前不是静音状态（!isMuted），则调用 onMuted 函数将音频静音。</p>
+<h3 id="ice">ICE候选者</h3>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="nt">pc</span><span class="p">.</span><span class="nc">onicecandidate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nt">event</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="err">if</span><span class="w"> </span><span class="err">(event.candidate</span><span class="w"> </span><span class="err">===</span><span class="w"> </span><span class="err">null)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">        </span><span class="err">console.log(pc.localDescription.sdp)</span>
+<span class="w">        </span><span class="err">let</span><span class="w"> </span><span class="err">json</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">{</span>
+<span class="w">          </span><span class="n">jsonrpc</span><span class="p">:</span><span class="w"> </span><span class="err">\\</span><span class="s1">'2.0\\'</span><span class="p">,</span>
+<span class="w">          </span><span class="n">method</span><span class="o">:</span><span class="w"> </span><span class="err">\\</span><span class="s1">'answer\\'</span><span class="p">,</span>
+<span class="w">          </span><span class="n">params</span><span class="o">:</span><span class="w"> </span><span class="n">pc</span><span class="o">.</span><span class="n">localDescription</span><span class="o">.</span><span class="n">sdp</span><span class="p">,</span>
+<span class="w">          </span><span class="n">id</span><span class="o">:</span><span class="w"> </span><span class="n">answerId</span><span class="p">,</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">console</span><span class="p">.</span><span class="nc">log</span><span class="o">(</span><span class="nt">json</span><span class="o">)</span>
+<span class="w">        </span><span class="nt">client</span><span class="p">.</span><span class="nc">publish</span><span class="o">(</span><span class="err">\\</span><span class="s1">'webrtc/\\'</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nt">deviceId</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="err">\\</span><span class="s1">'/jsonrpc\\'</span><span class="o">,</span><span class="w"> </span><span class="nt">JSON</span><span class="p">.</span><span class="nc">stringify</span><span class="o">(</span><span class="nt">json</span><span class="o">))</span>
+
+<span class="w">        </span><span class="nt">setInterval</span><span class="o">(()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="err">....</span><span class="p">}</span><span class="o">,</span><span class="w"> </span><span class="nt">1000</span><span class="o">);</span>
+
+<span class="w">      </span><span class="err">}</span>
+<span class="w">    </span><span class="err">}</span>
+</code></pre></div>
+<p>当有 ICE 候选者信息产生并且当候选者为 null 时（意味着 ICE 收集过程结束），执行一系列操作，包括打印 RTCPeerConnection 的本地描述中的 sdp 信息，向 MQTT 特定主题发布包含本地描述 sdp 信息的 JSON 消息，并且每隔 1 秒获取连接的统计信息（通过 pc.getStats 方法），整理后更新到页面中 id 为 stats-box 的元素内展示出来。</p>
+<p>当收到对端的offer候选信息后，本地会进行与stun/turn服务交互，交互获取到ICE信息后，就会触发回调这个函数，将自己SDP信息组装成json通过mqtt publish发送给对端。</p>
+<h3 id="_7">接收音视频</h3>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="n">pc</span><span class="o">.</span><span class="n">ontrack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">function</span><span class="w"> </span><span class="p">(</span><span class="n">event</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">track</span><span class="o">.</span><span class="n">kind</span><span class="w"> </span><span class="o">==</span><span class="w"> </span>\\<span class="s1">'video</span><span class="se">\\</span><span class="s1">'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">var</span><span class="w"> </span><span class="n">el</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span>\\<span class="s1">'videoStream</span><span class="se">\\</span><span class="s1">'</span><span class="p">);</span>
+<span class="w">        </span><span class="k">var</span><span class="w"> </span><span class="n">newStream</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new</span><span class="w"> </span><span class="n">MediaStream</span><span class="p">();</span>
+<span class="w">        </span><span class="n">newStream</span><span class="o">.</span><span class="n">addTrack</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">track</span><span class="p">);</span>
+<span class="w">        </span><span class="n">el</span><span class="o">.</span><span class="n">srcObject</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">newStream</span><span class="p">;</span>
+<span class="w">        </span><span class="n">el</span><span class="o">.</span><span class="n">autoplay</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">true</span>
+<span class="w">        </span><span class="n">el</span><span class="o">.</span><span class="n">controls</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">false</span>
+<span class="w">        </span><span class="n">el</span><span class="o">.</span><span class="n">muted</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">true</span>
+<span class="w">        </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span>\\<span class="s1">'imgStream</span><span class="se">\\</span><span class="s1">'</span><span class="p">)</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">display</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>\\<span class="s1">'none</span><span class="se">\\</span><span class="s1">'</span><span class="p">;</span>
+<span class="w">        </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span>\\<span class="s1">'videoStream</span><span class="se">\\</span><span class="s1">'</span><span class="p">)</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">display</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>\\<span class="s1">'block</span><span class="se">\\</span><span class="s1">'</span><span class="p">;</span>
+<span class="w">        </span><span class="o">//</span><span class="w"> </span><span class="err">当视频流添加成功后，获取视频分辨率和码率信息并更新显示</span>
+<span class="w">        </span><span class="n">el</span><span class="o">.</span><span class="n">addEventListener</span><span class="p">(</span>\\<span class="s1">'loadedmetadata</span><span class="se">\\</span><span class="s1">'</span><span class="p">,</span><span class="w"> </span><span class="n">function</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">updateVideoInfo</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">track</span><span class="p">);</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">      </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">track</span><span class="o">.</span><span class="n">kind</span><span class="w"> </span><span class="o">==</span><span class="w"> </span>\\<span class="s1">'audio</span><span class="se">\\</span><span class="s1">'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">var</span><span class="w"> </span><span class="n">el</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span>\\<span class="s1">'audioStream</span><span class="se">\\</span><span class="s1">'</span><span class="p">);</span>
+<span class="w">        </span><span class="k">var</span><span class="w"> </span><span class="n">newStream</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new</span><span class="w"> </span><span class="n">MediaStream</span><span class="p">();</span>
+<span class="w">        </span><span class="n">newStream</span><span class="o">.</span><span class="n">addTrack</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">track</span><span class="p">);</span>
+<span class="w">        </span><span class="n">el</span><span class="o">.</span><span class="n">srcObject</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">newStream</span><span class="p">;</span>
+<span class="w">        </span><span class="n">el</span><span class="o">.</span><span class="n">controls</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">false</span>
+<span class="w">        </span><span class="n">el</span><span class="o">.</span><span class="n">muted</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">false</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+</code></pre></div>
+<p>当通过 RTCPeerConnection 接收到远端传来的媒体轨道（视频或音频轨道）时，根据轨道类型进行不同的处理。对于视频轨道，获取页面中的视频元素（id 为 videoStream），创建新的 MediaStream 对象添加轨道后设置为视频元素的播放源，同时设置自动播放、隐藏控制条、静音等属性，并在视频元数据加载完成后（通过 loadedmetadata 事件）调用 updateVideoInfo 函数更新视频分辨率和码率信息显示；对于音频轨道，类似地获取音频元素（id 为 audioStream），添加轨道到新的 MediaStream 对象并设置为音频元素播放源，设置不显示控制条且不静音。</p>
+<h3 id="_8">数据通道</h3>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="n">const</span><span class="w"> </span><span class="n">datachannel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pc</span><span class="p">.</span><span class="n">createDataChannel</span><span class="p">(</span><span class="err">\\</span><span class="s1">'pear\\'</span><span class="p">)</span>
+<span class="w">    </span><span class="n">datachannel</span><span class="p">.</span><span class="n">onclose</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="err">\\</span><span class="s1">'datachannel has closed\\'</span><span class="p">);</span>
+<span class="w">    </span><span class="n">datachannel</span><span class="p">.</span><span class="n">onopen</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="err">{</span>
+<span class="w">      </span><span class="n">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="err">\\</span><span class="s1">'datachannel has opened\\'</span><span class="p">);</span>
+<span class="w">      </span><span class="n">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="err">\\</span><span class="s1">'sending ping\\'</span><span class="p">);</span>
+<span class="w">      </span><span class="n">setInterval</span><span class="p">(()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="err">{</span>
+<span class="w">        </span><span class="n">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="err">\\</span><span class="s1">'sending ping\\'</span><span class="p">);</span>
+<span class="w">        </span><span class="n">datachannel</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="err">\\</span><span class="s1">'ping\\'</span><span class="p">);</span>
+<span class="w">      </span><span class="err">}</span><span class="p">,</span><span class="w"> </span><span class="mi">1000</span><span class="p">);</span>
+<span class="w">    </span><span class="err">}</span>
+
+<span class="w">    </span><span class="n">datachannel</span><span class="p">.</span><span class="n">onmessage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="err">{</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="k">data</span><span class="p">.</span><span class="n">byteLength</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="n">undefined</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">        </span><span class="n">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="k">data</span><span class="p">);</span>
+<span class="w">      </span><span class="err">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="err">{</span>
+<span class="w">        </span><span class="o">//</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="nc">binary</span><span class="w"> </span><span class="k">data</span><span class="p">.</span><span class="w"> </span><span class="n">mjpeg</span><span class="w"> </span><span class="n">stream</span>
+<span class="w">        </span><span class="o">//</span><span class="w"> </span><span class="n">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="k">data</span><span class="p">.</span><span class="n">byteLength</span><span class="p">);</span>
+<span class="w">        </span><span class="nf">var</span><span class="w"> </span><span class="n">arrayBufferView</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">Uint8Array</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="k">data</span><span class="p">);</span>
+<span class="w">        </span><span class="nf">var</span><span class="w"> </span><span class="k">blob</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="k">Blob</span><span class="p">(</span><span class="o">[</span><span class="n">arrayBufferView</span><span class="o">]</span><span class="p">,</span><span class="w"> </span><span class="err">{</span><span class="w"> </span><span class="nl">type</span><span class="p">:</span><span class="w"> </span><span class="err">\\</span><span class="ss">"image/jpeg\\"</span><span class="w"> </span><span class="err">}</span><span class="p">);</span>
+<span class="w">        </span><span class="nf">var</span><span class="w"> </span><span class="n">urlCreator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">window</span><span class="p">.</span><span class="n">URL</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="k">window</span><span class="p">.</span><span class="n">webkitURL</span><span class="p">;</span>
+<span class="w">        </span><span class="nf">var</span><span class="w"> </span><span class="n">imageUrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">urlCreator</span><span class="p">.</span><span class="n">createObjectURL</span><span class="p">(</span><span class="k">blob</span><span class="p">);</span>
+
+<span class="w">        </span><span class="nf">var</span><span class="w"> </span><span class="n">imageElement</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="p">.</span><span class="n">getElementById</span><span class="p">(</span><span class="err">\\</span><span class="s1">'imgStream\\'</span><span class="p">);</span>
+<span class="w">        </span><span class="n">imageElement</span><span class="p">.</span><span class="n">src</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">imageUrl</span><span class="p">;</span>
+<span class="w">      </span><span class="err">}</span>
+<span class="w">    </span><span class="err">}</span>
+</code></pre></div>
+<p>创建了一个名为pear的数据通道（const datachannel = pc.createDataChannel(\\'pear\\')），并分别对数据通道的打开、关闭、接收消息等事件绑定了相应的回调函数。例如在数据通道打开时（datachannel.onopen），会定期（每隔 1 秒）发送 ping 消息用于保持连接或检测连接状态等；在接收到消息时（datachannel.onmessage），根据消息数据类型判断，如果是文本消息直接在控制台输出，如果是二进制数据（判断为 MJPEG 流），则将其转换为图片的 URL 并设置给页面中的图片元素（id 为 imgStream）用于显示。</p>
+<p>所以这里支持mjpeg的方式，但是是通过数据通道来实现的。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/webrtc网页代码分析一.html">← webrtc网页代码分析一</a>
+    <a class="next" href="/javascript之dom.html">javascript之dom →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

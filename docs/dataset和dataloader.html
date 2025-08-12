@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>dataset和DataLoader - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">简介</a><ul></ul></li><li><a href="#dataset">Dataset</a><ul></ul></li><li><a href="#dataloader">DataLoader</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>dataset和DataLoader</h1>
+  <div class="meta">2025-08-08 · ai</div>
+  <div class="post-content"><h2 id="_1">简介</h2>
+<p>Dataset和DataLoader在pytorch中主要用于数据的组织。这两个类通常一起搭配处理深度学习中的数据流。</p>
+<ul>
+<li>Dataset 用于产出“单个样本”：定义怎么按索引取到一个样本，以及总共有多少个样本。</li>
+<li>DataLoader 负责“成批取样”：决定批大小、是否打乱、多进程加载、并用 collate_fn 把一个批里的样本“拼起来”（对齐、padding、mask、teacher forcing 等）。</li>
+</ul>
+<p>一句话记忆：Dataset 只管“单条样本”；DataLoader 负责“多条怎么一起、怎么并行、怎么对齐”。变长就写 collate_fn，性能就调 workers/pin_memory/分桶。</p>
+<h2 id="dataset">Dataset</h2>
+<p>Dataset类作用：定义数据集的统一接口，支持自定义数据加载逻辑。</p>
+<p>关键方法：</p>
+<ul>
+<li><strong>init</strong>：初始化数据路径、预处理函数等。</li>
+<li><strong>len</strong>：返回数据集样本总数。</li>
+<li><strong>getitem</strong>：根据索引返回单个样本（数据+标签）。</li>
+</ul>
+<p>通常情况下用户都会有自己的数据集，所以定义的数据集类继承dataset。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">#准备一个数据集</span>
+<span class="n">pairs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="s2">"我 有 一个 苹果"</span><span class="p">,</span> <span class="s2">"i have an apple"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"我 有 一本 书"</span><span class="p">,</span> <span class="s2">"i have a book"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"你 喜欢 书"</span><span class="p">,</span> <span class="s2">"you like books"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"我 吃 苹果"</span><span class="p">,</span> <span class="s2">"i eat apples"</span><span class="p">),</span>
+<span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">build_vocab</span><span class="p">(</span><span class="n">texts</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+    <span class="n">tokens</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">texts</span><span class="p">:</span>
+        <span class="n">tokens</span><span class="o">.</span><span class="n">update</span><span class="p">([</span><span class="n">w</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">()])</span>
+    <span class="n">itos</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"&lt;pad&gt;"</span><span class="p">,</span> <span class="s2">"&lt;bos&gt;"</span><span class="p">,</span> <span class="s2">"&lt;eos&gt;"</span><span class="p">]</span> <span class="o">+</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span>
+    <span class="n">stoi</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">itos</span><span class="p">)}</span>
+    <span class="k">return</span> <span class="n">stoi</span><span class="p">,</span> <span class="n">itos</span>
+
+<span class="n">src_texts</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">]</span>
+<span class="n">tgt_texts</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">]</span>
+<span class="n">SRC_STOI</span><span class="p">,</span> <span class="n">SRC_ITOS</span> <span class="o">=</span> <span class="n">build_vocab</span><span class="p">(</span><span class="n">src_texts</span><span class="p">)</span>
+<span class="n">TGT_STOI</span><span class="p">,</span> <span class="n">TGT_ITOS</span> <span class="o">=</span> <span class="n">build_vocab</span><span class="p">(</span><span class="n">tgt_texts</span><span class="p">)</span>
+
+<span class="n">PAD_IDX</span><span class="p">,</span> <span class="n">BOS_IDX</span><span class="p">,</span> <span class="n">EOS_IDX</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span>
+
+<span class="k">def</span> <span class="nf">encode_src</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">SRC_STOI</span><span class="p">[</span><span class="n">w</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">()]</span>
+
+<span class="k">def</span> <span class="nf">encode_tgt</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">BOS_IDX</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">TGT_STOI</span><span class="p">[</span><span class="n">w</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">()]</span> <span class="o">+</span> <span class="p">[</span><span class="n">EOS_IDX</span><span class="p">]</span>
+
+<span class="c1"># Dataset：定义“单样本怎么取”</span>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Example</span><span class="p">:</span>
+    <span class="n">src</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">tgt</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+
+<span class="k">class</span> <span class="nc">ToyDataset</span><span class="p">(</span><span class="n">Dataset</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pairs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]):</span>
+        <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"encode_src(s)"</span><span class="p">,</span><span class="n">encode_src</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"encode_tgt(t)"</span><span class="p">,</span><span class="n">encode_tgt</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">Example</span><span class="p">(</span><span class="n">encode_src</span><span class="p">(</span><span class="n">s</span><span class="p">),</span> <span class="n">encode_tgt</span><span class="p">(</span><span class="n">t</span><span class="p">))</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Example</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+</code></pre></div>
+<ul>
+<li>样本结构：用 Example(src: List[int], tgt: List[int]) 表示一条样本的源序列与目标序列（都是 token id 列表）。</li>
+<li>词表与编码：源序列仅分词并映射到 id。目标序列前加 bos、后加 eos，便于自回归训练。</li>
+<li>协议：实现 <strong>len</strong> 和 <strong>getitem</strong> 两个方法即可被 DataLoader 使用。</li>
+</ul>
+<h2 id="dataloader">DataLoader</h2>
+<div class="codehilite"><pre><span></span><code>  <span class="k">class</span> <span class="nc">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataLoader</span><span class="p">(</span><span class="n">Data</span><span class="p">[</span><span class="n">T_co</span><span class="p">]):</span>
+      <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+          <span class="bp">self</span><span class="p">,</span>
+          <span class="n">dataset</span><span class="p">,</span>
+          <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+          <span class="n">shuffle</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+          <span class="n">sampler</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+          <span class="n">batch_sampler</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+          <span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+          <span class="n">collate_fn</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+          <span class="n">pin_memory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+          <span class="n">drop_last</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+          <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+          <span class="n">worker_init_fn</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+          <span class="n">multiprocessing_context</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+          <span class="n">generator</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+          <span class="n">prefetch_factor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+          <span class="n">persistent_workers</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+          <span class="n">pin_memory_device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+      <span class="p">):</span> <span class="o">...</span>
+</code></pre></div>
+<ul>
+<li>dataset: Dataset 或 IterableDataset 实例。</li>
+<li>batch_size: 每批样本数。</li>
+<li>shuffle: 是否在每个 epoch 打乱索引（Map-style 且未显式传 sampler 时有效）。</li>
+<li>sampler: 自定义样本采样器（与 shuffle 互斥；指定它就不要再用 shuffle）。</li>
+<li>batch_sampler: 一次直接产出“一个 batch 的索引列表”（与 batch_size、shuffle、sampler 互斥）。</li>
+<li>num_workers: 进程数（0 为主进程；&gt;0 开多进程并行加载）。</li>
+<li>collate_fn(samples_list) -&gt; batch: 批内拼接函数；变长序列需要自定义（默认会尝试堆叠等长 tensor）。</li>
+<li>pin_memory: 将 batch 固定到页锁内存，配合 CUDA 加速 H2D 拷贝。</li>
+<li>drop_last: 数据量不是 batch_size 整数倍时，是否丢弃最后不满的一批。</li>
+<li>timeout: 从 worker 等待数据的秒数（&gt;0 时生效）。</li>
+<li>worker_init_fn(worker_id): 每个 worker 的初始化回调（设随机种子、打开文件等）。</li>
+<li>multiprocessing_context: 指定多进程上下文（spawn/forkserver 等）。</li>
+<li>generator: 控制随机性（打乱、采样）用的随机数生成器。</li>
+<li>prefetch_factor: 每个 worker 预取多少个 batch（num_workers &gt; 0 时有效）。</li>
+<li>persistent_workers: True 时 DataLoader 第一次迭代后保持 worker 不销毁，提高多轮迭代性能。</li>
+<li>pin_memory_device: 当 pin_memory=True 时，指定固定内存的设备标签（一般留空即可）。</li>
+</ul>
+<p>DataLoader返回是一个可迭代的对象，每次迭代产出一个批次的样本。一个批次的内容就是把当批样本列表交给 collate_fn 的返回值（若未自定义，则用 PyTorch 的默认 default_collate）。而类型取决于两点Dataset.<strong>getitem</strong> 返回什么（tensor/数值/dict/tuple…）和collate_fn 如何把一批“样本列表”拼成“批次”。</p>
+<p>这里重点阐述一下collate_fn是一个用户需要注册的回调函数，目的是要把一个批的样本拼接起来。同时对于输入样本如果张量的形状不一致如变长序列，进行padding、对齐、mask等动作。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">collate_fn</span><span class="p">(</span><span class="n">batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Example</span><span class="p">]):</span>
+    <span class="n">src_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">src</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">)</span>
+    <span class="n">tgt_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">tgt</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">)</span>
+
+    <span class="n">src_batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">tgt_in_batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">tgt_out_batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">ex</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">:</span>
+        <span class="n">src</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">src</span> <span class="o">+</span> <span class="p">[</span><span class="n">PAD_IDX</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">src_max</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">src</span><span class="p">))</span>
+        <span class="c1"># teacher forcing：输入去掉最后一个、输出去掉第一个</span>
+        <span class="n">tgt_in</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">tgt</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">PAD_IDX</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">tgt_max</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">tgt</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">tgt_out</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">tgt</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="p">[</span><span class="n">PAD_IDX</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">tgt_max</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">tgt</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+
+        <span class="n">src_batch</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+        <span class="n">tgt_in_batch</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tgt_in</span><span class="p">)</span>
+        <span class="n">tgt_out_batch</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tgt_out</span><span class="p">)</span>
+
+    <span class="n">src</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">src_batch</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>         <span class="c1"># (B,S)</span>
+    <span class="n">tgt_in</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">tgt_in_batch</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>   <span class="c1"># (B,T)</span>
+    <span class="n">tgt_out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">tgt_out_batch</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span> <span class="c1"># (B,T)</span>
+    <span class="n">src_pad_mask</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">eq</span><span class="p">(</span><span class="n">PAD_IDX</span><span class="p">)</span>                          <span class="c1"># (B,S) True=PAD</span>
+    <span class="n">tgt_pad_mask</span> <span class="o">=</span> <span class="n">tgt_in</span><span class="o">.</span><span class="n">eq</span><span class="p">(</span><span class="n">PAD_IDX</span><span class="p">)</span>                       <span class="c1"># (B,T) True=PAD</span>
+    <span class="k">return</span> <span class="n">src</span><span class="p">,</span> <span class="n">tgt_in</span><span class="p">,</span> <span class="n">tgt_out</span><span class="p">,</span> <span class="n">src_pad_mask</span><span class="p">,</span> <span class="n">tgt_pad_mask</span>
+</code></pre></div>
+<ul>
+<li>输入：batch 是若干个 Example，每个包含 src: List[int] 与 tgt: List[int]（目标序列已含 bos/eos）。</li>
+<li>核心：对齐变长序列（右侧 padding），构造 teacher forcing 的 (tgt_in, tgt_out)，并生成 padding 掩码。</li>
+<li>
+<p>输出：</p>
+<ul>
+<li>src: (B, S)</li>
+<li>tgt_in: (B, T)</li>
+<li>tgt_out: (B, T)</li>
+<li>src_pad_mask: (B, S)；True=PAD</li>
+<li>tgt_pad_mask: (B, T)；True=PAD</li>
+</ul>
+</li>
+</ul>
+<p>首先使用src_max/tgt_max计算批内最长长度，这样能够将所有样本右侧补到同一长度，方便堆叠为矩阵。</p>
+<p>接着定义批内累积的容器src_batch,tgt_in_batch,tgt_out_batch。</p>
+<ul>
+<li>src_batch: 编码器输入样本的批次。</li>
+<li>tgt_in_batch:解码器输入样本的批次。</li>
+<li>tgt_out_batch:解码器输出样本的批次。</li>
+</ul>
+<p>其次使用for循环对每个样本进行补齐，使其跟src_max、tgt_max长度一致，[PAD_IDX] * (src_max - len(ex.src))的意思是将[PAD_IDX]的单元素列表重复src_max - len(ex.src)用于拼接追加到ex.src后，使其对齐。tgt_in和tgt_out同理。</p>
+<p>在对tgt_in和tgt_out做样本补齐时，因为输入ex.tgt是包含了bos和eos目标序列，对于tgt_in输入需要去掉最后一个token bos，tgt_out输出需要去掉第一个token eos。</p>
+<p>然后就是将补齐的序列依次添加到src_batch，tgt_in_batch，tgt_out_batch。这样就对输入的数据进行了分类，把编码器的输入整合了在一起，解码器的输入和输出整合了一起。</p>
+<p>最后就是将批内对齐后的源序列列表转换为张量，同时计算src和tag_in的mask，也就是说对数据哪些位置添加了pad。</p>
+<p>下面是collate_fn相关的打印数据，便于理解。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">batch</span> <span class="p">[</span><span class="n">Example</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">11</span><span class="p">],</span> <span class="n">tgt</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="n">Example</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="n">tgt</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="p">])]</span>
+<span class="n">src</span> <span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">11</span><span class="p">]</span>
+<span class="n">tgt_in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>
+<span class="n">tgt_out</span> <span class="p">[</span><span class="mi">11</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+<span class="n">src</span> <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">tgt_in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">tgt_out</span> <span class="p">[</span><span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">src_batch</span> <span class="p">[[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">11</span><span class="p">],</span> <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+<span class="n">tgt_in_batch</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+<span class="n">tgt_out_batch</span> <span class="p">[[</span><span class="mi">11</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+<span class="n">src</span> <span class="n">tensor</span><span class="p">([[</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span>  <span class="mi">3</span><span class="p">,</span> <span class="mi">11</span><span class="p">],</span>
+        <span class="p">[</span> <span class="mi">6</span><span class="p">,</span>  <span class="mi">8</span><span class="p">,</span>  <span class="mi">5</span><span class="p">,</span>  <span class="mi">0</span><span class="p">]])</span>
+<span class="n">tgt_in</span> <span class="n">tensor</span><span class="p">([[</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span>  <span class="mi">4</span><span class="p">,</span>  <span class="mi">5</span><span class="p">],</span>
+        <span class="p">[</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span>  <span class="mi">8</span><span class="p">,</span>  <span class="mi">0</span><span class="p">]])</span>
+<span class="n">tgt_out</span> <span class="n">tensor</span><span class="p">([[</span><span class="mi">11</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span>  <span class="mi">4</span><span class="p">,</span>  <span class="mi">5</span><span class="p">,</span>  <span class="mi">2</span><span class="p">],</span>
+        <span class="p">[</span><span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span>  <span class="mi">8</span><span class="p">,</span>  <span class="mi">2</span><span class="p">,</span>  <span class="mi">0</span><span class="p">]])</span>
+<span class="n">src_pad_mask</span> <span class="n">tensor</span><span class="p">([[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span>
+        <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span>  <span class="kc">True</span><span class="p">]])</span>
+<span class="n">tgt_pad_mask</span> <span class="n">tensor</span><span class="p">([[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span>
+        <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span>  <span class="kc">True</span><span class="p">]])</span>
+<span class="n">src</span> <span class="n">tensor</span><span class="p">([[</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span>  <span class="mi">3</span><span class="p">,</span> <span class="mi">11</span><span class="p">],</span>
+        <span class="p">[</span> <span class="mi">6</span><span class="p">,</span>  <span class="mi">8</span><span class="p">,</span>  <span class="mi">5</span><span class="p">,</span>  <span class="mi">0</span><span class="p">]])</span>
+<span class="n">tgt_in</span> <span class="n">tensor</span><span class="p">([[</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span>  <span class="mi">4</span><span class="p">,</span>  <span class="mi">5</span><span class="p">],</span>
+        <span class="p">[</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span>  <span class="mi">8</span><span class="p">,</span>  <span class="mi">0</span><span class="p">]])</span>
+<span class="n">tgt_out</span> <span class="n">tensor</span><span class="p">([[</span><span class="mi">11</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span>  <span class="mi">4</span><span class="p">,</span>  <span class="mi">5</span><span class="p">,</span>  <span class="mi">2</span><span class="p">],</span>
+        <span class="p">[</span><span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span>  <span class="mi">8</span><span class="p">,</span>  <span class="mi">2</span><span class="p">,</span>  <span class="mi">0</span><span class="p">]])</span>
+<span class="n">src_mask</span> <span class="n">tensor</span><span class="p">([[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span>
+        <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span>  <span class="kc">True</span><span class="p">]])</span>
+<span class="n">tgt_mask</span> <span class="n">tensor</span><span class="p">([[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span>
+        <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span>  <span class="kc">True</span><span class="p">]])</span>
+</code></pre></div>
+<p>最后完整的示例代码</p>
+<div class="codehilite"><pre><span></span><code><span class="ch">#!/usr/bin/env python3</span>
+<span class="sd">"""</span>
+<span class="sd">最小可运行示例：用 Dataset + DataLoader（含 collate_fn）演示变长序列如何拼批并生成 padding 掩码。</span>
+
+<span class="sd">运行：</span>
+<span class="sd">  python3 dataloader_demo.py</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">Dataset</span><span class="p">,</span> <span class="n">DataLoader</span>
+
+<span class="c1"># --------------------------</span>
+<span class="c1"># 1) 准备一点语料（空格分词）</span>
+<span class="c1"># --------------------------</span>
+<span class="n">pairs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="s2">"我 有 一个 苹果"</span><span class="p">,</span> <span class="s2">"i have an apple"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"我 有 一本 书"</span><span class="p">,</span> <span class="s2">"i have a book"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"你 喜欢 书"</span><span class="p">,</span> <span class="s2">"you like books"</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">"我 吃 苹果"</span><span class="p">,</span> <span class="s2">"i eat apples"</span><span class="p">),</span>
+<span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">build_vocab</span><span class="p">(</span><span class="n">texts</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+    <span class="n">tokens</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">texts</span><span class="p">:</span>
+        <span class="n">tokens</span><span class="o">.</span><span class="n">update</span><span class="p">([</span><span class="n">w</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">()])</span>
+    <span class="n">itos</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"&lt;pad&gt;"</span><span class="p">,</span> <span class="s2">"&lt;bos&gt;"</span><span class="p">,</span> <span class="s2">"&lt;eos&gt;"</span><span class="p">]</span> <span class="o">+</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span>
+    <span class="n">stoi</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">itos</span><span class="p">)}</span>
+    <span class="k">return</span> <span class="n">stoi</span><span class="p">,</span> <span class="n">itos</span>
+
+<span class="n">src_texts</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">]</span>
+<span class="n">tgt_texts</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">]</span>
+<span class="n">SRC_STOI</span><span class="p">,</span> <span class="n">SRC_ITOS</span> <span class="o">=</span> <span class="n">build_vocab</span><span class="p">(</span><span class="n">src_texts</span><span class="p">)</span>
+<span class="n">TGT_STOI</span><span class="p">,</span> <span class="n">TGT_ITOS</span> <span class="o">=</span> <span class="n">build_vocab</span><span class="p">(</span><span class="n">tgt_texts</span><span class="p">)</span>
+
+<span class="n">PAD_IDX</span><span class="p">,</span> <span class="n">BOS_IDX</span><span class="p">,</span> <span class="n">EOS_IDX</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span>
+
+<span class="k">def</span> <span class="nf">encode_src</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">SRC_STOI</span><span class="p">[</span><span class="n">w</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">()]</span>
+
+<span class="k">def</span> <span class="nf">encode_tgt</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">BOS_IDX</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">TGT_STOI</span><span class="p">[</span><span class="n">w</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">()]</span> <span class="o">+</span> <span class="p">[</span><span class="n">EOS_IDX</span><span class="p">]</span>
+
+<span class="c1"># --------------------------</span>
+<span class="c1"># 2) Dataset：定义“单样本怎么取”</span>
+<span class="c1"># --------------------------</span>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Example</span><span class="p">:</span>
+    <span class="n">src</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">tgt</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+
+<span class="k">class</span> <span class="nc">ToyDataset</span><span class="p">(</span><span class="n">Dataset</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pairs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]):</span>
+        <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"encode_src(s)"</span><span class="p">,</span><span class="n">encode_src</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"encode_tgt(t)"</span><span class="p">,</span><span class="n">encode_tgt</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">Example</span><span class="p">(</span><span class="n">encode_src</span><span class="p">(</span><span class="n">s</span><span class="p">),</span> <span class="n">encode_tgt</span><span class="p">(</span><span class="n">t</span><span class="p">))</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Example</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+<span class="c1"># --------------------------</span>
+<span class="c1"># 3) collate_fn：把“样本列表”拼成一批（对齐 padding + 生成 mask + teacher forcing）</span>
+<span class="c1"># --------------------------</span>
+<span class="k">def</span> <span class="nf">collate_fn</span><span class="p">(</span><span class="n">batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Example</span><span class="p">]):</span>
+    <span class="n">src_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">src</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">)</span>
+    <span class="c1">#计算批次内最长长度，这样能将样本右侧补齐到同一长度，方便堆叠矩阵</span>
+    <span class="n">tgt_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">tgt</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">)</span>
+
+    <span class="n">src_batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">tgt_in_batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">tgt_out_batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"batch"</span><span class="p">,</span><span class="n">batch</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">ex</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">:</span>
+        <span class="n">src</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">src</span> <span class="o">+</span> <span class="p">[</span><span class="n">PAD_IDX</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">src_max</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">src</span><span class="p">))</span>
+        <span class="c1"># teacher forcing：输入去掉最后一个、输出去掉第一个</span>
+        <span class="n">tgt_in</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">tgt</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">PAD_IDX</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">tgt_max</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">tgt</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">tgt_out</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">tgt</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="p">[</span><span class="n">PAD_IDX</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">tgt_max</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">tgt</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"src"</span><span class="p">,</span><span class="n">src</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_in"</span><span class="p">,</span><span class="n">tgt_in</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_out"</span><span class="p">,</span><span class="n">tgt_out</span><span class="p">)</span>
+
+        <span class="n">src_batch</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+        <span class="n">tgt_in_batch</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tgt_in</span><span class="p">)</span>
+        <span class="n">tgt_out_batch</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tgt_out</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"src_batch"</span><span class="p">,</span><span class="n">src_batch</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_in_batch"</span><span class="p">,</span><span class="n">tgt_in_batch</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_out_batch"</span><span class="p">,</span><span class="n">tgt_out_batch</span><span class="p">)</span>
+    <span class="n">src</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">src_batch</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>         <span class="c1"># (B,S)</span>
+    <span class="n">tgt_in</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">tgt_in_batch</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>   <span class="c1"># (B,T)</span>
+    <span class="n">tgt_out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">tgt_out_batch</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span> <span class="c1"># (B,T)</span>
+    <span class="n">src_pad_mask</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">eq</span><span class="p">(</span><span class="n">PAD_IDX</span><span class="p">)</span>                          <span class="c1"># (B,S) True=PAD</span>
+    <span class="n">tgt_pad_mask</span> <span class="o">=</span> <span class="n">tgt_in</span><span class="o">.</span><span class="n">eq</span><span class="p">(</span><span class="n">PAD_IDX</span><span class="p">)</span>                       <span class="c1"># (B,T) True=PAD</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"src"</span><span class="p">,</span><span class="n">src</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_in"</span><span class="p">,</span><span class="n">tgt_in</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_out"</span><span class="p">,</span><span class="n">tgt_out</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"src_pad_mask"</span><span class="p">,</span><span class="n">src_pad_mask</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_pad_mask"</span><span class="p">,</span><span class="n">tgt_pad_mask</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">src</span><span class="p">,</span> <span class="n">tgt_in</span><span class="p">,</span> <span class="n">tgt_out</span><span class="p">,</span> <span class="n">src_pad_mask</span><span class="p">,</span> <span class="n">tgt_pad_mask</span>
+
+<span class="c1"># --------------------------</span>
+<span class="c1"># 4) DataLoader：定义“如何按批取样本”并演示输出</span>
+<span class="c1"># --------------------------</span>
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">ToyDataset</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">)):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"dataset"</span><span class="p">,</span><span class="n">dataset</span><span class="o">.</span><span class="fm">__getitem__</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+    <span class="n">loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+        <span class="n">dataset</span><span class="p">,</span>
+        <span class="n">batch_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">num_workers</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>        <span class="c1"># 跨平台演示，用 0；Linux 可调大</span>
+        <span class="n">collate_fn</span><span class="o">=</span><span class="n">collate_fn</span><span class="p">,</span>
+        <span class="n">pin_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># EPOCH=40</span>
+    <span class="c1"># for epoch in range(EPOCH):</span>
+    <span class="c1">#   for src, tgt_in, tgt_out, src_mask, tgt_mask in loader:</span>
+        <span class="c1"># 前向、loss、反传、优化</span>
+    <span class="n">total_steps</span> <span class="o">=</span> <span class="mi">1000</span>
+    <span class="n">data_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">loader</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">total_steps</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">src</span><span class="p">,</span> <span class="n">tgt_in</span><span class="p">,</span> <span class="n">tgt_out</span><span class="p">,</span> <span class="n">src_mask</span><span class="p">,</span> <span class="n">tgt_mask</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">data_iter</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+            <span class="c1"># 当前迭代器用尽，重建一个新的（相当于进入新一轮）</span>
+            <span class="n">data_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">loader</span><span class="p">)</span>
+            <span class="n">src</span><span class="p">,</span> <span class="n">tgt_in</span><span class="p">,</span> <span class="n">tgt_out</span><span class="p">,</span> <span class="n">src_mask</span><span class="p">,</span> <span class="n">tgt_mask</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">data_iter</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"src"</span><span class="p">,</span><span class="n">src</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_in"</span><span class="p">,</span><span class="n">tgt_in</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_out"</span><span class="p">,</span><span class="n">tgt_out</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"src_mask"</span><span class="p">,</span><span class="n">src_mask</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_mask"</span><span class="p">,</span><span class="n">tgt_mask</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</code></pre></div>
+<ul>
+<li>iter(loader): 把可迭代的 DataLoader 变成“批次迭代器”。</li>
+<li>next(iterator): 从该迭代器中取“下一个批次”。第一次调用就是“第一个 batch”。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code>    <span class="n">it</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">loader</span><span class="p">)</span>
+    <span class="n">batch1</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">it</span><span class="p">)</span>
+    <span class="n">batch2</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">it</span><span class="p">)</span>
+</code></pre></div>
+<p>在 shuffle=True 时，每次 iter(loader) 相当于开始“新的一轮遍历”，顺序会重新洗牌；drop_last、num_workers、pin_memory 等参数会影响批次数量、并行加载与传输性能。</p>
+<p>当然除了用next迭代，还是用for循环的方式，如下：</p>
+<div class="codehilite"><pre><span></span><code>  <span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">EPOCH</span><span class="p">):</span>
+      <span class="k">for</span> <span class="n">src</span><span class="p">,</span> <span class="n">tgt_in</span><span class="p">,</span> <span class="n">tgt_out</span><span class="p">,</span> <span class="n">src_mask</span><span class="p">,</span> <span class="n">tgt_mask</span> <span class="ow">in</span> <span class="n">loader</span><span class="p">:</span>
+          <span class="nb">print</span><span class="p">(</span><span class="s2">"src"</span><span class="p">,</span> <span class="n">src</span><span class="p">)</span>
+          <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_in"</span><span class="p">,</span> <span class="n">tgt_in</span><span class="p">)</span>
+          <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_out"</span><span class="p">,</span> <span class="n">tgt_out</span><span class="p">)</span>
+          <span class="nb">print</span><span class="p">(</span><span class="s2">"src_mask"</span><span class="p">,</span> <span class="n">src_mask</span><span class="p">)</span>
+          <span class="nb">print</span><span class="p">(</span><span class="s2">"tgt_mask"</span><span class="p">,</span> <span class="n">tgt_mask</span><span class="p">)</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    
+    <a class="next" href="/数据维度.html">数据维度 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

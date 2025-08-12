@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Linux risc-v head.S调试记录 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">调试准备</a><ul><li><a href="#gdb">gdb调试</a></li><li><a href="#printk">printk调试</a></li></ul></li><li><a href="#try-satp">try satp模式</a><ul></ul></li><li><a href="#mmu">使能MMU</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>Linux risc-v head.S调试记录</h1>
+  <div class="meta">2024-06-13 · risc-v</div>
+  <div class="post-content"><h2 id="_1">调试准备</h2>
+<h3 id="gdb">gdb调试</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/06/wp_editor_md_bea9bd944eac8755afec8ce6e48abedd.jpg"><img alt="" src="/assets/doc/02-risc-v/linux-risc-v-head-s调试记录/images/wp_editor_md_bea9bd944eac8755afec8ce6e48abedd.jpg"/></a></p>
+<p>0x0000000080200000为opensbi跳转执行的物理地址，linux内核的img会加载到这个地址运行，如果要在这个地方断点，就b *(0x0000000080200000),没法对head.S中进行断点，因为linux加载后会变成虚拟地址。调试的符号需要把CONFIG_DEBUG_INFO=y打开。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">li</span><span class="w">  </span><span class="n">s4</span><span class="p">,</span><span class="mi">-13</span>
+<span class="n">j</span><span class="w">   </span><span class="n">_start_kernel</span><span class="w"> </span><span class="c1">//j 0x802010cc</span>
+
+<span class="nl">_start_kernel</span><span class="p">:</span>
+
+<span class="w">    </span><span class="c1">//关闭所有的中断</span>
+<span class="w">    </span><span class="n">csrw</span><span class="w">    </span><span class="n">sie</span><span class="p">,</span><span class="n">zero</span>
+<span class="w">    </span><span class="n">csrw</span><span class="w">    </span><span class="n">sip</span><span class="p">,</span><span class="n">zero</span>
+
+<span class="w">    </span><span class="c1">//加载gp指针</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">gp</span><span class="p">,</span><span class="w"> </span><span class="n">__global_pointer$</span>
+
+<span class="w">    </span><span class="c1">//关掉浮点</span>
+<span class="w">    </span><span class="n">li</span><span class="w"> </span><span class="n">t0</span><span class="p">,</span><span class="w"> </span><span class="n">SR_FS</span>
+<span class="w">    </span><span class="n">csrc</span><span class="w"> </span><span class="n">CSR_STATUS</span><span class="p">,</span><span class="w"> </span><span class="n">t0</span>
+
+<span class="w">    </span><span class="c1">//挑选一个主核来运行初始化的代码，其他核跳转到Lsecondary_park等待（进入wfi）</span>
+<span class="w">    </span><span class="n">li</span><span class="w"> </span><span class="n">t0</span><span class="p">,</span><span class="w"> </span><span class="n">CONFIG_NR_CPUS</span>
+<span class="w">    </span><span class="n">blt</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">t0</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">Lgood_cores</span>
+<span class="w">    </span><span class="n">tail</span><span class="w"> </span><span class="p">.</span><span class="n">Lsecondary_park</span>
+<span class="p">.</span><span class="n">Lgood_cores</span><span class="err">：</span>
+<span class="w">    </span><span class="c1">//低电量检查？</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">a3</span><span class="p">,</span><span class="w"> </span><span class="n">hart_lottery</span>
+<span class="w">    </span><span class="n">li</span><span class="w"> </span><span class="n">a2</span><span class="p">,</span><span class="mi">1</span>
+<span class="w">    </span><span class="n">amoadd</span><span class="p">.</span><span class="n">w</span><span class="w"> </span><span class="n">a3</span><span class="p">,</span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="n">a3</span><span class="p">)</span>
+<span class="w">    </span><span class="n">bnez</span><span class="w"> </span><span class="n">a3</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">Lsecondary_start</span>
+</code></pre></div>
+<h4 id="_2">直接使用物理地址断点</h4>
+<p>调试linux</p>
+<p>CONFIG_DEBUG_INFO=y b *(0x0000000080200000) file linux-5.18/vmlinux</p>
+<p>linux内核在没使能mmu前的代码如何打断点？</p>
+<p>只能打代码所在的物理地址如b *(0x0000000080200000)</p>
+<p>怎么确定代码的符号的物理地址？</p>
+<ol>
+<li>info address setup_vm 获得符号的虚拟地址</li>
+<li>riscv64-unknown-linux-gnu-readelf -h vmlinux 获取内核镜像的入口虚拟地址</li>
+<li>获取内核镜像的加载所在物理地址</li>
+<li>目标符号物理地址 = 符号虚拟地址-镜像入口虚拟地址 + 镜像加载的物理地址</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="n">info</span><span class="w"> </span><span class="n">address</span><span class="w"> </span><span class="n">setup_vm</span>
+<span class="n">Symbol</span><span class="w"> </span><span class="s">"setup_vm"</span><span class="w"> </span><span class="n">is</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">function</span><span class="w"> </span><span class="n">at</span><span class="w"> </span><span class="n">address</span><span class="w"> </span><span class="mh">0xffffffff80804a82</span><span class="p">.</span>
+
+<span class="n">目标物理地址</span><span class="o">=</span><span class="mh">0xffffffff80804a82-0xffffffff80000000</span><span class="o">+</span><span class="mh">0x0000000080200000</span>
+
+<span class="n">b</span><span class="w"> </span><span class="o">*</span><span class="p">(</span><span class="mh">0x80A04A82</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="_3">符号断点</h4>
+<p>riscv64-unknown-linux-gnu-readelf -h vmlinux 获取内核镜像的入口虚拟地址，然后使用riscv64-unknown-linux-gnu-readelf -S vmlinux获取各个段相对起始段的偏移，各个段的偏移+镜像加载的物理地址即是符号的地址，最后使用add-symbol-file添加符号。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">riscv64</span><span class="o">-</span><span class="n">unknown</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnu</span><span class="o">-</span><span class="n">readelf</span><span class="w"> </span><span class="o">-</span><span class="n">S</span><span class="w"> </span><span class="n">vmlinux</span>
+<span class="n">There</span><span class="w"> </span><span class="n">are</span><span class="w"> </span><span class="mi">38</span><span class="w"> </span><span class="n">section</span><span class="w"> </span><span class="n">headers</span><span class="p">,</span><span class="w"> </span><span class="n">starting</span><span class="w"> </span><span class="n">at</span><span class="w"> </span><span class="n">offset</span><span class="w"> </span><span class="mh">0xb3cc860</span><span class="o">:</span>
+
+<span class="n">Section</span><span class="w"> </span><span class="n">Headers</span><span class="o">:</span>
+<span class="w">  </span><span class="p">[</span><span class="n">Nr</span><span class="p">]</span><span class="w"> </span><span class="n">Name</span><span class="w">              </span><span class="n">Type</span><span class="w">             </span><span class="n">Address</span><span class="w">           </span><span class="n">Offset</span>
+<span class="w">       </span><span class="n">Size</span><span class="w">              </span><span class="n">EntSize</span><span class="w">          </span><span class="n">Flags</span><span class="w">  </span><span class="n">Link</span><span class="w">  </span><span class="n">Info</span><span class="w">  </span><span class="n">Align</span>
+<span class="w">  </span><span class="p">[</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span><span class="w">                   </span><span class="nb">NULL</span><span class="w">             </span><span class="mo">0000000000000000</span><span class="w">  </span><span class="mo">00000000</span>
+<span class="w">       </span><span class="mo">0000000000000000</span><span class="w">  </span><span class="mo">0000000000000000</span><span class="w">           </span><span class="mi">0</span><span class="w">     </span><span class="mi">0</span><span class="w">     </span><span class="mi">0</span>
+<span class="w">  </span><span class="p">[</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="n">head</span><span class="p">.</span><span class="n">text</span><span class="w">        </span><span class="n">PROGBITS</span><span class="w">         </span><span class="n">ffffffff80000000</span><span class="w">  </span><span class="mo">00001000</span>
+<span class="w">       </span><span class="mf">0000000000001e90</span><span class="w">  </span><span class="mo">0000000000000000</span><span class="w">  </span><span class="n">AX</span><span class="w">       </span><span class="mi">0</span><span class="w">     </span><span class="mi">0</span><span class="w">     </span><span class="mi">4096</span>
+<span class="w">  </span><span class="p">[</span><span class="w"> </span><span class="mi">2</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="n">text</span><span class="w">             </span><span class="n">PROGBITS</span><span class="w">         </span><span class="n">ffffffff80002000</span><span class="w">  </span><span class="mo">00003000</span>
+<span class="w">       </span><span class="mo">000000000065</span><span class="n">bdb0</span><span class="w">  </span><span class="mo">0000000000000000</span><span class="w">  </span><span class="n">AX</span><span class="w">       </span><span class="mi">0</span><span class="w">     </span><span class="mi">0</span><span class="w">     </span><span class="mi">4</span>
+<span class="w">  </span><span class="p">[</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="n">init</span><span class="p">.</span><span class="n">text</span><span class="w">        </span><span class="n">PROGBITS</span><span class="w">         </span><span class="n">ffffffff80800000</span><span class="w">  </span><span class="mo">00</span><span class="mi">800000</span>
+<span class="w">       </span><span class="mo">0000000000035132</span><span class="w">  </span><span class="mo">0000000000000000</span><span class="w">  </span><span class="n">AX</span><span class="w">       </span><span class="mi">0</span><span class="w">     </span><span class="mi">0</span><span class="w">     </span><span class="mi">2097152</span>
+<span class="w">  </span><span class="p">[</span><span class="w"> </span><span class="mi">4</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="n">exit</span><span class="p">.</span><span class="n">text</span><span class="w">        </span><span class="n">PROGBITS</span><span class="w">         </span><span class="n">ffffffff80835138</span><span class="w">  </span><span class="mo">00</span><span class="mi">835138</span>
+<span class="w">       </span><span class="mo">0000000000001</span><span class="mi">996</span><span class="w">  </span><span class="mo">0000000000000000</span><span class="w">  </span><span class="n">AX</span><span class="w">       </span><span class="mi">0</span><span class="w">     </span><span class="mi">0</span><span class="w">     </span><span class="mi">2</span>
+<span class="w">  </span><span class="p">[</span><span class="w"> </span><span class="mi">5</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="n">init</span><span class="p">.</span><span class="n">data</span><span class="w">        </span><span class="n">PROGBITS</span><span class="w">         </span><span class="n">ffffffff80a00000</span><span class="w">  </span><span class="mo">00</span><span class="mi">837000</span>
+<span class="w">       </span><span class="mf">0000000000014e38</span><span class="w">  </span><span class="mo">0000000000000000</span><span class="w">  </span><span class="n">WA</span><span class="w">       </span><span class="mi">0</span><span class="w">     </span><span class="mi">0</span><span class="w">     </span><span class="mi">4096</span>
+<span class="w">  </span><span class="p">[</span><span class="w"> </span><span class="mi">6</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="n">data</span><span class="p">..</span><span class="n">percpu</span><span class="w">     </span><span class="n">PROGBITS</span><span class="w">         </span><span class="n">ffffffff80a15000</span><span class="w">  </span><span class="mo">00</span><span class="mi">84</span><span class="n">c000</span>
+<span class="w">       </span><span class="mf">00000000000084f</span><span class="mi">8</span><span class="w">  </span><span class="mo">0000000000000000</span><span class="w">  </span><span class="n">WA</span><span class="w">       </span><span class="mi">0</span><span class="w">     </span><span class="mi">0</span><span class="w">     </span><span class="mi">64</span>
+<span class="w">  </span><span class="p">[</span><span class="w"> </span><span class="mi">7</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="n">alternative</span><span class="w">      </span><span class="n">PROGBITS</span><span class="w">         </span><span class="n">ffffffff80a1d4f8</span><span class="w">  </span><span class="mf">008544f</span><span class="mi">8</span>
+<span class="w">       </span><span class="mo">00000000000002</span><span class="mi">88</span><span class="w">  </span><span class="mo">0000000000000000</span><span class="w">   </span><span class="n">A</span><span class="w">       </span><span class="mi">0</span><span class="w">     </span><span class="mi">0</span><span class="w">     </span><span class="mi">1</span>
+<span class="w">  </span><span class="p">[</span><span class="w"> </span><span class="mi">8</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="n">rodata</span><span class="w">           </span><span class="n">PROGBITS</span><span class="w">         </span><span class="n">ffffffff80c00000</span><span class="w">  </span><span class="mo">00</span><span class="mi">855000</span>
+<span class="w">       </span><span class="mo">00000000001</span><span class="mi">95710</span><span class="w">  </span><span class="mo">0000000000000000</span><span class="w">  </span><span class="n">WA</span><span class="w">       </span><span class="mi">0</span><span class="w">     </span><span class="mi">0</span><span class="w">     </span><span class="mi">64</span>
+</code></pre></div>
+<p>如.text段相对偏移为ffffffff80002000-ffffffff80000000=0x2000，因此符号添加位置为 0x80200000 +0x2000=0x80202000</p>
+<div class="codehilite"><pre><span></span><code><span class="p">(</span><span class="n">gdb</span><span class="p">)</span><span class="w"> </span><span class="n">add</span><span class="o">-</span><span class="n">symbol</span><span class="o">-</span><span class="n">file</span><span class="w"> </span><span class="n">linux</span><span class="mf">-5.18</span><span class="o">/</span><span class="n">vmlinux</span><span class="w"> </span><span class="o">-</span><span class="n">s</span><span class="w"> </span><span class="p">.</span><span class="n">head</span><span class="p">.</span><span class="n">text</span><span class="w"> </span><span class="mh">0x80200000</span><span class="w"> </span><span class="o">-</span><span class="n">s</span><span class="w"> </span><span class="p">.</span><span class="n">text</span><span class="w"> </span><span class="mh">0x80202000</span><span class="w">  </span><span class="o">-</span><span class="n">s</span><span class="w"> </span><span class="p">.</span><span class="n">rodata</span><span class="w"> </span><span class="mh">0x80e00000</span><span class="w"> </span><span class="o">-</span><span class="n">s</span><span class="w"> </span><span class="p">.</span><span class="n">init</span><span class="p">.</span><span class="n">text</span><span class="w"> </span><span class="mh">0x80a00000</span><span class="w"> </span><span class="o">-</span><span class="n">s</span><span class="w"> </span><span class="p">.</span><span class="n">init</span><span class="p">.</span><span class="n">data</span><span class="w"> </span><span class="mh">0x80c00000</span>
+<span class="n">add</span><span class="w"> </span><span class="n">symbol</span><span class="w"> </span><span class="n">table</span><span class="w"> </span><span class="n">from</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="s">"linux-5.18/vmlinux"</span><span class="w"> </span><span class="n">at</span>
+<span class="w">        </span><span class="p">.</span><span class="n">head</span><span class="p">.</span><span class="n">text_addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x80200000</span>
+<span class="w">        </span><span class="p">.</span><span class="n">text_addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x80202000</span>
+<span class="w">        </span><span class="p">.</span><span class="n">rodata_addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x80e00000</span>
+<span class="w">        </span><span class="p">.</span><span class="n">init</span><span class="p">.</span><span class="n">text_addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x80a00000</span>
+<span class="w">        </span><span class="p">.</span><span class="n">init</span><span class="p">.</span><span class="n">data_addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x80c00000</span>
+<span class="p">(</span><span class="n">y</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="n">y</span>
+<span class="n">Reading</span><span class="w"> </span><span class="n">symbols</span><span class="w"> </span><span class="n">from</span><span class="w"> </span><span class="n">linux</span><span class="mf">-5.18</span><span class="o">/</span><span class="n">vmlinux</span><span class="p">...</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">kernel_mapping</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">page_offset</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">virt_addr</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">phys_addr</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">size</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/* Offset between linear mapping virtual address and kernel load address */</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">va_pa_offset</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/* Offset between kernel mapping virtual address and kernel load address */</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">va_kernel_pa_offset</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">va_kernel_xip_pa_offset</span><span class="p">;</span>
+<span class="cp">#ifdef CONFIG_XIP_KERNEL</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">xiprom</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">xiprom_sz</span><span class="p">;</span>
+<span class="cp">#endif</span>
+<span class="p">};</span>
+</code></pre></div>
+<h3 id="printk">printk调试</h3>
+<p>未使能MMU如何使用printf？</p>
+<p>想要在setup_vm里面调用打印，发现这个阶段是不能使用printk的，因为mmu还没开启。可以调用到opensbi进行打印。</p>
+<div class="codehilite"><pre><span></span><code><span class="o">+</span><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">_sbi_ecall</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">ext</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">fid</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">arg0</span><span class="p">,</span>
+<span class="o">+</span><span class="w">                       </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">arg1</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">arg2</span><span class="p">,</span>
+<span class="o">+</span><span class="w">                       </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">arg3</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">arg4</span><span class="p">,</span>
+<span class="o">+</span><span class="w">                       </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">arg5</span><span class="p">)</span>
+<span class="o">+</span><span class="p">{</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="w">       </span><span class="k">register</span><span class="w"> </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">a0</span><span class="w"> </span><span class="k">asm</span><span class="w"> </span><span class="p">(</span><span class="s">"a0"</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="n">arg0</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="k">register</span><span class="w"> </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">a1</span><span class="w"> </span><span class="k">asm</span><span class="w"> </span><span class="p">(</span><span class="s">"a1"</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="n">arg1</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="k">register</span><span class="w"> </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">a2</span><span class="w"> </span><span class="k">asm</span><span class="w"> </span><span class="p">(</span><span class="s">"a2"</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="n">arg2</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="k">register</span><span class="w"> </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">a3</span><span class="w"> </span><span class="k">asm</span><span class="w"> </span><span class="p">(</span><span class="s">"a3"</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="n">arg3</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="k">register</span><span class="w"> </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">a4</span><span class="w"> </span><span class="k">asm</span><span class="w"> </span><span class="p">(</span><span class="s">"a4"</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="n">arg4</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="k">register</span><span class="w"> </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">a5</span><span class="w"> </span><span class="k">asm</span><span class="w"> </span><span class="p">(</span><span class="s">"a5"</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="n">arg5</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="k">register</span><span class="w"> </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">a6</span><span class="w"> </span><span class="k">asm</span><span class="w"> </span><span class="p">(</span><span class="s">"a6"</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="n">fid</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="k">register</span><span class="w"> </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">a7</span><span class="w"> </span><span class="k">asm</span><span class="w"> </span><span class="p">(</span><span class="s">"a7"</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="n">ext</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="k">asm</span><span class="w"> </span><span class="k">volatile</span><span class="w"> </span><span class="p">(</span><span class="s">"ecall"</span>
+<span class="o">+</span><span class="w">                     </span><span class="o">:</span><span class="w"> </span><span class="s">"+r"</span><span class="w"> </span><span class="p">(</span><span class="n">a0</span><span class="p">),</span><span class="w"> </span><span class="s">"+r"</span><span class="w"> </span><span class="p">(</span><span class="n">a1</span><span class="p">)</span>
+<span class="o">+</span><span class="w">                     </span><span class="o">:</span><span class="w"> </span><span class="s">"r"</span><span class="w"> </span><span class="p">(</span><span class="n">a2</span><span class="p">),</span><span class="w"> </span><span class="s">"r"</span><span class="w"> </span><span class="p">(</span><span class="n">a3</span><span class="p">),</span><span class="w"> </span><span class="s">"r"</span><span class="w"> </span><span class="p">(</span><span class="n">a4</span><span class="p">),</span><span class="w"> </span><span class="s">"r"</span><span class="w"> </span><span class="p">(</span><span class="n">a5</span><span class="p">),</span><span class="w"> </span><span class="s">"r"</span><span class="w"> </span><span class="p">(</span><span class="n">a6</span><span class="p">),</span><span class="w"> </span><span class="s">"r"</span><span class="w"> </span><span class="p">(</span><span class="n">a7</span><span class="p">)</span>
+<span class="o">+</span><span class="w">                     </span><span class="o">:</span><span class="w"> </span><span class="s">"memory"</span><span class="p">);</span>
+<span class="o">+</span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">_sbi_console_putchar</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">ch</span><span class="p">)</span>
+<span class="o">+</span><span class="p">{</span>
+<span class="o">+</span><span class="w">       </span><span class="n">_sbi_ecall</span><span class="p">(</span><span class="mh">0x1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">ch</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="o">+</span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">uart_puts</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">s</span><span class="p">)</span>
+<span class="o">+</span><span class="p">{</span>
+<span class="o">+</span><span class="w">       </span><span class="k">while</span><span class="p">(</span><span class="o">*</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="n">_sbi_console_putchar</span><span class="p">(</span><span class="o">*</span><span class="n">s</span><span class="o">++</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span>
+<span class="o">+</span><span class="p">}</span>
+<span class="o">+</span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">_vsnprintf</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="kt">va_list</span><span class="w"> </span><span class="n">vl</span><span class="p">)</span>
+<span class="o">+</span><span class="p">{</span>
+<span class="o">+</span><span class="w">       </span><span class="kt">int</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">       </span><span class="kt">int</span><span class="w"> </span><span class="n">longarg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">       </span><span class="kt">size_t</span><span class="w"> </span><span class="n">pos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">       </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="o">*</span><span class="n">s</span><span class="p">;</span><span class="w"> </span><span class="n">s</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">format</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">switch</span><span class="p">(</span><span class="o">*</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">case</span><span class="w"> </span><span class="sc">'l'</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">longarg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">break</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">case</span><span class="w"> </span><span class="sc">'p'</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">longarg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">out</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">pos</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                                       </span><span class="n">out</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sc">'0'</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">pos</span><span class="o">++</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">out</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">pos</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                                       </span><span class="n">out</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sc">'x'</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">pos</span><span class="o">++</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">case</span><span class="w"> </span><span class="sc">'x'</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                               </span><span class="kt">long</span><span class="w"> </span><span class="n">num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">longarg</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">va_arg</span><span class="p">(</span><span class="n">vl</span><span class="p">,</span><span class="w"> </span><span class="kt">long</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">va_arg</span><span class="p">(</span><span class="n">vl</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="p">);</span>
+<span class="o">+</span><span class="w">                               </span><span class="kt">int</span><span class="w"> </span><span class="n">hexdigits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="o">*</span><span class="p">(</span><span class="n">longarg</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="kt">int</span><span class="p">))</span><span class="mi">-1</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">for</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hexdigits</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">--</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                                       </span><span class="kt">int</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">num</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="p">(</span><span class="mi">4</span><span class="o">*</span><span class="n">i</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0xF</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                                       </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">out</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">pos</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                                               </span><span class="n">out</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">d</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="sc">'0'</span><span class="o">+</span><span class="n">d</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="sc">'a'</span><span class="o">+</span><span class="n">d</span><span class="mi">-10</span><span class="p">);</span>
+<span class="o">+</span><span class="w">                                       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                                       </span><span class="n">pos</span><span class="o">++</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">longarg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">break</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">case</span><span class="w"> </span><span class="sc">'d'</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                               </span><span class="kt">long</span><span class="w"> </span><span class="n">num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">longarg</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">va_arg</span><span class="p">(</span><span class="n">vl</span><span class="p">,</span><span class="w"> </span><span class="kt">long</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">va_arg</span><span class="p">(</span><span class="n">vl</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="p">);</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">num</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                                       </span><span class="n">num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">num</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                                       </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">out</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">pos</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                                               </span><span class="n">out</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sc">'-'</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                                       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                                       </span><span class="n">pos</span><span class="o">++</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                               </span><span class="kt">long</span><span class="w"> </span><span class="n">digits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">long</span><span class="w"> </span><span class="n">nn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">num</span><span class="p">;</span><span class="w"> </span><span class="n">nn</span><span class="w"> </span><span class="o">/=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span><span class="w"> </span><span class="n">digits</span><span class="o">++</span><span class="p">);</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">digits</span><span class="mi">-1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">--</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                                       </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">out</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">pos</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                                               </span><span class="n">out</span><span class="p">[</span><span class="n">pos</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">num</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">10</span><span class="p">);</span>
+<span class="o">+</span><span class="w">                                       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                                       </span><span class="n">num</span><span class="w"> </span><span class="o">/=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">pos</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">digits</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">longarg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">break</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">case</span><span class="w"> </span><span class="sc">'s'</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">s2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">va_arg</span><span class="p">(</span><span class="n">vl</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="p">);</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">s2</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                                       </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">out</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">pos</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                                               </span><span class="n">out</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">s2</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                                       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                                       </span><span class="n">pos</span><span class="o">++</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                                       </span><span class="n">s2</span><span class="o">++</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">longarg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">break</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">case</span><span class="w"> </span><span class="sc">'c'</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">out</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">pos</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                                       </span><span class="n">out</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">char</span><span class="p">)</span><span class="n">va_arg</span><span class="p">(</span><span class="n">vl</span><span class="p">,</span><span class="kt">int</span><span class="p">);</span>
+<span class="o">+</span><span class="w">                               </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">pos</span><span class="o">++</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">longarg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">break</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">default</span><span class="o">:</span>
+<span class="o">+</span><span class="w">                               </span><span class="k">break</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">               </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">s</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">'%'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                       </span><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="o">+</span><span class="w">               </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">out</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">pos</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                               </span><span class="n">out</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">s</span><span class="p">;</span>
+<span class="o">+</span><span class="w">                       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">                       </span><span class="n">pos</span><span class="o">++</span><span class="p">;</span>
+<span class="o">+</span><span class="w">               </span><span class="p">}</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">out</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">pos</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="n">out</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">out</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="n">out</span><span class="p">[</span><span class="n">n</span><span class="mi">-1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="n">pos</span><span class="p">;</span>
+<span class="o">+</span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="k">static</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">out_buf</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span><span class="w"> </span><span class="c1">// buffer for _vprintf()</span>
+<span class="o">+</span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">_vprintf</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="kt">va_list</span><span class="w"> </span><span class="n">vl</span><span class="p">)</span>
+<span class="o">+</span><span class="p">{</span>
+<span class="o">+</span><span class="w">       </span><span class="kt">int</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_vsnprintf</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="mi">-1</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="n">vl</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">res</span><span class="o">+</span><span class="mi">1</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">out_buf</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="n">uart_puts</span><span class="p">(</span><span class="s">"error: output string size overflow</span><span class="se">\\</span><span class="s">n"</span><span class="p">);</span>
+<span class="o">+</span><span class="w">               </span><span class="k">while</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">       </span><span class="n">_vsnprintf</span><span class="p">(</span><span class="n">out_buf</span><span class="p">,</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="n">vl</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="n">uart_puts</span><span class="p">(</span><span class="n">out_buf</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="n">res</span><span class="p">;</span>
+<span class="o">+</span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="kt">int</span><span class="w"> </span><span class="n">_printf</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="p">...)</span>
+<span class="o">+</span><span class="p">{</span>
+<span class="o">+</span><span class="w">       </span><span class="kt">int</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="o">+</span><span class="w">       </span><span class="kt">va_list</span><span class="w"> </span><span class="n">vl</span><span class="p">;</span>
+<span class="o">+</span><span class="w">       </span><span class="n">va_start</span><span class="p">(</span><span class="n">vl</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_vprintf</span><span class="p">(</span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="n">vl</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="n">va_end</span><span class="p">(</span><span class="n">vl</span><span class="p">);</span>
+<span class="o">+</span><span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="n">res</span><span class="p">;</span>
+<span class="o">+</span><span class="p">}</span>
+<span class="o">+</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="n">pgd_t</span><span class="w"> </span><span class="n">early_pg_dir</span><span class="p">[</span><span class="n">PTRS_PER_PGD</span><span class="p">]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">__aligned</span><span class="p">(</span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+
+<span class="w"> </span><span class="cm">/* Number of entries in the page global directory */</span>
+<span class="cp">#define PTRS_PER_PGD    (PAGE_SIZE / sizeof(pgd_t))</span>
+
+<span class="cm">/* Number of entries in the page table */</span>
+<span class="cp">#define PTRS_PER_PTE    (PAGE_SIZE / sizeof(pte_t))</span>
+
+<span class="n">PAGE_SIZE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4096</span>
+<span class="k">sizeof</span><span class="p">(</span><span class="n">pgd_t</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span>
+
+<span class="n">PTRS_PER_PGD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">512</span>
+
+<span class="n">PGDIR_SIZE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x8000000000</span><span class="w">  </span><span class="o">--</span><span class="mi">-512</span><span class="n">G</span>
+</code></pre></div>
+<h2 id="try-satp">try satp模式</h2>
+<div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">set_satp_mode</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">u64</span><span class="w"> </span><span class="n">identity_satp</span><span class="p">,</span><span class="w"> </span><span class="n">hw_satp</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">set_satp_mode_pmd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">((</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="p">)</span><span class="n">set_satp_mode</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">PMD_MASK</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">check_l4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">//下面是对set_satp_mode到set_satp_mode+4M代码空间做虚拟地址到物理地址映射，即填充</span>
+<span class="w">    </span><span class="c1">//这段空间的页表，P4D/PUD/PMD</span>
+<span class="w">    </span><span class="n">create_p4d_mapping</span><span class="p">(</span><span class="n">early_p4d</span><span class="p">,</span>
+<span class="w">            </span><span class="n">set_satp_mode_pmd</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">early_pud</span><span class="p">,</span>
+<span class="w">            </span><span class="n">P4D_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">create_pud_mapping</span><span class="p">(</span><span class="n">early_pud</span><span class="p">,</span>
+<span class="w">               </span><span class="n">set_satp_mode_pmd</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">early_pmd</span><span class="p">,</span>
+<span class="w">               </span><span class="n">PUD_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="w">    </span><span class="cm">/* Handle the case where set_satp_mode straddles 2 PMDs */</span>
+<span class="w">    </span><span class="c1">// 处理 `set_satp_mode` 跨越两个PMD的情况，即set_satp_mode开始+4M的空间恒等映射</span>
+<span class="w">    </span><span class="c1">//PMD_SIZE = 2MB，0x200000，其实也不用这么大，1个表项也够了。</span>
+<span class="w">    </span><span class="n">create_pmd_mapping</span><span class="p">(</span><span class="n">early_pmd</span><span class="p">,</span>
+<span class="w">               </span><span class="n">set_satp_mode_pmd</span><span class="p">,</span><span class="w"> </span><span class="n">set_satp_mode_pmd</span><span class="p">,</span>
+<span class="w">               </span><span class="n">PMD_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL_EXEC</span><span class="p">);</span>
+<span class="w">    </span><span class="n">create_pmd_mapping</span><span class="p">(</span><span class="n">early_pmd</span><span class="p">,</span>
+<span class="w">               </span><span class="n">set_satp_mode_pmd</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">PMD_SIZE</span><span class="p">,</span>
+<span class="w">               </span><span class="n">set_satp_mode_pmd</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">PMD_SIZE</span><span class="p">,</span>
+<span class="w">               </span><span class="n">PMD_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL_EXEC</span><span class="p">);</span>
+<span class="nl">retry</span><span class="p">:</span>
+<span class="w">    </span><span class="c1">//默认先按照5级页表来设置</span>
+<span class="w">    </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">early_pg_dir</span><span class="p">,</span>
+<span class="w">               </span><span class="n">set_satp_mode_pmd</span><span class="p">,</span>
+<span class="w">               </span><span class="n">check_l4</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">early_pud</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">early_p4d</span><span class="p">,</span>
+<span class="w">               </span><span class="n">PGDIR_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">identity_satp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PFN_DOWN</span><span class="p">((</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="o">&amp;</span><span class="n">early_pg_dir</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">satp_mode</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">local_flush_tlb_all</span><span class="p">();</span>
+<span class="w">    </span><span class="n">csr_write</span><span class="p">(</span><span class="n">CSR_SATP</span><span class="p">,</span><span class="w"> </span><span class="n">identity_satp</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//设置satp， satp_mode = a/9， early_pg_dir[512]为L0页表项目</span>
+<span class="w">    </span><span class="c1">//执行该代码后，就使能了MMU，后续取指令的地址，就需要经过MMU转化才是实际的物理地址。</span>
+<span class="w">    </span><span class="c1">//这也是为什么前面要做set_satp_mode的恒等映射（虚拟地址=物理地址）。</span>
+<span class="w">    </span><span class="c1">//如果前面不进行恒等映射，MMU在转化过程中查询不到页表，就会进入异常</span>
+<span class="w">    </span><span class="n">hw_satp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">csr_swap</span><span class="p">(</span><span class="n">CSR_SATP</span><span class="p">,</span><span class="w"> </span><span class="mi">0ULL</span><span class="p">);</span><span class="w"> </span><span class="c1">//这条代码是虚拟地址运行。</span>
+<span class="w">    </span><span class="c1">//将 0ULL 写入 CSR_SATP 寄存器，这样就相当又关闭了MMU。</span>
+<span class="w">    </span><span class="c1">//将 CSR_SATP 寄存器的旧值返回，并赋给变量 hw_satp。</span>
+<span class="w">    </span><span class="n">local_flush_tlb_all</span><span class="p">();</span>
+<span class="w">    </span><span class="c1">//satp先默认设置为10，即Sv57 5级页表，如果硬件支持5级页表SATP写入时返回的值hw_satp</span>
+<span class="w">    </span><span class="c1">//即为设置的值identity_satp,如果不等，则是4级页表。</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">hw_satp</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">identity_satp</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">check_l4</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">disable_pgtable_l5</span><span class="p">();</span>
+<span class="w">            </span><span class="n">check_l4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">            </span><span class="n">memset</span><span class="p">(</span><span class="n">early_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+<span class="w">            </span><span class="k">goto</span><span class="w"> </span><span class="n">retry</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">disable_pgtable_l4</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">memset</span><span class="p">(</span><span class="n">early_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">memset</span><span class="p">(</span><span class="n">early_p4d</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">memset</span><span class="p">(</span><span class="n">early_pud</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">memset</span><span class="p">(</span><span class="n">early_pmd</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_SIZE</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">disable_pgtable_l5</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">pgtable_l5_enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">page_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PAGE_OFFSET_L4</span><span class="p">;</span>
+<span class="w">    </span><span class="n">satp_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SATP_MODE_48</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">//说明不支持Sv57模式，5级页表，更新page offset和satp_mode</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">disable_pgtable_l4</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">pgtable_l4_enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">page_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PAGE_OFFSET_L3</span><span class="p">;</span>
+<span class="w">    </span><span class="n">satp_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SATP_MODE_39</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">//说明不支持Sv48,4级页表，更新page offset和satp_mode，本章的实验是支持4级页表。</span>
+</code></pre></div>
+<p>set_satp_mode作用是从5级/4级页表开始进行尝试硬件是否支持，判断的方法是如果当前的等级支持，那么satp寄存器是可以写入的，如果不支持寄存器将无法写入。</p>
+<p>前面create_p4d_mapping/create_pud_mapping/create_pmd_mapping三个函数的作用是先将set_satp_mode这段代码开始的4M(2个PMD页表项)范围进行恒等映射（虚拟地址=物理地址），之所以要这么做是因为一旦写satp寄存使能mmu后，当前运行的地址就会变成虚拟地址，该地址会经过mmu转化为实际的加载地址，而如果mmu在转化过程中查询不到该地址对应的页表，就会发生异常。因此先将set_satp_mode这段代码的页表填充好，做好虚拟地址到物理地址的映射，在使能MMU后，代码可以继续接着运行。</p>
+<ul>
+<li>Sv64：6级页表</li>
+<li>Sv57: 5级页表</li>
+<li>Sv48：4级页表</li>
+<li>Sv39：3级页表</li>
+</ul>
+<p>5级页表结构</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/06/wp_editor_md_e4793cc9908bea58f59832f83851cfd2.jpg"><img alt="" src="/assets/doc/02-risc-v/linux-risc-v-head-s调试记录/images/wp_editor_md_e4793cc9908bea58f59832f83851cfd2.jpg"/></a></p>
+<h2 id="mmu">使能MMU</h2>
+<div class="codehilite"><pre><span></span><code><span class="nl">relocate_enable_mmu</span><span class="p">:</span>
+<span class="w">    </span><span class="cm">/* Relocate return address */</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_map</span><span class="w">  </span><span class="c1">//将符号kernel_map的地址加载到寄存器a1</span>
+<span class="w">    </span><span class="n">XIP_FIXUP_OFFSET</span><span class="w"> </span><span class="n">a1</span><span class="w"> </span><span class="c1">//修正a1的偏移，这通常是用于处理执行在位置无关代码（XIP）的情况。</span>
+<span class="w">    </span><span class="n">REG_L</span><span class="w"> </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="n">KERNEL_MAP_VIRT_ADDR</span><span class="p">(</span><span class="n">a1</span><span class="p">)</span><span class="w"> </span><span class="c1">//从虚拟地址中加载值到寄存器a1，这样我们就有了kernel_map的虚拟地址。</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="n">_start</span><span class="w"> </span><span class="c1">//将符号_start的地址加载到寄存器a2。</span>
+<span class="w">    </span><span class="n">sub</span><span class="w"> </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="n">a2</span><span class="w"> </span><span class="c1">//计算kernel_map - _start的偏移量，并存储在a1中。</span>
+<span class="w">    </span><span class="n">add</span><span class="w"> </span><span class="n">ra</span><span class="p">,</span><span class="w"> </span><span class="n">ra</span><span class="p">,</span><span class="w"> </span><span class="n">a1</span><span class="w"> </span><span class="c1">//将返回地址ra加上前面计算的偏移量，重新定位返回地址。</span>
+<span class="w">                    </span><span class="c1">//将返回地址从物理地址转化为虚拟地址</span>
+
+<span class="w">    </span><span class="cm">/* Point stvec to virtual address of intruction after satp write */</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="mf">1f</span><span class="w"> </span><span class="c1">//将标签1f（即稍后定义的标签1）的地址加载到a2中。</span>
+<span class="w">    </span><span class="n">add</span><span class="w"> </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="n">a1</span><span class="w"> </span><span class="c1">//将标签的地址加上偏移量，得到它的虚拟地址。</span>
+<span class="w">    </span><span class="n">csrw</span><span class="w"> </span><span class="n">CSR_TVEC</span><span class="p">,</span><span class="w"> </span><span class="n">a2</span><span class="w"> </span><span class="c1">//将a2的值写入CSR_TVEC寄存器，设置异常向量表基地址。</span>
+<span class="w">                        </span><span class="c1">//异常后将跳转到1f的位置，1f是虚拟地址。</span>
+
+<span class="w">    </span><span class="cm">/* Compute satp for kernel page tables, but don\'t load it yet */</span>
+<span class="w">    </span><span class="n">srl</span><span class="w"> </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_SHIFT</span><span class="w"> </span><span class="c1">//将a0右移PAGE_SHIFT位，计算页号（Page Number）</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="n">satp_mode</span><span class="w"> </span><span class="c1">//将satp_mode的地址加载到寄存器a1。</span>
+<span class="w">    </span><span class="n">REG_L</span><span class="w"> </span><span class="n">a1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">(</span><span class="n">a1</span><span class="p">)</span><span class="w"> </span><span class="c1">//从satp_mode地址处加载一个值到寄存器a1,即或stap_mode的值</span>
+<span class="w">    </span><span class="n">or</span><span class="w"> </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="n">a2</span><span class="p">,</span><span class="w"> </span><span class="n">a1</span><span class="w"> </span><span class="c1">//将页号和模式组合起来，生成最终的 satp 值，但还不加载它。</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Load trampoline page directory, which will cause us to trap to</span>
+<span class="cm">     * stvec if VA != PA, or simply fall through if VA == PA.  We need a</span>
+<span class="cm">     * full fence here because setup_vm() just wrote these PTEs and we need</span>
+<span class="cm">     * to ensure the new translations are in use.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">trampoline_pg_dir</span><span class="w"> </span><span class="c1">//将trampoline_pg_dir的地址加载到寄存器a0。</span>
+<span class="w">    </span><span class="n">XIP_FIXUP_OFFSET</span><span class="w"> </span><span class="n">a0</span><span class="w"> </span><span class="c1">//修正a0的偏移</span>
+<span class="w">    </span><span class="n">srl</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_SHIFT</span><span class="w"> </span><span class="c1">//将a0右移PAGE_SHIFT位，计算页号。</span>
+<span class="w">    </span><span class="n">or</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="n">a1</span><span class="w"> </span><span class="c1">//将页号和模式组合起来，生成最终的 satp 值。</span>
+<span class="w">    </span><span class="n">sfence</span><span class="p">.</span><span class="n">vma</span><span class="w"> </span><span class="c1">//执行虚地址翻译的同步指令，确保所有之前的变更生效。</span>
+<span class="w">    </span><span class="n">csrw</span><span class="w"> </span><span class="n">CSR_SATP</span><span class="p">,</span><span class="w"> </span><span class="n">a0</span><span class="w"> </span><span class="c1">//将a0的值写入CSR_SATP寄存器，加载 trampoline 页目录。</span>
+<span class="w">                    </span><span class="c1">//这里使能了MMU，那么下一条指令 地址PC+8需要经过MMU转化后地址进行</span>
+<span class="w">                    </span><span class="c1">//访问，而此时PC+8的地址是没有映射页表的，那么地址就会变成非法而</span>
+<span class="w">                    </span><span class="c1">//进入异常</span>
+<span class="p">.</span><span class="n">align</span><span class="w"> </span><span class="mi">2</span>
+<span class="mi">1</span><span class="o">:</span><span class="w">          </span><span class="c1">//以该物理地址来取指\"标号1的指令\",异常  -----这里非常巧妙</span>
+<span class="w">            </span><span class="c1">//PC跳转到\"CSR_TVEC的值\",以标号1的虚拟地址来取指\"标号1的指令\",正常,往下执行</span>
+<span class="w">    </span><span class="cm">/* Set trap vector to spin forever to help debug */</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">a0</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">Lsecondary_park</span>
+<span class="w">    </span><span class="n">csrw</span><span class="w"> </span><span class="n">CSR_TVEC</span><span class="p">,</span><span class="w"> </span><span class="n">a0</span><span class="w"> </span><span class="c1">//将 trap 向量设置为.Lsecondary_park。</span>
+
+<span class="w">    </span><span class="cm">/* Reload the global pointer */</span>
+<span class="p">.</span><span class="n">option</span><span class="w"> </span><span class="n">push</span>
+<span class="p">.</span><span class="n">option</span><span class="w"> </span><span class="n">norelax</span>
+<span class="w">    </span><span class="n">la</span><span class="w"> </span><span class="n">gp</span><span class="p">,</span><span class="w"> </span><span class="n">__global_pointer$</span>
+<span class="p">.</span><span class="n">option</span><span class="w"> </span><span class="n">pop</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Switch to kernel page tables.  A full fence is necessary in order to</span>
+<span class="cm">     * avoid using the trampoline translations, which are only correct for</span>
+<span class="cm">     * the first superpage.  Fetching the fence is guaranteed to work</span>
+<span class="cm">     * because that first superpage is translated the same way.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">csrw</span><span class="w"> </span><span class="n">CSR_SATP</span><span class="p">,</span><span class="w"> </span><span class="n">a2</span>
+<span class="w">    </span><span class="n">sfence</span><span class="p">.</span><span class="n">vma</span>
+
+<span class="w">    </span><span class="n">ret</span>
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code><span class="n">asmlinkage</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">setup_vm</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">dtb_pa</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">pmd_t</span><span class="w"> </span><span class="n">__maybe_unused</span><span class="w"> </span><span class="n">fix_bmap_spmd</span><span class="p">,</span><span class="w"> </span><span class="n">fix_bmap_epmd</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">virt_addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KERNEL_LINK_ADDR</span><span class="p">;</span>
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">page_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_AC</span><span class="p">(</span><span class="n">CONFIG_PAGE_OFFSET</span><span class="p">,</span><span class="w"> </span><span class="n">UL</span><span class="p">);</span>
+<span class="w">    </span><span class="n">_printf</span><span class="p">(</span><span class="err">\</span><span class="s">"%s,%d,virt_addr:%lx, offset:%lx</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,__func__,__LINE__,</span>
+<span class="w">            </span><span class="n">KERNEL_LINK_ADDR</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">page_offset</span><span class="p">);</span>
+
+<span class="cp">#ifdef CONFIG_XIP_KERNEL</span>
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">xiprom</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">CONFIG_XIP_PHYS_ADDR</span><span class="p">;</span>
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">xiprom_sz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">_exiprom</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">_xiprom</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">phys_ram_base</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CONFIG_PHYS_RAM_BASE</span><span class="p">;</span>
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">phys_addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">CONFIG_PHYS_RAM_BASE</span><span class="p">;</span>
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">_end</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">_sdata</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">va_kernel_xip_pa_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">virt_addr</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">xiprom</span><span class="p">;</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">phys_addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">_start</span><span class="p">);</span>
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">_end</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">phys_addr</span><span class="p">;</span>
+<span class="cp">#endif</span>
+
+<span class="w">    </span><span class="n">_printf</span><span class="p">(</span><span class="err">\</span><span class="s">"%s,%d,_start:%lx, _end:%lx</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,__func__,__LINE__,&amp;_start, &amp;_end);</span>
+
+<span class="w">    </span><span class="n">_printf</span><span class="p">(</span><span class="err">\</span><span class="s">"%s,%d,phys_addr:%lx, size:%lx</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,__func__,__LINE__,</span>
+<span class="w">            </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">phys_addr</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">size</span><span class="p">);</span>
+
+<span class="cp">#if defined(CONFIG_64BIT) &amp;&amp; !defined(CONFIG_XIP_KERNEL)</span>
+<span class="w">    </span><span class="n">set_satp_mode</span><span class="p">();</span>
+<span class="w">    </span><span class="c1">//设置satp寄存器，确定几级页表</span>
+<span class="cp">#endif</span>
+
+<span class="w">    </span><span class="n">_printf</span><span class="p">(</span><span class="err">\</span><span class="s">"%s,%d,_start:%lx, _end:%lx</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,__func__,__LINE__,&amp;_start, &amp;_end);</span>
+
+<span class="w">    </span><span class="n">_printf</span><span class="p">(</span><span class="err">\</span><span class="s">"%s,%d,phys_addr:%lx, size:%lx</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,__func__,__LINE__,</span>
+<span class="w">            </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">phys_addr</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">size</span><span class="p">);</span>
+
+<span class="cp">#if defined(CONFIG_64BIT) &amp;&amp; !defined(CONFIG_XIP_KERNEL)</span>
+<span class="w">    </span><span class="n">set_satp_mode</span><span class="p">();</span>
+<span class="cp">#endif</span>
+
+<span class="w">    </span><span class="n">_printf</span><span class="p">(</span><span class="err">\</span><span class="s">"%s,%d,page offset%lx, kernel_map.page_offset:%lx</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,</span>
+<span class="w">            </span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">,</span><span class="n">PAGE_OFFSET</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">page_offset</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">va_pa_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PAGE_OFFSET</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">phys_addr</span><span class="p">;</span>
+<span class="w">    </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">va_kernel_pa_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">virt_addr</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">phys_addr</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">riscv_pfn_base</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PFN_DOWN</span><span class="p">(</span><span class="n">kernel_map</span><span class="p">.</span><span class="n">phys_addr</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">_printf</span><span class="p">(</span><span class="err">\</span><span class="s">"%s,%d,va_pa_offset:%lx, va_kernel_pa_offset:%lx, pfn_base:%lx</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,__func__,__LINE__,</span>
+<span class="w">            </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">va_pa_offset</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">va_kernel_pa_offset</span><span class="p">,</span><span class="w"> </span><span class="n">riscv_pfn_base</span><span class="p">);</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * The default maximal physical memory size is KERN_VIRT_SIZE for 32-bit</span>
+<span class="cm">     * kernel, whereas for 64-bit kernel, the end of the virtual address</span>
+<span class="cm">     * space is occupied by the modules/BPF/kernel mappings which reduces</span>
+<span class="cm">     * the available size of the linear mapping.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">memory_limit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KERN_VIRT_SIZE</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="n">IS_ENABLED</span><span class="p">(</span><span class="n">CONFIG_64BIT</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">SZ_4G</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">_printf</span><span class="p">(</span><span class="err">\</span><span class="s">"%s,%d,memory_limit:%lx</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,__func__,__LINE__, memory_limit);</span>
+
+<span class="w">    </span><span class="cm">/* Sanity check alignment and size */</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">((</span><span class="n">PAGE_OFFSET</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">PGDIR_SIZE</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">((</span><span class="n">kernel_map</span><span class="p">.</span><span class="n">phys_addr</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">PMD_SIZE</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+
+<span class="cp">#ifdef CONFIG_64BIT</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * The last 4K bytes of the addressable memory can not be mapped because</span>
+<span class="cm">     * of IS_ERR_VALUE macro.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">((</span><span class="n">kernel_map</span><span class="p">.</span><span class="n">virt_addr</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">size</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">ADDRESS_SPACE_END</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">SZ_4K</span><span class="p">);</span>
+<span class="cp">#endif</span>
+
+<span class="w">    </span><span class="n">pt_ops_set_early</span><span class="p">();</span>
+<span class="w">    </span><span class="cm">/* Setup early PGD for fixmap */</span>
+<span class="w">    </span><span class="n">_printf</span><span class="p">(</span><span class="err">\</span><span class="s">"%s,%d FIXADDR_START:%lx,fixmap_pgd_next :%lx, PGDIR_SIZE:%lx</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,__func__,__LINE__,</span>
+<span class="w">            </span><span class="n">FIXADDR_START</span><span class="p">,</span><span class="w"> </span><span class="n">fixmap_pgd_next</span><span class="p">,</span><span class="w"> </span><span class="n">PGDIR_SIZE</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//因为一旦使能MMU，就是取指令的地址不是实际的运行地址，而是需要经过MMU转化才能访问</span>
+<span class="w">    </span><span class="c1">//如果要访问DTB、访问IO就不能访问，因为查询不到对应的页表，因为内存管理系统还没有初始化，</span>
+<span class="w">    </span><span class="c1">//也不能动态分配内存来作为页表填充，那么就因此内核引入fixmap，事先</span>
+<span class="w">    </span><span class="c1">//分配一段虚拟地址空间，然后给其虚拟地址创建号PGD/PUD/PMD的页表，PTE的页表等那个模块</span>
+<span class="w">    </span><span class="c1">//（如DTB）使用了再进行填充，这样通过fixmap这段虚拟地址就可以查询页表访问到物理内存。</span>
+<span class="w">    </span><span class="c1">//当前fixmap主要是用于访问设备树dtb的。</span>
+
+<span class="w">    </span><span class="c1">//FIXADDR_START~FIXADDR_TOP这段虚拟地址范围是固定的，用于映射到FDT/EARLYCON/IO</span>
+<span class="w">    </span><span class="c1">//填充fixmap的PGD页表，fixmap虚拟地址对应的页表项中存储的是fixmap_pgd_next，下一级</span>
+<span class="w">    </span><span class="c1">//页表的地址，如果是5级页表就是fixmap_p4d[PTRS_PER_P4D]，如果是4级页表就是</span>
+<span class="w">    </span><span class="c1">//fixmap_pud[PTRS_PER_PUD]，本章实验是4级页表。</span>
+<span class="w">    </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">early_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="n">FIXADDR_START</span><span class="p">,</span>
+<span class="w">               </span><span class="n">fixmap_pgd_next</span><span class="p">,</span><span class="w"> </span><span class="n">PGDIR_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+
+<span class="cp">#ifndef __PAGETABLE_PMD_FOLDED</span>
+<span class="w">    </span><span class="n">_printf</span><span class="p">(</span><span class="err">\</span><span class="s">"%s,%d,pgtable_l5_enabled: %lx,pgtable_l5_enabled:%lx </span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,</span>
+<span class="w">            </span><span class="n">__func__</span><span class="p">,</span><span class="n">__LINE__</span><span class="p">,</span><span class="n">pgtable_l5_enabled</span><span class="p">,</span><span class="n">pgtable_l4_enabled</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* Setup fixmap P4D and PUD */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pgtable_l5_enabled</span><span class="p">)</span>
+<span class="w">        </span><span class="n">create_p4d_mapping</span><span class="p">(</span><span class="n">fixmap_p4d</span><span class="p">,</span><span class="w"> </span><span class="n">FIXADDR_START</span><span class="p">,</span>
+<span class="w">                   </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">fixmap_pud</span><span class="p">,</span><span class="w"> </span><span class="n">P4D_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="w">    </span><span class="cm">/* Setup fixmap PUD and PMD */</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pgtable_l4_enabled</span><span class="p">)</span>
+<span class="w">        </span><span class="n">create_pud_mapping</span><span class="p">(</span><span class="n">fixmap_pud</span><span class="p">,</span><span class="w"> </span><span class="n">FIXADDR_START</span><span class="p">,</span>
+<span class="w">                   </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">fixmap_pmd</span><span class="p">,</span><span class="w"> </span><span class="n">PUD_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="w">    </span><span class="n">create_pmd_mapping</span><span class="p">(</span><span class="n">fixmap_pmd</span><span class="p">,</span><span class="w"> </span><span class="n">FIXADDR_START</span><span class="p">,</span>
+<span class="w">               </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">fixmap_pte</span><span class="p">,</span><span class="w"> </span><span class="n">PMD_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="w">    </span><span class="cm">/* Setup trampoline PGD and PMD */</span>
+<span class="w">    </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">trampoline_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">virt_addr</span><span class="p">,</span>
+<span class="w">               </span><span class="n">trampoline_pgd_next</span><span class="p">,</span><span class="w"> </span><span class="n">PGDIR_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pgtable_l5_enabled</span><span class="p">)</span>
+<span class="w">        </span><span class="n">create_p4d_mapping</span><span class="p">(</span><span class="n">trampoline_p4d</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">virt_addr</span><span class="p">,</span>
+<span class="w">                   </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">trampoline_pud</span><span class="p">,</span><span class="w"> </span><span class="n">P4D_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pgtable_l4_enabled</span><span class="p">)</span>
+<span class="w">        </span><span class="n">create_pud_mapping</span><span class="p">(</span><span class="n">trampoline_pud</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">virt_addr</span><span class="p">,</span>
+<span class="w">                   </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">trampoline_pmd</span><span class="p">,</span><span class="w"> </span><span class="n">PUD_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_TABLE</span><span class="p">);</span>
+<span class="cp">#ifdef CONFIG_XIP_KERNEL</span>
+<span class="w">    </span><span class="n">create_pmd_mapping</span><span class="p">(</span><span class="n">trampoline_pmd</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">virt_addr</span><span class="p">,</span>
+<span class="w">               </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">xiprom</span><span class="p">,</span><span class="w"> </span><span class="n">PMD_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL_EXEC</span><span class="p">);</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="n">create_pmd_mapping</span><span class="p">(</span><span class="n">trampoline_pmd</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">virt_addr</span><span class="p">,</span>
+<span class="w">               </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">phys_addr</span><span class="p">,</span><span class="w"> </span><span class="n">PMD_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL_EXEC</span><span class="p">);</span>
+<span class="cp">#endif</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="cm">/* Setup trampoline PGD */</span>
+<span class="w">    </span><span class="n">create_pgd_mapping</span><span class="p">(</span><span class="n">trampoline_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">virt_addr</span><span class="p">,</span>
+<span class="w">               </span><span class="n">kernel_map</span><span class="p">.</span><span class="n">phys_addr</span><span class="p">,</span><span class="w"> </span><span class="n">PGDIR_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">PAGE_KERNEL_EXEC</span><span class="p">);</span>
+<span class="cp">#endif</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Setup early PGD covering entire kernel which will allow</span>
+<span class="cm">     * us to reach paging_init(). We map all memory banks later</span>
+<span class="cm">     * in setup_vm_final() below.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">create_kernel_page_table</span><span class="p">(</span><span class="n">early_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/* Setup early mapping for FDT early scan */</span>
+<span class="w">    </span><span class="n">create_fdt_early_page_table</span><span class="p">(</span><span class="n">early_pg_dir</span><span class="p">,</span><span class="w"> </span><span class="n">dtb_pa</span><span class="p">);</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Bootime fixmap only can handle PMD_SIZE mapping. Thus, boot-ioremap</span>
+<span class="cm">     * range can not span multiple pmds.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">BUG_ON</span><span class="p">((</span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_BTMAP_BEGIN</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">PMD_SHIFT</span><span class="p">)</span>
+<span class="w">             </span><span class="o">!=</span><span class="w"> </span><span class="p">(</span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_BTMAP_END</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">PMD_SHIFT</span><span class="p">));</span>
+<span class="cp">#ifndef __PAGETABLE_PMD_FOLDED</span>
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Early ioremap fixmap is already created as it lies within first 2MB</span>
+<span class="cm">     * of fixmap region. We always map PMD_SIZE. Thus, both FIX_BTMAP_END</span>
+<span class="cm">     * FIX_BTMAP_BEGIN should lie in the same pmd. Verify that and warn</span>
+<span class="cm">     * the user if not.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">fix_bmap_spmd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fixmap_pmd</span><span class="p">[</span><span class="n">pmd_index</span><span class="p">(</span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_BTMAP_BEGIN</span><span class="p">))];</span>
+<span class="w">    </span><span class="n">fix_bmap_epmd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fixmap_pmd</span><span class="p">[</span><span class="n">pmd_index</span><span class="p">(</span><span class="n">__fix_to_virt</span><span class="p">(</span><span class="n">FIX_BTMAP_END</span><span class="p">))];</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pmd_val</span><span class="p">(</span><span class="n">fix_bmap_spmd</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">pmd_val</span><span class="p">(</span><span class="n">fix_bmap_epmd</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">WARN_ON</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="w">        </span><span class="n">pr_warn</span><span class="p">(</span><span class="err">\</span><span class="s">"fixmap btmap start [%08lx] != end [%08lx]</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,</span>
+<span class="w">            </span><span class="n">pmd_val</span><span class="p">(</span><span class="n">fix_bmap_spmd</span><span class="p">),</span><span class="w"> </span><span class="n">pmd_val</span><span class="p">(</span><span class="n">fix_bmap_epmd</span><span class="p">));</span>
+<span class="w">        </span><span class="n">pr_warn</span><span class="p">(</span><span class="err">\</span><span class="s">"fix_to_virt(FIX_BTMAP_BEGIN): %08lx</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,</span>
+<span class="w">            </span><span class="n">fix_to_virt</span><span class="p">(</span><span class="n">FIX_BTMAP_BEGIN</span><span class="p">));</span>
+<span class="w">        </span><span class="n">pr_warn</span><span class="p">(</span><span class="err">\</span><span class="s">"fix_to_virt(FIX_BTMAP_END):   %08lx</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,</span>
+<span class="w">            </span><span class="n">fix_to_virt</span><span class="p">(</span><span class="n">FIX_BTMAP_END</span><span class="p">));</span>
+
+<span class="w">        </span><span class="n">pr_warn</span><span class="p">(</span><span class="err">\</span><span class="s">"FIX_BTMAP_END:       %d</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">, FIX_BTMAP_END);</span>
+<span class="w">        </span><span class="n">pr_warn</span><span class="p">(</span><span class="err">\</span><span class="s">"FIX_BTMAP_BEGIN:     %d</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">, FIX_BTMAP_BEGIN);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="n">_printf</span><span class="p">(</span><span class="err">\</span><span class="s">"%s,%d start pt_ops_set_fixmap</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,__func__,__LINE__);</span>
+
+<span class="w">    </span><span class="n">pt_ops_set_fixmap</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">_printf</span><span class="p">(</span><span class="err">\</span><span class="s">"%s,%d end pt_ops_set_fixmap</span><span class="se">\\</span><span class="s">n</span><span class="se">\"</span><span class="s">,__func__,__LINE__);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/挂载根文件系统.html">← 挂载根文件系统</a>
+    <a class="next" href="/freertos内存管理.html">freertos内存管理 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

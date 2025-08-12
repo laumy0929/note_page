@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>内存初始化之页表基本操作 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">页表级数</a><ul></ul></li><li><a href="#_2">页表表项大小</a><ul></ul></li><li><a href="#_3">其他页表相关定义</a><ul><li><a href="#_4">表项数据类型定义</a></li><li><a href="#_5">获取表项索引值</a></li><li><a href="#_6">获取表项地址</a></li><li><a href="#_7">表项状态判断</a></li><li><a href="#_8">表项设置</a></li><li><a href="#_9">页目录/页表分配和释放</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>内存初始化之页表基本操作</h1>
+  <div class="meta">2023-06-18 · linux</div>
+  <div class="post-content"><h2 id="_1">页表级数</h2>
+<p>如何确定page table level？确定了VABITS和PAGES size之后，页表级数也可确定，根据内核的配置如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">config</span><span class="w"> </span><span class="n">PGTABLE_LEVELS</span>
+<span class="w">    </span><span class="kt">int</span>
+<span class="w">    </span><span class="k">default</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">ARM64_16K_PAGES</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ARM64_VA_BITS_36</span>
+<span class="w">    </span><span class="k">default</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">ARM64_64K_PAGES</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ARM64_VA_BITS_42</span>
+<span class="w">    </span><span class="k">default</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">ARM64_64K_PAGES</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">ARM64_VA_BITS_48</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">ARM64_VA_BITS_52</span><span class="p">)</span>
+<span class="w">    </span><span class="k">default</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">ARM64_4K_PAGES</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ARM64_VA_BITS_39</span><span class="w"> </span>
+<span class="w">    </span><span class="k">default</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">ARM64_16K_PAGES</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ARM64_VA_BITS_47</span>
+<span class="w">    </span><span class="k">default</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">ARM64_64K_PAGES</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ARM64_VA_BITS_48</span>
+
+<span class="n">另外在代码头文件中还有宏定义确定</span>
+<span class="n">arch</span><span class="o">/</span><span class="n">arm64</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="k">asm</span><span class="o">/</span><span class="n">pgtable</span><span class="o">-</span><span class="n">hwdef</span><span class="p">.</span><span class="n">h</span>
+
+<span class="cp">#define ARM64_HW_PGTABLE_LEVELS(va_bits) (((va_bits) - 4) / (PAGE_SHIFT - 3)) </span>
+<span class="n">Va_bits虚拟地址位宽</span><span class="err">，</span><span class="n">PAGE_SHIFT就是page</span><span class="w"> </span><span class="n">size</span><span class="err">。</span>
+</code></pre></div>
+<h2 id="_2">页表表项大小</h2>
+<div class="codehilite"><pre><span></span><code><span class="cp">#define ARM64_HW_PGTABLE_LEVEL_SHIFT(n) ((PAGE_SHIFT - 3) * (4 - (n)) + 3)</span>
+
+<span class="cp">#if CONFIG_PGTABLE_LEVELS &gt; 2</span>
+<span class="cp">#define PMD_SHIFT       ARM64_HW_PGTABLE_LEVEL_SHIFT(2)</span>
+<span class="cp">#define PMD_SIZE        (_AC(1, UL) &lt;&lt; PMD_SHIFT)</span>
+<span class="cp">#define PMD_MASK        (~(PMD_SIZE-1))</span>
+<span class="cp">#define PTRS_PER_PMD        PTRS_PER_PTE</span>
+<span class="cp">#endif</span>
+
+<span class="cp">#if CONFIG_PGTABLE_LEVELS &gt; 3</span>
+<span class="cp">#define PUD_SHIFT       ARM64_HW_PGTABLE_LEVEL_SHIFT(1)</span>
+<span class="cp">#define PUD_SIZE        (_AC(1, UL) &lt;&lt; PUD_SHIFT)</span>
+<span class="cp">#define PUD_MASK        (~(PUD_SIZE-1))</span>
+<span class="cp">#define PTRS_PER_PUD        PTRS_PER_PTE</span>
+<span class="cp">#endif</span>
+
+<span class="cp">#define PGDIR_SHIFT     ARM64_HW_PGTABLE_LEVEL_SHIFT(4 - CONFIG_PGTABLE_LEVELS)</span>
+<span class="cp">#define PGDIR_SIZE      (_AC(1, UL) &lt;&lt; PGDIR_SHIFT)</span>
+<span class="cp">#define PGDIR_MASK      (~(PGDIR_SIZE-1))</span>
+<span class="cp">#define PTRS_PER_PGD        (1 &lt;&lt; (VA_BITS - PGDIR_SHIFT))</span>
+</code></pre></div>
+<ul>
+<li>XXX_SHIFT：各级页表索引在虚拟地址中的偏移，如下图。</li>
+<li>XXX_SIZE：各级页表表项描述的地址空间大小（一个条目），如arm64 PMD_SIZE 为2MB（2^21）。</li>
+<li>XXX_MASK：各级页表屏蔽位掩码。</li>
+<li>PTRS_PER_XXX：各级页表存放的表项个数 一般2^8=512。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3be74c3ec0d0102af9dd1b1a1fd91fd7.jpg"><img alt="" src="/assets/doc/01-linux/内存管理/内存初始化之页表基本操作/images/wp_editor_md_3be74c3ec0d0102af9dd1b1a1fd91fd7.jpg"/></a></p>
+<div class="codehilite"><pre><span></span><code><span class="n">CONFIG_ARM64_VA_BITS_39</span><span class="o">=</span><span class="n">y</span>
+<span class="n">CONFIG_ARM64_VA_BITS</span><span class="o">=</span><span class="mi">39</span>
+<span class="n">CONFIG_ARM64_PA_BITS_48</span><span class="o">=</span><span class="n">y</span>
+<span class="n">CONFIG_ARM64_PA_BITS</span><span class="o">=</span><span class="mi">48</span>
+<span class="n">CONFIG_ARM64_PAGE_SHIFT</span><span class="o">=</span><span class="mi">12</span>
+
+<span class="n">PMD_SHIFT</span><span class="o">=</span><span class="mi">21</span><span class="w">    </span><span class="c1">//虚拟地址右移21位得到PMD表项entry地址，指向PTE表的。</span>
+<span class="n">PUD_SHIFT</span><span class="o">=</span><span class="mi">30</span><span class="w">    </span><span class="c1">//虚拟地址右移30位得到PUD表项entry地址，指向PMD表。</span>
+<span class="n">PGDIR_SHIFT</span><span class="o">=</span><span class="mi">30</span><span class="w">  </span><span class="c1">//PUD=PGD</span>
+<span class="n">PTRS_PER_PGD</span><span class="o">=</span><span class="mi">512</span>
+<span class="n">PTRS_PER_PTE</span><span class="o">=</span><span class="mi">512</span>
+<span class="n">PTRS_PER_PMD</span><span class="o">=</span><span class="mi">512</span>
+<span class="n">PTRS_PER_PUM</span><span class="o">=</span><span class="mi">512</span>
+
+<span class="cm">/* PAGE_SHIFT determines the page size */</span>
+<span class="cp">#define PAGE_SHIFT      CONFIG_ARM64_PAGE_SHIFT</span>
+<span class="cp">#define PAGE_SIZE       (_AC(1, UL) &lt;&lt; PAGE_SHIFT)</span>
+<span class="cp">#define PAGE_MASK       (~(PAGE_SIZE-1))</span>
+
+<span class="n">CONFIG_ARM64_CONT_PTE_SHIFT</span><span class="o">=</span><span class="mi">4</span>
+<span class="w"> </span><span class="c1">//一个PTE（Page Table Entry）可以表示2^4=16个连续的物理页面,如果page size = 4K，那么一个PTE表示连续物理空间大小微16*4KB=64KB。</span>
+
+<span class="cp">#define CONT_PTE_SHIFT      (CONFIG_ARM64_CONT_PTE_SHIFT + PAGE_SHIFT)  </span><span class="c1">//=16</span>
+<span class="c1">//PTE映射的连续物理页面大小，2^16=64KB。</span>
+<span class="cp">#define CONT_PTES       (1 &lt;&lt; (CONT_PTE_SHIFT - PAGE_SHIFT))</span>
+<span class="c1">//一个连续物理页面需要PTE的数量，如上面64KB，需要16个PTE，实际也是64KB/4KB=16，每个PTE映射4KB大小。相当于给PTE再分个组，16个PTE组成一组，对应一段映射范围。</span>
+
+<span class="cp">#define CONT_PTE_SIZE       (CONT_PTES * PAGE_SIZE)</span>
+<span class="c1">//连续物理页面需要PTE映射的空间大小，4KB*16=64KB</span>
+<span class="cp">#define CONT_PTE_MASK       (~(CONT_PTE_SIZE - 1))</span>
+
+<span class="cp">#define CONT_PMD_SHIFT      (CONFIG_ARM64_CONT_PMD_SHIFT + PMD_SHIFT) </span><span class="c1">//4+21=25</span>
+<span class="cp">#define CONT_PMDS       (1 &lt;&lt; (CONT_PMD_SHIFT - PMD_SHIFT)) </span><span class="c1">//2^4=16</span>
+<span class="cp">#define CONT_PMD_SIZE       (CONT_PMDS * PMD_SIZE) </span>
+<span class="cp">#define CONT_PMD_MASK       (~(CONT_PMD_SIZE - 1))</span>
+</code></pre></div>
+<h2 id="_3">其他页表相关定义</h2>
+<h3 id="_4">表项数据类型定义</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="n">pteval_t</span><span class="p">;</span>
+<span class="k">typedef</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="n">pmdval_t</span><span class="p">;</span>
+<span class="k">typedef</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="n">pudval_t</span><span class="p">;</span>
+<span class="k">typedef</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="n">p4dval_t</span><span class="p">;</span>
+<span class="k">typedef</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="n">pgdval_t</span><span class="p">;</span>
+
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">pteval_t</span><span class="w"> </span><span class="n">pte</span><span class="p">;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="n">pte_t</span><span class="p">;</span>
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">pmdval_t</span><span class="w"> </span><span class="n">pmd</span><span class="p">;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="n">pmd_t</span><span class="p">;</span>
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">pudval_t</span><span class="w"> </span><span class="n">pud</span><span class="p">;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="n">pud_t</span><span class="p">;</span>
+<span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">pgdval_t</span><span class="w"> </span><span class="n">pgd</span><span class="p">;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="n">pgd_t</span><span class="p">;</span>
+<span class="n">ypedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">pteval_t</span><span class="w"> </span><span class="n">pgprot</span><span class="p">;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="n">pgprot_t</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="_5">获取表项索引值</h3>
+<div class="codehilite"><pre><span></span><code><span class="cp">#define pgd_index(addr)        (((addr) &gt;&gt; PGDIR_SHIFT) &amp; (PTRS_PER_PGD - 1))</span>
+<span class="cp">#define pud_index(addr)        (((addr) &gt;&gt; PUD_SHIFT) &amp; (PTRS_PER_PUD - 1))</span>
+<span class="cp">#define pmd_index(addr)        (((addr) &gt;&gt; PMD_SHIFT) &amp; (PTRS_PER_PMD - 1))</span>
+<span class="cp">#define pte_index(addr)        (((addr) &gt;&gt; PAGE_SHIFT) &amp; (PTRS_PER_PTE - 1))</span>
+</code></pre></div>
+<h3 id="_6">获取表项地址</h3>
+<div class="codehilite"><pre><span></span><code><span class="cp">#define pgd_offset(mm, addr)   (pgd_offset_raw((mm)-&gt;pgd, (addr)))</span>
+<span class="cp">#define pgd_offset_k(addr) pgd_offset(&amp;init_mm, addr)</span>
+<span class="cp">#define pud_offset_phys(dir, addr) (pgd_page_paddr(*(dir)) + pud_index(addr) * sizeof(pud_t))</span>
+<span class="cp">#define pud_offset(dir, addr)      ((pud_t *)__va(pud_offset_phys((dir), (addr))))</span>
+<span class="cp">#define pmd_offset_phys(dir, addr) (pud_page_paddr(*(dir)) + pmd_index(addr) * sizeof(pmd_t))</span>
+<span class="cp">#define pmd_offset(dir, addr)      ((pmd_t *)__va(pmd_offset_phys((dir), (addr))))</span>
+<span class="cp">#define pte_offset_phys(dir,addr)  (pmd_page_paddr(READ_ONCE(*(dir))) + pte_index(addr) * sizeof(pte_t))</span>
+<span class="cp">#define pte_offset_kernel(dir,addr)    ((pte_t *)__va(pte_offset_phys((dir), (addr))))</span>
+</code></pre></div>
+<p>通过虚拟地址，获取表项的地址（虚拟地址），用这些函数拿到表项中具体的地址用于填充等操作。</p>
+<h3 id="_7">表项状态判断</h3>
+<div class="codehilite"><pre><span></span><code><span class="cp">#define xxx_none(pud)       (!pud_val(pud))   </span><span class="c1">//判断是否为空表项，指向的下一级页表没分配</span>
+<span class="cp">#define xxx_bad(pud)        (!pud_table(pud)) </span><span class="c1">//判断是否为坏表项</span>
+<span class="cp">#define xxx_present(pud)    pte_present(pud_pte(pud))</span><span class="c1">//判断表项是否存在</span>
+</code></pre></div>
+<h3 id="_8">表项设置</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">pte_wrprotect</span><span class="w">  </span><span class="n">设置为写保护</span>
+<span class="n">pte_mkwrite</span><span class="w">    </span><span class="n">设置为可写</span>
+<span class="n">pte_mkclean</span><span class="w">    </span><span class="n">清除脏标志</span>
+<span class="n">pte_mkdirty</span><span class="w">    </span><span class="n">设置脏标志</span>
+<span class="n">pte_mkyoung</span><span class="w">   </span><span class="n">设置为访问标志</span>
+<span class="n">pte_mkold</span><span class="w">     </span><span class="n">清除访问标志</span>
+<span class="n">set_pte</span><span class="w">        </span><span class="n">设置pte到ptep</span><span class="w"> </span>
+<span class="n">pte_pfn</span><span class="w">        </span><span class="n">页表项目中取出页帧号</span>
+<span class="n">pfn_pte</span><span class="w">        </span><span class="n">页帧号和标志组合成页表项</span>
+</code></pre></div>
+<h3 id="_9">页目录/页表分配和释放</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">Xxx_alloc</span><span class="w"> </span><span class="n">页表分配</span><span class="err">，</span><span class="n">如分配页全局目录</span>
+<span class="nl">Eg</span><span class="p">:</span><span class="w"> </span><span class="n">pte_alloc</span>
+
+<span class="n">Xxx_free</span><span class="w"> </span><span class="n">页表释放</span><span class="err">，</span>
+<span class="nl">Eg</span><span class="p">:</span><span class="w"> </span><span class="n">pte_free</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="/内存初始化之物理内存初始化.html">← 内存初始化之物理内存初始化</a>
+    <a class="next" href="/内存初始化基本概念.html">内存初始化基本概念 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>文件系统常见系统调用 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="/">首页</a></div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#mount">mount</a><ul></ul></li><li><a href="#open">open</a><ul></ul></li><li><a href="#write">write</a><ul></ul></li><li><a href="#read">read</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>文件系统常见系统调用</h1>
+  <div class="meta">2023-05-27 · linux</div>
+  <div class="post-content"><p>上一章节中，我们编写了没有带磁盘设备的文件系统，了解了文件系统操作的大致流程，本章节我们继续在上一章节的基础上完善文件系统，并梳理从用户空间到内核空间大致的调用流程。实验的代码我们使用开源的示例<a href="https://github.com/sysprog21/simplefs/tree/master">https://github.com/sysprog21/simplefs/tree/master</a>，在启动本章节之前建议先搭建好试验环境，将simplefs挂载起来，当然有余力的也可以在上一节示例代码的基础上借鉴开源的示例补全。</p>
+<h2 id="mount">mount</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ab0e4b315b4839d6ff4e073fd3791a6a.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/文件系统常见系统调用/images/wp_editor_md_ab0e4b315b4839d6ff4e073fd3791a6a.jpg"/></a></p>
+<p>挂载文件系统有两个关键点</p>
+<ul>
+<li>创建一个VFS struct super_block的实例，并从磁盘中读取磁盘super_block信息填充，同时分配一个根inode从磁盘中读取信息填充，并创建根inode对应的根dentry。</li>
+<li>创建一个struct mount实例（包含了struct vfsmount）以及挂载点struct mountpoint实例，并添加到全局文件系统的hash表中，建立起文件系统树的联系。</li>
+</ul>
+<p>下面是第一个关键点的流程和数据结构直接的关系。 <a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_5bf84857cf5d61aa7a307c09fb6ed045.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/文件系统常见系统调用/images/wp_editor_md_5bf84857cf5d61aa7a307c09fb6ed045.jpg"/></a></p>
+<p>mount_bdev主要做了3件事情，第一调用blkdev_get_by_path根据/dev/xxx名字找到相应的设备并打开它，第二调用sget根据打开的设备，查询是否有对应磁盘的supper_block，如果没有就分配一个。第三调用fill_super回调函数填充super_block。文件系统建立起来之后，对文件的读写就通过文件系统来进行。</p>
+<p>以下是第二个关键点数据结构实例直接的联系</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f307cc0a505c961826536d6361fd67c9.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/文件系统常见系统调用/images/wp_editor_md_f307cc0a505c961826536d6361fd67c9.jpg"/></a></p>
+<p>跨文件系统路径解析</p>
+<div class="codehilite"><pre><span></span><code><span class="n">path_lookupat</span>
+<span class="n">link_path_walk</span>
+<span class="n">walk_component</span>
+<span class="n">step_into</span>
+<span class="n">handle_mounts</span>
+<span class="n">traverse_mounts</span>
+<span class="n">__traverse_mounts</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">path</span><span class="w"> </span><span class="o">*</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="p">......)</span>
+<span class="p">{</span>
+<span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">DCACHE_MANAGED_DENTRY</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">......</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">flags</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">DCACHE_MOUNTED</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">   </span><span class="c1">// 目录是挂载点？</span>
+<span class="w">            </span><span class="k">struct</span><span class="w"> </span><span class="nc">vfsmount</span><span class="w"> </span><span class="o">*</span><span class="n">mounted</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">lookup_mnt</span><span class="p">(</span><span class="n">path</span><span class="p">);</span><span class="w"> </span><span class="c1">//获取vfsmount</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">mounted</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">      </span><span class="c1">// ... in our namespace</span>
+<span class="w">                </span><span class="n">dput</span><span class="p">(</span><span class="n">path</span><span class="o">-&gt;</span><span class="n">dentry</span><span class="p">);</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">need_mntput</span><span class="p">)</span>
+<span class="w">                    </span><span class="n">mntput</span><span class="p">(</span><span class="n">path</span><span class="o">-&gt;</span><span class="n">mnt</span><span class="p">);</span>
+<span class="w">                </span><span class="n">path</span><span class="o">-&gt;</span><span class="n">mnt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mounted</span><span class="p">;</span><span class="w"> </span><span class="c1">//填充新的vfsmount</span>
+<span class="w">                </span><span class="n">path</span><span class="o">-&gt;</span><span class="n">dentry</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dget</span><span class="p">(</span><span class="n">mounted</span><span class="o">-&gt;</span><span class="n">mnt_root</span><span class="p">);</span><span class="c1">//新文件系统的根目录</span>
+<span class="w">                </span><span class="c1">// here we know it's positive</span>
+<span class="w">                </span><span class="n">flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">path</span><span class="o">-&gt;</span><span class="n">dentry</span><span class="o">-&gt;</span><span class="n">d_flags</span><span class="p">;</span>
+<span class="w">                </span><span class="n">need_mntput</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">                </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="p">......</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<ul>
+<li>文件系统挂载后创建super_block、mount、mountpoint、根inode、根dentry对象。</li>
+<li>一个目录可以被多个文件系统挂载，新挂载的文件系统会导致之前的挂载被隐藏。</li>
+<li>一个目录被文件系统挂载后，原来目录的其他子目录和文件会被隐藏。</li>
+<li>每次挂载都会有一个mount实例描述本次挂载。</li>
+</ul>
+<h2 id="open">open</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8528505d429a8e009fb75355ed45fb87.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/文件系统常见系统调用/images/wp_editor_md_8528505d429a8e009fb75355ed45fb87.jpg"/></a></p>
+<p>先调用get_ununsed_fd_flags获取一个空闲的fd。   调用link_path_walk对路径名进行查找，里面是个循环会使用”/”分隔逐层处理，如果依次解析发现子目录是新的文件系统（相当于从A文件系统跨到B文件系统）则进行更新path，path中存储了vfsmount和dentry。文件/mnt/simplefs/test，link_path_walk会解析前面得路径部分/mnt/simplefs，解析完毕得时候nameidata的dentry为路径名的最后一部分的父目录/mnt/simplefs，而nameidata-&gt;filename为路径名的最后一部分”test”。再查找文件路径最后一部分对应的dentry，linux为了提高目录项目对象的处理效率，实现了一个目录项的高速换成dentry cache，查询的时候先从缓存中查找，调用的是lookup_fast，如果缓存没有找到就调用到对应的文件系统中去照，对应的是上一级目录inode的inode_operations-&gt;lookup函数，最终将找到后的新生成的dentry赋值到path中。   最后调用do_open下陷到f-&gt;f_op-&gt;open调用到具体的文件系统中，在vfs_open中也会将文件相关的信息填充到struct file中，如f-&gt;f_inode，f-&gt;f_mapping等。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_85d5fc2e5423a704768684e4773497ea.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/文件系统常见系统调用/images/wp_editor_md_85d5fc2e5423a704768684e4773497ea.jpg"/></a></p>
+<h2 id="write">write</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3dae3acc7713f3df1ae7985e6ecb33de.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/文件系统常见系统调用/images/wp_editor_md_3dae3acc7713f3df1ae7985e6ecb33de.jpg"/></a></p>
+<p>用户空间write通过系统调用进入到内核层vfs_write，在vfs_write中判断是struct file_operations填充的是write还是write_iter，这里选择的是write_iter，在simplefs文件系统中write_iter注册的是通用写generic_file_write_iter，在这个函数中会根据标志IOCB_DIRECT判断写如是否要经过缓存。   缓存是内存中的一块内存，Linux为了进一步改进性能，默认情况下不会直接操作硬盘，而是读写都在内存中，待一定时机后在一并批量写入磁盘，以提高读写效率。根据是否使用内存作为缓存，可以把文件的I/O操作分为缓存I/O和直接I/O，直接I/O的方式是不经过缓存。   默认情况为了提高写效率都会调用generic_perform_write使用缓存I/O的方式写入，在generic_perform_write中分为四个步骤：</p>
+<ul>
+<li>调用具体文件系统注册的write_begin，在该函数中，如果是日志式的文件系统会先记录相关日志，这里的simplefs文件系统不带日志系统。另外重要的事情就是获取page页，在struct file中有一个成员struct address_space，struct address_space-&gt;i_pages是一个xarray树，磁盘的内容映射到这颗树上。在准备写入数据时，会从树中查询是否有对应个page，如果有则获取到该page，如果没有则重新分配一个page，添加到树上。</li>
+<li>获得page后，调用copy_page_from_iter_atomic将用户空间数据写到page中。</li>
+<li>数据写到page后，将对用的page设置为脏页，脏页的数据是需要定期同步到磁盘的。</li>
+<li>最后在balance_dirty_pages_ratelimited会检查是否要进行缓存数据的刷写，可以看出在每次写缓存时，都会调用该函数来检查一下页缓存的总容量，如果超过设定的阈值就会立即触发wb_workfn进行写入到磁盘。平时用的sync也是，将缓存与磁盘进行同步。</li>
+</ul>
+<p>论O_DIRECT和O_SYNC?</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f601d1c0ee31ff7d992ef4982f376f45.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/文件系统常见系统调用/images/wp_editor_md_f601d1c0ee31ff7d992ef4982f376f45.jpg"/></a></p>
+<h2 id="read">read</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b200393de75355dfd208c2e0f43e8551.jpg"><img alt="" src="/assets/doc/01-linux/文件系统/文件系统常见系统调用/images/wp_editor_md_b200393de75355dfd208c2e0f43e8551.jpg"/></a></p>
+<p>大体流程跟write的类似，我们重点看唤醒I/O读的方式，通过filemap_get_pages获取page，如果没有找到不但读取一页，还有进行预读，调用page_cache_sync_readahead函数发起预读操作，这次预读的操作应该是在原来的page缓存基础上发起预读补充，预读后再进行判断是否找到要读数据对应的page，如果还是没有则直接分配一个page添加到树上，然后从磁盘中读取数据填充，接着判断一下page的数据是否填满需要预读，如果需要则发起一次异步预读操作。最后找到要读数据对应的page后，调用copy_page_to_iter将数据拷贝到用户空间。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="/一切皆文件之字符设备.html">← 一切皆文件之字符设备</a>
+    <a class="next" href="/实现简单文件系统.html">实现简单文件系统 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
+  </body>
+  </html>
+
