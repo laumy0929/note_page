@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>webrtc网页代码分析二 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../../assets/style.css">
+    <link rel="stylesheet" href="assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../../">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../../">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -261,8 +261,8 @@
 <p>创建了一个名为pear的数据通道（const datachannel = pc.createDataChannel(\\'pear\\')），并分别对数据通道的打开、关闭、接收消息等事件绑定了相应的回调函数。例如在数据通道打开时（datachannel.onopen），会定期（每隔 1 秒）发送 ping 消息用于保持连接或检测连接状态等；在接收到消息时（datachannel.onmessage），根据消息数据类型判断，如果是文本消息直接在控制台输出，如果是二进制数据（判断为 MJPEG 流），则将其转换为图片的 URL 并设置给页面中的图片元素（id 为 imgStream）用于显示。</p>
 <p>所以这里支持mjpeg的方式，但是是通过数据通道来实现的。</p></div>
   <div class="post-nav">
-    <a class="prev" href="../../webrtc网页代码分析一.html">← webrtc网页代码分析一</a>
-    <a class="next" href="../../javascript之dom.html">javascript之dom →</a>
+    <a class="prev" href="webrtc网页代码分析一.html">← webrtc网页代码分析一</a>
+    <a class="next" href="javascript之dom.html">javascript之dom →</a>
   </div>
 </article>
 
@@ -277,7 +277,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../../assets/site.js"></script>
+    <script src="assets/site.js"></script>
   </body>
   </html>
 

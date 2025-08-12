@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CFS调度原理 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../../assets/style.css">
+    <link rel="stylesheet" href="assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../../">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../../">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -98,8 +98,8 @@
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e91cffdbf11114ba4c11f45d8585fcd3.jpg"><img alt="" src="assets/doc/01-linux/进程调度/4-cfs调度原理/images/wp_editor_md_e91cffdbf11114ba4c11f45d8585fcd3.jpg"/></a></p>
 <p>考虑这样的一个场景，就绪队列中有A,B,C进程已经各自运行了一段时间了，此时有一个新的进程加入到就绪队列，D加入的时候，runtime应该是多少？如果D从0开始计算，那么D将会一直运行指导追赶上A/B/C三个进程，因为调度的原则就是选择最小的vruntime来运行，如果A/B/C已经运行了几天了，那么当D加入的时候就要先运行几天追赶上A/B/C，这样显然是不合理的。   针对以上的场景，引入了min_runtime。min_runtime记录调度队列中，虚拟时间最小的值。因此当新进程加入的时候，其虚拟时间需要+min_runtime值，这样就能够解决上述场景的问题。</p></div>
   <div class="post-nav">
-    <a class="prev" href="../../cfs分组调度.html">← CFS分组调度</a>
-    <a class="next" href="../../进程调度简介.html">进程调度简介 →</a>
+    <a class="prev" href="cfs分组调度.html">← CFS分组调度</a>
+    <a class="next" href="进程调度简介.html">进程调度简介 →</a>
   </div>
 </article>
 
@@ -114,7 +114,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../../assets/site.js"></script>
+    <script src="assets/site.js"></script>
   </body>
   </html>
 

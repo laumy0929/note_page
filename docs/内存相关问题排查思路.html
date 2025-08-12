@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>内存相关问题排查思路 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../../assets/style.css">
+    <link rel="stylesheet" href="assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../../">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../../">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -61,8 +61,8 @@
 <p>每个字节的内存使用1个bit来进行权限管理，在申请内存时将bit设置为可读写，在释放内存时将对应的bit设置为不可读写。当在进行内存读写操作时检查权限，这种方法对应use after free有很好的效果，缺点就是需要工具链支持kernel-address编译参数，在读写内存时进行插桩代码检查权限，这样也损耗性能，同时需要额外分配1/8的内存资源来管理权限。</p>
 <p><a href="https://github.com/ErichStyger/mcuoneclipse/blob/master/Examples/MCUXpresso/tinyK22/tinyK22_FreeRTOS_ASAN/source/McuASAN.c">https://github.com/ErichStyger/mcuoneclipse/blob/master/Examples/MCUXpresso/tinyK22/tinyK22_FreeRTOS_ASAN/source/McuASAN.c</a></p></div>
   <div class="post-nav">
-    <a class="prev" href="../../spi与dbi概念.html">← SPI与DBI概念</a>
-    <a class="next" href="../../使用wordpress搭建https-client的测试服务器.html">使用wordpress搭建https client的测试服务器 →</a>
+    <a class="prev" href="spi与dbi概念.html">← SPI与DBI概念</a>
+    <a class="next" href="使用wordpress搭建https-client的测试服务器.html">使用wordpress搭建https client的测试服务器 →</a>
   </div>
 </article>
 
@@ -77,7 +77,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../../assets/site.js"></script>
+    <script src="assets/site.js"></script>
   </body>
   </html>
 

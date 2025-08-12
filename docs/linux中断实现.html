@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Linux中断实现 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../../assets/style.css">
+    <link rel="stylesheet" href="assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../../">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../../">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -261,8 +261,8 @@
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_de05432a4587c88f6bdf7c89a41a78ac.jpg"><img alt="" src="assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_de05432a4587c88f6bdf7c89a41a78ac.jpg"/></a></p>
 <p>与未级联的处理流程相比，多了一级。在第二级中插入了一级响应，第一级响应后下陷不再是调用到handle_fasteoi_irq，而是调用pinctrl初始化是调用irq_set_chained_handler_and_data注册的中断处理函数，因为pinctrl中断控制器是一个bank对应一个gic的中断输入，而bank上又外挂了多个gpio，即多个gpio对应的是一个gic的输入，因此需要插入一级先处理bank的中断响应，在该中断响应中识别出bank上的那一个gpio，获取到该gpio的irq再进行处理第三级和第四级。 对应上述的第1、2、3级是处于中断上下文中。</p></div>
   <div class="post-nav">
-    <a class="prev" href="../../wordpress使用笔记.html">← wordpress使用笔记</a>
-    <a class="next" href="../../arm64体系结构简介.html">Arm64体系结构简介 →</a>
+    <a class="prev" href="wordpress使用笔记.html">← wordpress使用笔记</a>
+    <a class="next" href="arm64体系结构简介.html">Arm64体系结构简介 →</a>
   </div>
 </article>
 
@@ -277,7 +277,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../../assets/site.js"></script>
+    <script src="assets/site.js"></script>
   </body>
   </html>
 
