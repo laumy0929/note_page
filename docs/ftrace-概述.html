@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>ftrace-概述</h1>
-  <div class="meta">2024-08-27 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2024-08-27
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2024/08/wp_editor_md_1bb420627685200b9cfc21e886ecadcc.jpg"><img alt="" src="assets/doc/01-linux/性能工具/ftrace-概述/images/wp_editor_md_1bb420627685200b9cfc21e886ecadcc.jpg"/></a></p>
 <p>ftrace是一个内部跟踪器，用于帮助开发人员查找内核正在发生的事情，它可用于调试或分析用户空间之外发生的延迟和性能问题。ftrace从名称上看是function trace，函数跟踪器，但它实际并不限制函数跟踪，而是多个不同跟踪实用程序的框架。延迟跟踪可以检查在禁用和启用中断之间发生的情况，以及抢占和从唤醒任务到实际运行任务的时间。 ftrace最常见的用途之一是用于事件跟踪(event tracing)，整个内核有数百个静态事件点，可以通过tracefs文件系统启用这些事件点，以查看内核某些部分正在发生的事件。 ftrace使用tracefs文件系统来保存控制文件以及显示输出的文件，当tracefs配置到内核中时，将创建目录/sys/kernel/tracing。要挂载此目录，可以将其添加到/etc/fstab文件中。</p>
 <div class="codehilite"><pre><span></span><code><span class="w"> </span><span class="n">tracefs</span><span class="w">       </span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">tracing</span><span class="w">       </span><span class="n">tracefs</span><span class="w"> </span><span class="n">defaults</span><span class="w">        </span><span class="mi">0</span><span class="w">       </span><span class="mi">0</span>

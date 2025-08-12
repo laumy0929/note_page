@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>内存相关问题排查思路</h1>
-  <div class="meta">2024-01-08 · rtos</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2024-01-08
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      rtos
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p>最近在项目上遇到一个棘手问题，有一块内存在运行过程中概率性的被异常修改，由于牵扯到多方的应用程序，受限于调试手段排查了不少时间，现简单总结下遇到此类问题的排查思路。</p>
 <h2 id="magic">添加额外的magic</h2>
 <p>核心原理就是在malloc的时候，额外多申请一些内存，通常情况下是在头部和尾部多申请一块空间，填充固定的值如0x55,待调用free函数的时候就检测该头部和尾部的数据是否还是原来填充的值如0x55,如果不是那说明该内存已经被修改了，打印释放的backtrace,即可初步定为是那段内存被踩。</p>

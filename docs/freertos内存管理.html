@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>freertos内存管理</h1>
-  <div class="meta">2024-05-29 · rtos</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2024-05-29
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      rtos
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p>freertos一共有5种内存管理算法，heap3直接使用的是c库的管理算法，只是对c库封装了一层接口。本章节主要分析heap1、heap2、heap4；</p>
 <h2 id="heap1">heap1</h2>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_6adc983a2528652d892331d49be15695.jpg"><img alt="" src="assets/doc/03-rtos/freertos内存管理/images/wp_editor_md_6adc983a2528652d892331d49be15695.jpg"/></a></p>

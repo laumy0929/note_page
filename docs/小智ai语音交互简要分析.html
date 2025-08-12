@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>小智Ai语音交互简要分析</h1>
-  <div class="meta">2025-04-03 · ai</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-04-03
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="app-start">app start</h2>
 <p>主要是初始化板级、显示、WiFi连接、音频codec、编解码、协议、音效、唤醒几个环节。</p>
 <div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">board</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Board</span><span class="o">::</span><span class="n">GetInstance</span><span class="p">();</span><span class="w"> </span><span class="c1">//获取板级实例</span>

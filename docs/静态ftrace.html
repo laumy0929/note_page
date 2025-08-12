@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>静态ftrace</h1>
-  <div class="meta">2024-08-28 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2024-08-28
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p>上面章节主要描述的是动态ftrace，在早期还有静态ftrace。区别主要如下： - 动态ftrace与静态ftrace在编译参数方面静态编译使用的是参数“-pg”，而动态使用的是fpatchable-function-entry。 - 工具链使能“-pg”参数时，会在每个函数体前面插入_mcount函数。而动态ftrace会在函数入口（函数准备阶段前）插入nop指令。 - 静态ftrace插入的_mcout直到代码运行期间一直存在，而动态ftrace在不使能tracer是nop指令，动态ftrace可以动态的修改代码。 内核编译时，使能CONFIG_FUNCTION_TRACER时会启动该参数编译，在kernel目录下的Makefile可以看到。</p>
 <div class="codehilite"><pre><span></span><code><span class="cp"># The arch Makefiles can override CC_FLAGS_FTRACE. We may also append it later.</span>
 <span class="n">ifdef</span><span class="w"> </span><span class="n">CONFIG_FUNCTION_TRACER</span>

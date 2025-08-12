@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>全连接层与卷积层参数计算</h1>
-  <div class="meta">2025-06-01 · ai</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-06-01
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="_1">层的概念</h2>
 <p>在前面<a href="https://www.laumy.tech/2013.html">https://www.laumy.tech/2013.html</a>有说明"层与块"概念，为了加深影响，本章再简要概括一下深度学习中常见的层。</p>
 <p>在深度学习中，层（Layer)是神经网络的基本构建模块，负责对输入数据进行特定变换（如线性加权、非线性激活、特征提取等）。每一层接收输入数据，通过内部参数和计算规则生成输出，传递给下一层。常见的层有全连接层、激活函数层、卷积层、池化层、归一化层（Normalization Layer）、正则化（dropout）。当然层还可以自己定义。</p>

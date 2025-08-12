@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>文件系统磁盘管理</h1>
-  <div class="meta">2023-05-14 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-05-14
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="_1">磁盘空间布局</h2>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3094f9387032029d6524d9d20fe0a6ca.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统磁盘管理/images/wp_editor_md_3094f9387032029d6524d9d20fe0a6ca.jpg"/></a></p>
 <p>Extx将磁盘划分为等份的若干区域（最后一个区域可能会小一些），这些区域称为块组（block group）。磁盘以块组为单位进行管理。每个块组再划分为相同大小的block，这些block按功能分为原数据区和数据区。原数据区域也是占用block空间，但是是用于描述管理磁盘的信息，其中块0的原数据区域是相对比较复杂的，其包含了引导块、超级块、块组描述符、GDT、数据块位图、inode位图、inode表。出块组0外的其他块组就稍微简单些只有数据位图、inode位图、inode表。</p>

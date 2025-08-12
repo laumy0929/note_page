@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>中断基本概念</h1>
-  <div class="meta">2023-03-04 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-03-04
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_bd1e88299326e42a275b6466b0fa2bbb.jpg"><img alt="" src="assets/doc/01-linux/中断管理/中断基本概念/images/wp_editor_md_bd1e88299326e42a275b6466b0fa2bbb.jpg"/></a></p>
 <p>在现代嵌入式系统中，处理器上会挂接很多个外设，CPU在执行任务的时候，可能会同时由多个中断发生，那么中断必要要进行响应处理并维护一个队列一一运行，这样自然会影响CPU的效率，为了让CPU专注于实际运算，中断控制器孕育而生，各中断信号源都先交给中断控制器处理，由中断控制器进行管理，同时接受多个中断请求并进行优先级判断，然后选中一个最高优先级的请求送个CPU进行处理，在CPU响应处理中断时，中断控制器仍然可以响应外部中期的请求，在多核系统中，中断控制器还可以承担路由的作用，将某些中断送到指定CPU进行处理，以达到中断处理的负载均衡。在X86架构中断控制器称为APIC(Advanced Programmable Interrupt Controller)，ARM架构的中断控制器则称为GIC（Generic Interrupt Controller），本文主要探讨的是GIC模块。 ARM架构的GIC目前已经发展了多个版本，不同的GIC IP使用于不同的ARM架构，下面是不同版本直接的关键features。</p>
 <table>

@@ -3,7 +3,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ro
 .theme-toggle { cursor: pointer; user-select: none; font-size: 18px; color: #666; padding: 0 6px; }
 a { color: #2f6fec; text-decoration: none; }
 .container { max-width: min(1400px, 96vw); margin: 0 auto; padding: 0 16px; }
-.site-header { background: #fff; border-bottom: 1px solid #eaecef; }
+/* 基础导航栏样式 - 将被固定导航栏样式覆盖 */
 .site-header .container { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; }
 .logo { font-weight: 700; font-size: 20px; }
 .top-nav { display: flex; gap: 16px; position: relative; flex-wrap: wrap; }
@@ -14,6 +14,67 @@ a { color: #2f6fec; text-decoration: none; }
 .top-nav .nav-item:hover .dropdown { display: block; }
 .search { flex: 1; display: flex; justify-content: center; }
 .search input { border: 1px solid #d0d7de; border-radius: 6px; padding: 6px 10px; width: 260px; }
+
+/* 站点链接样式 - 作为导航项 */
+.nav-item.site-link a {
+  color: #444;
+  padding: 0 8px;
+  transition: color 0.2s ease;
+}
+
+.nav-item.site-link a:hover {
+  color: #2f6fec;
+  text-decoration: none;
+}
+
+/* 暗色主题下的站点链接样式 */
+.dark .nav-item.site-link a {
+  color: #e5e5e5;
+}
+
+.dark .nav-item.site-link a:hover {
+  color: #7fb0ff;
+}
+
+/* 固定导航栏样式 */
+.site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #eaecef;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.dark .site-header {
+  background: rgba(34, 34, 34, 0.95);
+  border-bottom: 1px solid #333;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* 为固定导航栏调整页面布局 */
+body {
+  padding-top: 80px; /* 为固定导航栏留出空间 */
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  body {
+    padding-top: 70px; /* 移动端导航栏高度较小 */
+  }
+  
+  .site-header {
+    background: rgba(255, 255, 255, 0.98);
+  }
+  
+  .dark .site-header {
+    background: rgba(34, 34, 34, 0.98);
+  }
+}
 .top-nav { display: flex; gap: 16px; align-items: center; }
 .layout { display: grid; grid-template-columns: 300px 1fr 0px; gap: 16px; padding: 16px 0; }
 .layout.no-right { grid-template-columns: 300px 1fr; }
@@ -65,7 +126,7 @@ a { color: #2f6fec; text-decoration: none; }
 .dark body { background: #111; color: #e5e5e5; }
 .dark a { color: #7fb0ff; }
 .dark .card { border-color: #333; }
-.dark .site-header { border-bottom-color: #333; }
+/* 暗色主题边框样式 - 已被固定导航栏样式覆盖 */
 
 /* latest grid */
 .latest-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }

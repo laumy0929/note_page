@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>挂载根文件系统</h1>
-  <div class="meta">2024-07-07 · risc-v</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2024-07-07
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      risc-v
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p>根文件系统是控制权从linux内核转移到用户空间的一个桥梁，文件系统的挂载需要提供挂载点，linux内核在初始化时汇初始化一个虚拟的“/”目录用于根文件系统的挂载。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">start_kernel</span>
 <span class="w">    </span><span class="n">vfs_caches_init</span><span class="p">()</span>

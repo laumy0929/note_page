@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>MQTT协议分析</h1>
-  <div class="meta">2024-11-23 · 网络</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2024-11-23
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      网络
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="mqtt">什么是MQTT</h2>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_c8bb7c238945b79af7fca03d4fd1a823.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_c8bb7c238945b79af7fca03d4fd1a823.jpg"/></a></p>
 <p>MQTT是基于TCP/IP网络协议栈构建的异步通信消息协议，基于发布-订阅模式进行传输。实现MQTT协议需要客户端和服务器端通讯完成，在通讯过程中, MQTT协议中有三种身份: 发布者(Publish)、代理(Broker)(服务器)、订阅者(Subscribe)。 其中消息的发布者和订阅者都是客户端，消息代理是服务器，消息发布者可以同时是订阅者，客户端之间的通信完全是空间解耦的。如上图，客户端C如果要接收客户端A的信息，先向broker subscibe想要接收的主题，当Client A发布消息是发送给broker，broker接收到后判断此前Client C订阅了该主题信息，那么就会转发给Client C。因此发布消息/订阅消息与发布者和订阅者是完全解耦的，这种耦合度有下面三个维度：</p>

@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -249,6 +252,10 @@
                       <i class="icon">📂</i>
                       linux
                     </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
+                    </span>
                   </div>
                   <p class="summary">Linux系统中支持多种不同的文件系统，为了是用户可以通过一个文件系统操作界面，对各种不同的文件系统进行操作，在具体的文件系统（ext2/ext4等）之上增加了一层抽象一个统一的虚拟文件系统界面，向上提供归一化的文件操作，这个抽象层就称为虚拟文件系统。 为了实现抽象层，Linux</p>
                 </div>
@@ -272,6 +279,10 @@
                     <span class="meta-item">
                       <i class="icon">📂</i>
                       linux
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
                     </span>
                   </div>
                   <p class="summary">磁盘空间布局 Extx将磁盘划分为等份的若干区域（最后一个区域可能会小一些），这些区域称为块组（block group）。磁盘以块组为单位进行管理。每个块组再划分为相同大小的block，这些block按功能分为原数据区和数据区。原数据区域也是占用block空间，但是是用于描述管理</p>
@@ -297,6 +308,10 @@
                       <i class="icon">📂</i>
                       linux
                     </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
+                    </span>
                   </div>
                   <p class="summary">mount的机制是如何实现的？ inode是如何分配的。磁盘inode和内存inode有什么区别？ dentry缓存是怎么回事？如何管理？ free命令中Cache和buff有什么区别？Page cache了？如何管理文件数据缓存？ 扇区与簇 物理块和扇区，逻辑块和簇是相同概念。</p>
                 </div>
@@ -320,6 +335,10 @@
                     <span class="meta-item">
                       <i class="icon">📂</i>
                       linux
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
                     </span>
                   </div>
                   <p class="summary">何时均衡 在linux内核中，有一些场景会触发任务均衡的分布在系统的各个cpu上，可以分为以下几个场景： 任务放置：task placement，fork创建的任务、sched_exec的任务或者阻塞被唤醒的任务，这些任务加入就绪队列时，可以确定放置任务到那个cpu上。 主动均衡</p>
@@ -345,6 +364,10 @@
                       <i class="icon">📂</i>
                       linux
                     </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
+                    </span>
                   </div>
                   <p class="summary">概述 从上一章节大概应该能够理解负载和利用率的区别了，当一个进程正在运行或者即使没有在cpu上运行，而在就绪队列中等待运行，那么他依旧消耗cpu的负载。这是合理的，因为cpu的就绪队列有10个任务等待着运行与5个任务等待运行，明显是10个任务的负载重。而利用率只是关注正在运行的任</p>
                 </div>
@@ -368,6 +391,10 @@
                     <span class="meta-item">
                       <i class="icon">📂</i>
                       linux
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
                     </span>
                   </div>
                   <p class="summary">各任务负载、各cpu的算力（频率+架构）、任务迁移开销（调度域，调度组）。 root@Linux:/# cat /proc/loadavg 3.49 3.43 3.54 4/131 3065 cat /proc/loadavg可以获取CPU全局平均负载，前面的三个值分别表示为1分</p>
@@ -393,6 +420,10 @@
                       <i class="icon">📂</i>
                       linux
                     </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
+                    </span>
                   </div>
                   <p class="summary">时间计算 vruntime与runtime static void update_curr(struct cfs_rq *cfs_rq) { struct sched_entity *curr = cfs_rq-&gt;curr; u64 now = rq_clock_task(rq_</p>
                 </div>
@@ -416,6 +447,10 @@
                     <span class="meta-item">
                       <i class="icon">📂</i>
                       linux
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
                     </span>
                   </div>
                   <p class="summary">Linux系统都是支持多用户登录，如果一个Linux系统两个用户存在不同的数量的进程，假设A用户有10个进程，B用户有20个进程，如果系统对这30个进程进行平分CPU，实际上是不公平的，因此引入了组调度的概念，即A用户对CPU的占用应该跟B用对CPU的占用各自为50%，A/B用户</p>
@@ -441,6 +476,10 @@
                       <i class="icon">📂</i>
                       linux
                     </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
+                    </span>
                   </div>
                   <p class="summary">上一章节中描述了Linux系统中支持多种调度，不同的调度有不同的优先级范围。对于普通进程使用的CFS调度（Completely Fair Scheduler，CFS）。完全公平调度主要核心思想就是保证在一段时间内，每个进程能够运行的时间趋于相等。 为了尽可能的保证一段时间内，每个</p>
                 </div>
@@ -464,6 +503,10 @@
                     <span class="meta-item">
                       <i class="icon">📂</i>
                       linux
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
                     </span>
                   </div>
                   <p class="summary">调度类别 进程调度依赖于调度策略（schedule policy），linux内核把相同的调度策略抽象成调度类（schedule class）。不同类型的进程采用不同的调度策略，目前Linux内核中默认采用5种调度类，分别是stop、deadline、realtime、CFS和i</p>
@@ -489,6 +532,10 @@
                       <i class="icon">📂</i>
                       linux
                     </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
+                    </span>
                   </div>
                   <p class="summary">fork创建了一个新的进程，也就是fork执行后就会返回两次，分别是父进程返回和子进程返回。 exec可以加载新的程序运行（原程序是A，可以在A中运行后加载可执行程序B，B是A的子进程）。而如果没有exec，A程序执行fork后，仅只是将fork之后的代码复制了一份。exec最早</p>
                 </div>
@@ -512,6 +559,10 @@
                     <span class="meta-item">
                       <i class="icon">📂</i>
                       其他
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
                     </span>
                   </div>
                   <p class="summary">首行缩进 `&amp;ensp`; //半角的空格 `&amp;emsp`; //全角的空格（中文的话，一般就直接用两个 即可） 着色 &lt;span style=&#34;color:red;&#34;&gt;红色文字&lt;/span&gt; &lt;span style=&#34;color:blue;&#34;&gt;蓝色文字&lt;/span&gt; &lt;span</p>
@@ -537,6 +588,10 @@
                       <i class="icon">📂</i>
                       linux
                     </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
+                    </span>
                   </div>
                   <p class="summary">进程标识 进程是程序加载到内存的执行过程。进程与程序相比用于操作系统的资源如内存空间、文件、signal等。对于进程的标识我们使用process id来标识（PID）。 线程是进程中活跃状态的实体，也是操作系统实际调度的基本单元。进程中的所有线程是共享一些资源的。在linux中，</p>
                 </div>
@@ -560,6 +615,10 @@
                     <span class="meta-item">
                       <i class="icon">📂</i>
                       linux
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
                     </span>
                   </div>
                   <p class="summary">上下文 是否抢占 顶半部 中断 否 Softirq/tasklet 软中断 是 workqueue 进程 是 threaded_irq 进程 是 Tasklet：底半部，优先级比较高，处理函数中不能睡眠。 workqueue：底半部，处理函数可以睡眠，也可以执行比较长的应用。 t</p>
@@ -585,6 +644,10 @@
                       <i class="icon">📂</i>
                       linux
                     </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
+                    </span>
                   </div>
                   <p class="summary">API接口 初始化 函数 说明 DECLARE_WORK(n, f) 静态定义一个work，实际就是定义一个struct work_struct的全局变量。 DECLARE_DELAYED_WORK(_work, _func) 静态定义一个work，与上面的区别就是work可以在</p>
                 </div>
@@ -608,6 +671,10 @@
                     <span class="meta-item">
                       <i class="icon">📂</i>
                       linux
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
                     </span>
                   </div>
                   <p class="summary">Linux的中断分为上下部机制，上半部在中断上下文中关闭了本地CPU中断响应，下半部是在中断线程中处理。在Linux系统没有引入中断线程化机制之前，就已经出现了一些下半部的机制，如软中断SoftIRQ，Tasklet和workqueue。 SoftIRQ是预留给系统对时间要求比较</p>
@@ -633,6 +700,10 @@
                       <i class="icon">📂</i>
                       其他
                     </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
+                    </span>
                   </div>
                   <p class="summary">使用WP Editor.md 粘贴的图片模糊 修改插件的图片质量 /usr/share/nginx/html/wordpress/wp-content/plugins/wp-editormd/src/App/ImagePaste.php 首页不显示全文章，只显示标题和部分内容 /</p>
                 </div>
@@ -656,6 +727,10 @@
                     <span class="meta-item">
                       <i class="icon">📂</i>
                       linux
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
                     </span>
                   </div>
                   <p class="summary">interrupt controller初始化 设备树中对gic-v3的描述如下，其中interrupt-controller标识了该设备是一个中断控制器。 interrupt-controller@3400000 { compatible = &#34;arm,gic-v3&#34;; #in</p>
@@ -681,6 +756,10 @@
                       <i class="icon">📂</i>
                       linux
                     </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
+                    </span>
                   </div>
                   <p class="summary">ARM简介 ARM版本 典型处理器 主要特性 v1 26位地址空间 v2 增加乘法、乘加法、支持协处理指令等 v3 地址空间扩展到32位，增加SPSP和CPSR等 v4 ARM7TDMI/ARM920T 增加Thumb指令等 v5 ARM926EJ-S 增加Jazelle和VFP</p>
                 </div>
@@ -704,6 +783,10 @@
                     <span class="meta-item">
                       <i class="icon">📂</i>
                       linux
+                    </span>
+                    <span class="meta-item">
+                      <i class="icon">👤</i>
+                      laumy
                     </span>
                   </div>
                   <p class="summary">在现代嵌入式系统中，处理器上会挂接很多个外设，CPU在执行任务的时候，可能会同时由多个中断发生，那么中断必要要进行响应处理并维护一个队列一一运行，这样自然会影响CPU的效率，为了让CPU专注于实际运算，中断控制器孕育而生，各中断信号源都先交给中断控制器处理，由中断控制器进行管理，</p>

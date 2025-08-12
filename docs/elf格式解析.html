@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>ELF格式解析</h1>
-  <div class="meta">2024-01-14 · 调试</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2024-01-14
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      调试
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="_1">编译过程</h2>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_d1e60ab63ca46a82bde01c54980a0070.jpg"><img alt="" src="assets/doc/07-调试/elf格式解析/images/wp_editor_md_d1e60ab63ca46a82bde01c54980a0070.jpg"/></a></p>
 <p>工具链把程序源文件翻译成可执行文件一般经理4个步骤：预处理、编译、汇编、链接。本章节关于静态链接和动态链接的过程主要就是在第4个过程。链接器会将输入目标文件(.o)经过加工后合并成一个输出文件，这里的输出文件以linux的ELF为例。链接器会将相同性质的段合并在一起，如将所有输入文件的\".text\"合并到输出文件的\".text\"段，接着是\".data\"段，\".bss\"段等。</p>

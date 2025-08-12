@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>负载均衡之负载跟踪</h1>
-  <div class="meta">2023-04-08 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-04-08
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p>各任务负载、各cpu的算力（频率+架构）、任务迁移开销（调度域，调度组）。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">root</span><span class="err">@</span><span class="n">Linux</span><span class="o">:/</span><span class="err">#</span><span class="w"> </span><span class="n">cat</span><span class="w"> </span><span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">loadavg</span><span class="w"> </span>
 <span class="mf">3.49</span><span class="w"> </span><span class="mf">3.43</span><span class="w"> </span><span class="mf">3.54</span><span class="w"> </span><span class="mi">4</span><span class="o">/</span><span class="mi">131</span><span class="w"> </span><span class="mi">3065</span>

@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>虚拟文件系统</h1>
-  <div class="meta">2023-05-20 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-05-20
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8268464056e615fff2c2c6028c3bf923.jpg"><img alt="" src="assets/doc/01-linux/文件系统/虚拟文件系统/images/wp_editor_md_8268464056e615fff2c2c6028c3bf923.jpg"/></a></p>
 <p>Linux系统中支持多种不同的文件系统，为了是用户可以通过一个文件系统操作界面，对各种不同的文件系统进行操作，在具体的文件系统（ext2/ext4等）之上增加了一层抽象一个统一的虚拟文件系统界面，向上提供归一化的文件操作，这个抽象层就称为虚拟文件系统。 为了实现抽象层，Linux内核定义了4个重要的数据结构对象。</p>
 <ul>

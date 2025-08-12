@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>内存管理概述</h1>
-  <div class="meta">2023-06-04 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-06-04
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="_1">地址空间</h2>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_cb7636562b9588e0d3070794adffec4e.jpg"><img alt="" src="assets/doc/01-linux/内存管理/内存管理概述/images/wp_editor_md_cb7636562b9588e0d3070794adffec4e.jpg"/></a></p>
 <p>虚拟地址：程序使用的内存地址；物理地址：硬件的地址空间。虚拟地址通过MMU转化为物理地址，虚拟地址的长度与实际的物理内存容量没有关系，从系统中每个进程的角度看，地址空间的进程无法感知其他进程的存在。</p>

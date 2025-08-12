@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>进程调度简介</h1>
-  <div class="meta">2023-03-25 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-03-25
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="_1">调度类别</h2>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e03f85a17bb9caf7edeb3c67b198c1a2.jpg"><img alt="" src="assets/doc/01-linux/进程调度/3-进程调度简介/images/wp_editor_md_e03f85a17bb9caf7edeb3c67b198c1a2.jpg"/></a></p>
 <p>进程调度依赖于调度策略（schedule policy），linux内核把相同的调度策略抽象成调度类（schedule class）。不同类型的进程采用不同的调度策略，目前Linux内核中默认采用5种调度类，分别是stop、deadline、realtime、CFS和idle。</p>

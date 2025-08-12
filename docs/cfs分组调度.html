@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>CFS分组调度</h1>
-  <div class="meta">2023-04-01 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-04-01
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f1872becbdd34723c385b1b47f19f12e.jpg"><img alt="" src="assets/doc/01-linux/进程调度/5-cfs分组调度/images/wp_editor_md_f1872becbdd34723c385b1b47f19f12e.jpg"/></a></p>
 <p>Linux系统都是支持多用户登录，如果一个Linux系统两个用户存在不同的数量的进程，假设A用户有10个进程，B用户有20个进程，如果系统对这30个进程进行平分CPU，实际上是不公平的，因此引入了组调度的概念，即A用户对CPU的占用应该跟B用对CPU的占用各自为50%，A/B用户下的进程再根据得到占用进行划分。系统中有cfs组调度和rt组调度，本小节主要以cfs调度为主。 如上图，组A的进程分别分配到了CPU0和CPU1上运行，在CPU0和CPU1上的进程各自组合成一个调度实体G1，两个组在各自的CPU上互不影响。以CPU0为例，G1和P1在一颗红黑树中进行调度，G1获得的“调度资源”，将需要“平分”给其组员（组进程）。</p>
 <h2 id="_1">基本原理</h2>

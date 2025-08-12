@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>SPI与DBI概念</h1>
-  <div class="meta">2024-01-10 · 外设</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2024-01-10
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      外设
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h1 id="spi">SPI</h1>
 <h2 id="spi_1">标准SPI</h2>
 <p>标准SPI接口，4根线CS、CLK、MISO、MOSI。4根线都是单线传输，主机通过MOSI发送数据，设备通过MISO发送数据给主机。标准的SPI可以支持全双工（发和收同时）、半双工（某个时刻发或收）、单双工（单方向传输，主机要么只能发送，要么只能接收）。</p>

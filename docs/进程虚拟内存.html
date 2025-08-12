@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>进程虚拟内存</h1>
-  <div class="meta">2023-08-26 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-08-26
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="_1">进程虚拟地址空间</h2>
 <h3 id="executable-and-linkable-formatelf">Executable and Linkable Format（ELF）</h3>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_084108bffd6a37851ac96f61c55c3863.jpg"><img alt="" src="assets/doc/01-linux/内存管理/进程虚拟内存-2/images/wp_editor_md_084108bffd6a37851ac96f61c55c3863.jpg"/></a>   上图是可执行文件的内容结构图，由ELF header、program headers、各section、sections headers组成。 - ELF header：描述整个文件的基本属性，如文件版本号、目标机器型号、程序入口地址等。 - program headers：描述ELF文件该如何被操作系统映射到进程的虚拟地址空间，对于LOAD类型的Segment，每个Segment对应一个VMA。对于操作系统来说，并不关心各个section所包含的内容，它只关心跟装载相关的问题，最主要的是section的权限（可读，可写，可执行），所以对于相同类型的section，将会被合并成要给Segment进行映射，如init/text/rodata，这些都是可读可执行所以合并成一个Segment来描述。对于.o文件是没有program heades的。 - sections：代码经过编译之后，将会分类链接多个section，如init/text/data/bss。 - sections headers：用于ELF文件中各sections的。</p>

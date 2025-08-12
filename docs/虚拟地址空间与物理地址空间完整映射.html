@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>虚拟地址空间与物理地址空间完整映射</h1>
-  <div class="meta">2024-07-07 · risc-v</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2024-07-07
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      risc-v
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="setup-bootmem">setup bootmem</h2>
 <p>物理内存都添加到系统之后，会调用setup_bootmem对整个物理内存进行整理，主要的工作就是remove掉一些no-map区域（不归内核管理），同时保留一些关键区域，如内核镜像区，dtb中reserved的内存节点。</p>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2024/07/wp_editor_md_2e42fa1b407a7f2adcede12a1f21e93c.jpg"><img alt="" src="assets/doc/02-risc-v/六、虚拟地址空间与物理地址空间完整映射/images/wp_editor_md_2e42fa1b407a7f2adcede12a1f21e93c.jpg"/></a></p>

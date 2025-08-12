@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>进程基本概念</h1>
-  <div class="meta">2023-03-12 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-03-12
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="_1">进程标识</h2>
 <p>进程是程序加载到内存的执行过程。进程与程序相比用于操作系统的资源如内存空间、文件、signal等。对于进程的标识我们使用process id来标识（PID）。   线程是进程中活跃状态的实体，也是操作系统实际调度的基本单元。进程中的所有线程是共享一些资源的。在linux中，实际上不区分进程和线程，进程和线程都是task_struct结构体来描述。在linux中使用thread ID（TID）来标识进程中的线程，thread id在所属进程中是唯一的，在linux系统中也是全局唯一的。对于单线程的进程来说，process ID和thread ID是一样的；而对于多线程来说，每个线程有自己的thread ID，但是所有线程共享一个PID。   进程组是一组进程的集合，创建进程组主要是将一些拥有共同特性的进程组合起来便于管理，如可以发一个信号给一个进程组，则这个组内的进程都会收到该信号。任何一个进程都不是独立存在的，一定是属于某个进程组，当fork的时候进程就归属到创建这所属的进程组。进程组用process group ID（PGID）来标识，进程组内的所有进程都有相同的GPID，等于该组组长的PID。可以通过setpgid、getpgid、setpgrp和getpgrp等接口函数访问PGID。   会话是一个用户登录后会创建一个会话，这个会话用sesssion ID（SID）来进行标识。登录的第一个进程较会话领头进程，通常是shell/bash。领头进程PID=SID。用户登录系统后，不断提交任务给操作系统，最后退出登录，就会销毁该session。可以通过getsid，setid来操作SID。   命名空间是用来隔离内核资源的，当一个进程运行在linux系统上的时候，它就拥有了很多系统资源如PID，网络设备，文件系统等。Linux内核通过namespace可以让一些进程只能看到与自己相关的一部分资源，而另外一些进程也只能看到与他们自己相关的资源，让互不联系的进程感觉不到对方的存在。目前linux现有的namespace有如下7种：</p>
 <table>

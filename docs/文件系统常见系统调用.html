@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>文件系统常见系统调用</h1>
-  <div class="meta">2023-05-27 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-05-27
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p>上一章节中，我们编写了没有带磁盘设备的文件系统，了解了文件系统操作的大致流程，本章节我们继续在上一章节的基础上完善文件系统，并梳理从用户空间到内核空间大致的调用流程。实验的代码我们使用开源的示例<a href="https://github.com/sysprog21/simplefs/tree/master">https://github.com/sysprog21/simplefs/tree/master</a>，在启动本章节之前建议先搭建好试验环境，将simplefs挂载起来，当然有余力的也可以在上一节示例代码的基础上借鉴开源的示例补全。</p>
 <h2 id="mount">mount</h2>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ab0e4b315b4839d6ff4e073fd3791a6a.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统常见系统调用/images/wp_editor_md_ab0e4b315b4839d6ff4e073fd3791a6a.jpg"/></a></p>

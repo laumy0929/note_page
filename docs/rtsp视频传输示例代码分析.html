@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>RTSP视频传输示例代码分析</h1>
-  <div class="meta">2024-11-17 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2024-11-17
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p>数据流通路： CSI -&gt; ISP -&gt; VIPP -&gt; VirChn -&gt; VENC</p>
 <ul>
 <li>CSI：表示物理 Camera Signal Input Pasrse Device 的接口。CSI 可以选择连接任意一个 ISP。最多支持 3 个 CSI。</li>

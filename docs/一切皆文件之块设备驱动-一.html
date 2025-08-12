@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>一切皆文件之块设备驱动（一）</h1>
-  <div class="meta">2023-06-03 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-06-03
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="_1">块设备驱动简介</h2>
 <p>在linux系统中，有3大驱动类型，分别是：字符设备驱动、块设备驱动、网络设备驱动。块设备驱动与文件系统有着密不可分的关系，块设备是文件系统实际的数据传输单位，通常存储设备有eMMC，Nand/Nor flash，机械硬盘，固态硬盘等，这里所说的块设备驱动，实际就是这些存储设备驱动。块设备驱动与字符设备驱动有较大差异，块设备驱动是以块位单位进行读写，而字符设备驱动以字节为单位进行传输。块设备驱动可以进行随机访问，块设备驱动一般都有缓冲区来暂存数据，当对块设备进行写入时会先将数据写到缓冲区中，累计到一定数据量后才一次性刷到设备中，这样既可以提高读写的速度也可以提高快设备驱动的寿命；相对字符设备数据的操作都是字节流的方式，字符设备没有缓冲区。</p>
 <h2 id="_2">关键数据结构</h2>

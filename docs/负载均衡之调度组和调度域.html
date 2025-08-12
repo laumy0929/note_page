@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>负载均衡之调度组和调度域</h1>
-  <div class="meta">2023-04-16 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-04-16
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="_1">概述</h2>
 <p>从上一章节大概应该能够理解负载和利用率的区别了，当一个进程正在运行或者即使没有在cpu上运行，而在就绪队列中等待运行，那么他依旧消耗cpu的负载。这是合理的，因为cpu的就绪队列有10个任务等待着运行与5个任务等待运行，明显是10个任务的负载重。而利用率只是关注正在运行的任务而不包含在就绪队列的任务，在某个时间段内可能某个任务的cpu利用率很高，但是占用完之后一直睡眠，那么其队系统的负载贡献还是较小。</p>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_7899f9010271eec5a7d023fca4dd488b.jpg"><img alt="" src="assets/doc/01-linux/进程调度/10-负载均衡之调度组和调度域/images/wp_editor_md_7899f9010271eec5a7d023fca4dd488b.jpg"/></a></p>

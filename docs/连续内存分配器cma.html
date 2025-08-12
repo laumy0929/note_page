@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>连续内存分配器CMA</h1>
-  <div class="meta">2023-08-19 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-08-19
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p>CMA,contiguous memory allocator是内存管理子系统的一个模块，其主要为了解决分配连续的物理内存。尽管有了伙伴系统、slab分配器以及相关的内存回收机制，但是对于一些驱动如camera、display等模块一下需要分配比较大的一块连续物理内存，随着系统运行久之后，碎片化严重，分配较大的连续内存会变得困难，而同时又不能直接预留一块大的连续内存只用于连续物理内存分配，因为当模块不使用这些内存时，内存就浪费掉了。因此为解决这个问题，提出了CMA机制，先预留一部分内存出来专门用于CMA内存，当驱动没有分配使用的时候，这些memory可以给伙伴系统供其他模块正常使用，当需要分配连续的大内存时，就回收回来形成物理地址连续的大块内存。</p>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_534a275819ad65dd5978c0d341381b29.jpg"><img alt="" src="assets/doc/01-linux/内存管理/连续内存分配器cma/images/wp_editor_md_534a275819ad65dd5978c0d341381b29.jpg"/></a></p>
 <p>上图可以看出CMA所处的位置，CMA向下是基于伙伴系统，向上是提供给DMA的封装接口，最终用户通过操作DMA buffer来分配和释放内存。CMA的区域有两种方式可以进行配置，分别是内核命令行参数配置和DTS设备树的方式配置。</p>

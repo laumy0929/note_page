@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>CFS调度原理</h1>
-  <div class="meta">2023-03-26 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-03-26
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p>上一章节中描述了Linux系统中支持多种调度，不同的调度有不同的优先级范围。对于普通进程使用的CFS调度（Completely Fair Scheduler，CFS）。完全公平调度主要核心思想就是保证在一段时间内，每个进程能够运行的时间趋于相等。   为了尽可能的保证一段时间内，每个进程能够运行的时间相等，那么系统就需要计算出每个进程每次能够运行的时间runtime，计算出每个进程的runtime后，系统总是让之前累计运行时间最少的进程先运行，累计运行时间长的进程后运行，这样让进程运行公平。</p>
 <h2 id="_1">理想公平调度模型</h2>
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f1e8108aa95e9b00d7f2e69657da380a.jpg"><img alt="" src="assets/doc/01-linux/进程调度/4-cfs调度原理/images/wp_editor_md_f1e8108aa95e9b00d7f2e69657da380a.jpg"/></a></p>

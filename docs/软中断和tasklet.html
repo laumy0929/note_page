@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>软中断和tasklet</h1>
-  <div class="meta">2023-03-05 · linux</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2023-03-05
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      linux
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><p>Linux的中断分为上下部机制，上半部在中断上下文中关闭了本地CPU中断响应，下半部是在中断线程中处理。在Linux系统没有引入中断线程化机制之前，就已经出现了一些下半部的机制，如软中断SoftIRQ，Tasklet和workqueue。 SoftIRQ是预留给系统对时间要求比较严格进行使用的，Linux系统已经定义了软中断的类型，通常情况下用户部需要修改软中断的类型，对于用户来说可以使用tasklet机制。</p>
 <div class="codehilite"><pre><span></span><code><span class="k">enum</span>
 <span class="p">{</span>

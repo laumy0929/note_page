@@ -33,6 +33,9 @@
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
           <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -51,7 +54,20 @@
         
 <article class="card post">
   <h1>sotfmax回归实现</h1>
-  <div class="meta">2025-04-27 · ai</div>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-04-27
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
   <div class="post-content"><h2 id="sotfmax">什么是sotfmax回归</h2>
 <p>Softmax回归（Softmax Regression），也叫多项逻辑回归，是一种用于多分类问题的分类算法。它是对逻辑回归（Logistic Regression）的一种扩展，适用于处理输出类别数大于2的情况。Softmax回归通过使用Softmax函数来将每个类别的输出转化为一个概率分布，使得输出值能够表示每个类别的概率，并且所有类别的概率之和为1。</p>
 <p>举个例子：假设有一个包含3个类别的多分类问题：苹果、香蕉、橙子。对于每个输入样本（例如一张图片），Softmax回归模型会输出三个值（每个类别的概率），也就是概率分布。例如：</p>
