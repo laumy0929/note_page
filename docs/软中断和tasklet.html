@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>软中断和tasklet - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../note_page/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../note_page/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../note_page/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -249,8 +249,8 @@
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_16bebf463ff7bbbfcb53e56d9a87392f.jpg"><img alt="" src="assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_16bebf463ff7bbbfcb53e56d9a87392f.jpg"/></a></p>
 <p>触发tasklet得到执行，也比较简单，上面以普通的tasklet为例。用户可调用tasklet_schedule，该函数将tasklet插入到链表中然后调用raise_softirq_irqoff触发软中断，最终触发了softirq，关于softirq的运行在上一章节中已经描述，最后softirq运行tasklet_action，在该函数中进行while遍历链表执行对应的tasklet回调函数。</p></div>
   <div class="post-nav">
-    <a class="prev" href="../note_page/workqueue.html">← workqueue</a>
-    <a class="next" href="../note_page/wordpress使用笔记.html">wordpress使用笔记 →</a>
+    <a class="prev" href="../workqueue.html">← workqueue</a>
+    <a class="next" href="../wordpress使用笔记.html">wordpress使用笔记 →</a>
   </div>
 </article>
 
@@ -265,7 +265,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../note_page/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>静态链接与动态链接 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../note_page/assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../note_page/">Laumy的技术栈</a>
+        <a class="logo" href="../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../note_page/">首页</a></div>
+          <div class="nav-item"><a href="../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -343,8 +343,8 @@
 <p>最后总结下动态链接的核心思想：编译成位置无关的库，当需要调用到这些库中的符号时，在数据段生成.got（外部变量表）和.got.plt（外部函数表），在程序开始要运行时，就执行查找到依赖的外部符号（变量或函数）地址填充到表中，即可运行。为了解决不需要把所有的符号在运行时一下全填充进.got_中，且降低刚启动寻址的时间，使用了延时绑定技术，先生成.plt表，表中存储在动态库中搜索符号的逻辑指令填充到.got_表中，第一次运行找不到符号时就在库中查找填充到.got_表中，下次就直接可以在.got_跳转运行。</p>
 <p>参考：&lt;程序员的自我修养 链接、装载与库&gt;</p></div>
   <div class="post-nav">
-    <a class="prev" href="../note_page/金字塔原理.html">← 金字塔原理</a>
-    <a class="next" href="../note_page/elf格式解析.html">ELF格式解析 →</a>
+    <a class="prev" href="../金字塔原理.html">← 金字塔原理</a>
+    <a class="next" href="../elf格式解析.html">ELF格式解析 →</a>
   </div>
 </article>
 
@@ -359,7 +359,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../note_page/assets/site.js"></script>
+    <script src="../assets/site.js"></script>
   </body>
   </html>
 
