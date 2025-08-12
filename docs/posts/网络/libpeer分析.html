@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>libpeer分析 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -172,7 +172,7 @@
 </code></pre></div>
 <h2 id="webrtc">WebRTC简介</h2>
 <h3 id="_2">概览</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_56afa863b5c90a096509fe1610c735b7.jpg"><img alt="" src="/laumy.github.io/assets/doc/08-网络/libpeer分析/images/wp_editor_md_56afa863b5c90a096509fe1610c735b7.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_56afa863b5c90a096509fe1610c735b7.jpg"><img alt="" src="/note_page/assets/doc/08-网络/libpeer分析/images/wp_editor_md_56afa863b5c90a096509fe1610c735b7.jpg"/></a></p>
 <p>上图中一共有4中角色，分别是signaling server、STUN/RURN server、Client A，Client B；</p>
 <ul>
 <li>signaling server：信令指的是管理两个通信设备A和B建立和管理点对点连接过程中的控制消息交换机制。让通信双方能够交换各种信息，从而建立、维护和终止一个点对点的实时通信连接。</li>
@@ -181,7 +181,7 @@
 <li>Client B：通信设备B</li>
 </ul>
 <h3 id="_3">通信流程</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_9c4699106324b4557bad72cc464f6dff.jpg"><img alt="" src="/laumy.github.io/assets/doc/08-网络/libpeer分析/images/wp_editor_md_9c4699106324b4557bad72cc464f6dff.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_9c4699106324b4557bad72cc464f6dff.jpg"><img alt="" src="/note_page/assets/doc/08-网络/libpeer分析/images/wp_editor_md_9c4699106324b4557bad72cc464f6dff.jpg"/></a></p>
 <p>WebRTC中客户端与信令服务器、STUN/TURN服务器的交互流程如下：</p>
 <ul>
 <li>
@@ -262,7 +262,7 @@
 <span class="n">a</span><span class="o">=</span><span class="n">sctp</span><span class="o">-</span><span class="n">port</span><span class="o">:</span><span class="mi">5000</span>
 <span class="n">a</span><span class="o">=</span><span class="n">max</span><span class="o">-</span><span class="n">message</span><span class="o">-</span><span class="n">size</span><span class="o">:</span><span class="mi">262144</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_4e536c4a676939b88584506dc737e399.jpg"><img alt="" src="/laumy.github.io/assets/doc/08-网络/libpeer分析/images/wp_editor_md_4e536c4a676939b88584506dc737e399.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_4e536c4a676939b88584506dc737e399.jpg"><img alt="" src="/note_page/assets/doc/08-网络/libpeer分析/images/wp_editor_md_4e536c4a676939b88584506dc737e399.jpg"/></a></p>
 <h3 id="ice-candidates">ICE candidates</h3>
 <p>ICE (Interactive Connectivity Establishment 互动连接建立） candidates（候选人）简称ICE candidates，WebRTC中的ICE Candidate是用来描述可以连接的远端的基本信息，什么是candidate，两台设备的连接，需要知道设备的网络信息，如IP地址，端口号以及使用的协议，因此candidate至少包含{address，port，protocol}三元组信息集。通过SDP会话来交互candidate信息。</p>
 <p>WebRTC将Candidate分成四种类型，且类型间存在优先级次序，从高到低分别为host、srflx、prflx和relay，本章节使用的是srflx类型，从STUN服务器获取的地址。</p>
@@ -1168,8 +1168,8 @@
 <span class="w">  </span><span class="p">}</span>
 </code></pre></div></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/网络/stun协议.html">← STUN协议</a>
-    <a class="next" href="/laumy.github.io/posts/阅读/乌龟图分析法.html">乌龟图分析法 →</a>
+    <a class="prev" href="/note_page/posts/网络/stun协议.html">← STUN协议</a>
+    <a class="next" href="/note_page/posts/阅读/乌龟图分析法.html">乌龟图分析法 →</a>
   </div>
 </article>
 
@@ -1184,7 +1184,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

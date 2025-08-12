@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>一切皆文件之块设备驱动（三） - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -731,10 +731,10 @@
 <h3 id="_6">数据处理</h3>
 <p>数据处理有两种方式，主要区别于block_device_operations中有没有实现submit_bio，如果实现了该函数文件系统下来的数据打包成bio后就直接回调该函数；如果没有实现该函数，文件系统下来的数据打包成bio后需要经过request queue进行处理，然后再派发回调到struct blk_mq_ops 注册的.queue_rq进行处理。</p>
 <p>请求队列（request queue）里面包含一系列(request)，在reqeust里面包含bio，真正的数据就存储在bio里面，因此对数据的处理就是从request_queue中取出一个一个的reqeust，然后再从reqeust里面取出bio，在处理请求时通过blk_mq_start_request和blk_mq_end_request来开始请求和结束请求。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_3b39892a88b0e1977741fd577a769fa7.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（三）/images/wp_editor_md_3b39892a88b0e1977741fd577a769fa7.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_3b39892a88b0e1977741fd577a769fa7.jpg"><img alt="" src="/note_page/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（三）/images/wp_editor_md_3b39892a88b0e1977741fd577a769fa7.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/linux/一切皆文件之块设备驱动-二.html">← 一切皆文件之块设备驱动（二）</a>
-    <a class="next" href="/laumy.github.io/posts/linux/内存管理概述.html">内存管理概述 →</a>
+    <a class="prev" href="/note_page/posts/linux/一切皆文件之块设备驱动-二.html">← 一切皆文件之块设备驱动（二）</a>
+    <a class="next" href="/note_page/posts/linux/内存管理概述.html">内存管理概述 →</a>
   </div>
 </article>
 
@@ -749,7 +749,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

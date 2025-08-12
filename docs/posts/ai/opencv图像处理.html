@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>opencv图像处理 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -152,7 +152,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>如下图，中间是加了噪声的，最后一张是通过高斯滤波处理之后的。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_60a334698f29ab4862d1ace5d67329c5.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_60a334698f29ab4862d1ace5d67329c5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_60a334698f29ab4862d1ace5d67329c5.jpg"><img alt="" src="/note_page/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_60a334698f29ab4862d1ace5d67329c5.jpg"/></a></p>
 <h2 id="_6">图像形态学</h2>
 <h3 id="_7">膨胀与腐蚀</h3>
 <p>膨胀操作会增加图像中的白色区域或前景区域，使得图像中的对象或结构变得更大。具体来说，它会将图像中的每个像素点扩展到其邻域像素中（根据结构元素的大小和形状）。这意味着如果结构元素的一部分重叠在一个前景区域内，该区域就会被扩展。使白色区域扩展，物体变大。</p>
@@ -339,7 +339,7 @@
 
 <span class="p">}</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_4d1a022fc3bfa4765c2c4a367834992f.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_4d1a022fc3bfa4765c2c4a367834992f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_4d1a022fc3bfa4765c2c4a367834992f.jpg"><img alt="" src="/note_page/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_4d1a022fc3bfa4765c2c4a367834992f.jpg"/></a></p>
 <h2 id="_11">图像边缘检测</h2>
 <h3 id="canny">canny</h3>
 <p>Canny边缘检测是一个多阶段的图像处理算法，用于提取图像中的边缘。它的目标是识别图像中强度变化较大的区域，即边缘</p>
@@ -360,7 +360,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>下面是处理的前后效果。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_a622ce4a43591be2e6486d0a3798328d.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_a622ce4a43591be2e6486d0a3798328d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_a622ce4a43591be2e6486d0a3798328d.jpg"><img alt="" src="/note_page/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_a622ce4a43591be2e6486d0a3798328d.jpg"/></a></p>
 <h3 id="_12">霍夫变换</h3>
 <p>霍夫变换（Hough Transform）是一种用于检测图像中的几何形状（如直线、圆等）的方法。它主要用于图像中的特征检测，特别是在噪声较大的图像中，可以有效地进行形状的识别。霍夫变换的基本思想是将图像中的边缘点通过一种数学映射，转化到参数空间，然后在参数空间中寻找对应的曲线（或直线、圆等）。</p>
 <p><strong>霍夫线变换</strong>： 检测线。</p>
@@ -409,7 +409,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>上面的示例中，先使用canny进行边缘处理，然后送入到霍夫变换中进行检测，最后绘制成直线。下面是检测后的效果。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_72fba2bbfb0f2a1baa00d06d002b8258.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_72fba2bbfb0f2a1baa00d06d002b8258.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_72fba2bbfb0f2a1baa00d06d002b8258.jpg"><img alt="" src="/note_page/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_72fba2bbfb0f2a1baa00d06d002b8258.jpg"/></a></p>
 <p><strong>霍夫圆变换</strong>： 检测圆。</p>
 <div class="codehilite"><pre><span></span><code><span class="n">cv2</span><span class="p">.</span><span class="n">HoughCircles</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="w"> </span><span class="n">method</span><span class="p">,</span><span class="w"> </span><span class="n">dp</span><span class="p">,</span><span class="w"> </span><span class="n">minDist</span><span class="p">,</span><span class="w"> </span><span class="n">param1</span><span class="p">,</span><span class="w"> </span><span class="n">param2</span><span class="p">,</span><span class="w"> </span><span class="n">minRadius</span><span class="p">,</span><span class="w"> </span><span class="n">maxRadius</span><span class="p">)</span>
 </code></pre></div>
@@ -460,10 +460,10 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>同样是先使用canny检测进行处理，然后再使用霍夫圆进行检测圆，最后试用cv::circle进行绘制。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_54cd04d254a6dabd481f68fc9b382123.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_54cd04d254a6dabd481f68fc9b382123.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_54cd04d254a6dabd481f68fc9b382123.jpg"><img alt="" src="/note_page/assets/doc/04-ai/opencv/opencv图像处理/images/wp_editor_md_54cd04d254a6dabd481f68fc9b382123.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/ai/全连接层与卷积层参数计算.html">← 全连接层与卷积层参数计算</a>
-    <a class="next" href="/laumy.github.io/posts/ai/opencv视频流.html">opencv视频流 →</a>
+    <a class="prev" href="/note_page/posts/ai/全连接层与卷积层参数计算.html">← 全连接层与卷积层参数计算</a>
+    <a class="next" href="/note_page/posts/ai/opencv视频流.html">opencv视频流 →</a>
   </div>
 </article>
 
@@ -478,7 +478,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

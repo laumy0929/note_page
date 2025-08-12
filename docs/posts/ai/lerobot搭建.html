@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>lerobot搭建 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -128,7 +128,7 @@
 <span class="w">  </span><span class="err">'</span><span class="n">timestamps</span><span class="err">'</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">float32</span><span class="p">(</span><span class="mf">15.966666</span><span class="p">),</span><span class="w"> </span><span class="n">np</span><span class="p">.</span><span class="n">float32</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)]}]</span>
 </code></pre></div>
 <p>解决办法就是到数据集路径下~/.cache/huggingface/lerobot/laumy/record-07261516/检查数据，一般就是数据集不匹配了，打开data和videos下面的数据，看看数量是否和meta里面的jsonl对齐了，因为程序采集过程中异常终止，可能只写了data目录或videos目录，但是meta目录下没来得及写就崩溃退出，把最新的一组数据删除了并把meta下面的所有文件数量对齐就可以了。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_2944f77882efd633b66bbfa1c53a4df5.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/lerobot/lerobot搭建/images/wp_editor_md_2944f77882efd633b66bbfa1c53a4df5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_2944f77882efd633b66bbfa1c53a4df5.jpg"><img alt="" src="/note_page/assets/doc/04-ai/lerobot/lerobot搭建/images/wp_editor_md_2944f77882efd633b66bbfa1c53a4df5.jpg"/></a></p>
 <p>需要注意的时，info.json中的数据要特别进行修改，下面是需要修改info.json的地方。</p>
 <div class="codehilite"><pre><span></span><code><span class="p">{</span>
     <span class="s2">"codebase_version"</span><span class="p">:</span> <span class="s2">"v2.1"</span><span class="p">,</span>
@@ -243,7 +243,7 @@
 <span class="w">        </span><span class="kc">n</span><span class="err">_obs_s</span><span class="kc">te</span><span class="err">ps=</span><span class="mi">3</span><span class="w">                             </span><span class="err">chu</span><span class="kc">n</span><span class="err">k_size=</span><span class="mi">1</span><span class="w">         </span><span class="kc">n</span><span class="err">_ac</span><span class="kc">t</span><span class="err">io</span><span class="kc">n</span><span class="err">_s</span><span class="kc">te</span><span class="err">ps=</span><span class="mi">50</span>
 </code></pre></div>
 <p>一般来说如果是抓取固定的物体，n_obs_steps（3~5）设置可设较小值，chun_size设置大一点以减少策略调用频率，n_action_steps一般取chunk_size/2。如果是动态的环境（如装配、堆叠）n_obs_steps建议设置大一点10~20，chunk_size也缩减一点。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_9b0578649e02feafd11bb25310ddc2ad.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/lerobot/lerobot搭建/images/wp_editor_md_9b0578649e02feafd11bb25310ddc2ad.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_9b0578649e02feafd11bb25310ddc2ad.jpg"><img alt="" src="/note_page/assets/doc/04-ai/lerobot/lerobot搭建/images/wp_editor_md_9b0578649e02feafd11bb25310ddc2ad.jpg"/></a></p>
 <ul>
 <li>action.xxx: 代表的是要设定执行的动作，也就是主臂或者模型推理处理发送的指令。</li>
 <li>observation.xxx:实际执行的动作。</li>
@@ -418,8 +418,8 @@
   <span class="o">--</span><span class="n">control</span><span class="o">.</span><span class="n">policy</span><span class="o">.</span><span class="n">path</span><span class="o">=</span><span class="n">outputs</span><span class="o">/</span><span class="n">train</span><span class="o">/</span><span class="n">act_so101_test</span><span class="o">/</span><span class="n">checkpoints</span><span class="o">/</span><span class="n">last</span><span class="o">/</span><span class="n">pretrained_model</span>
 </code></pre></div></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/其他/安装unbuntu双系统.html">← 安装unbuntu双系统</a>
-    <a class="next" href="/laumy.github.io/posts/ai/pip-install.html">pip install →</a>
+    <a class="prev" href="/note_page/posts/其他/安装unbuntu双系统.html">← 安装unbuntu双系统</a>
+    <a class="next" href="/note_page/posts/ai/pip-install.html">pip install →</a>
   </div>
 </article>
 
@@ -434,7 +434,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

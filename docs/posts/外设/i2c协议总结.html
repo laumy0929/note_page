@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>I2C协议总结 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -53,7 +53,7 @@
   <h1>I2C协议总结</h1>
   <div class="meta">2024-10-31 · 外设</div>
   <div class="post-content"><h2 id="_1">简介</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_4f79e3cb304c7d4578252acb6f09e537.jpg"><img alt="" src="/laumy.github.io/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_4f79e3cb304c7d4578252acb6f09e537.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_4f79e3cb304c7d4578252acb6f09e537.jpg"><img alt="" src="/note_page/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_4f79e3cb304c7d4578252acb6f09e537.jpg"/></a></p>
 <p>以下是 I2C 总线的一些特性：</p>
 <ul>
 <li>只需要两条线；串行数据线（SDA）和串行时钟线（SCL）。</li>
@@ -64,10 +64,10 @@
 <li>片上滤波可抑制总线数据线上的尖峰，以保持数据完整性。</li>
 <li>同一总线上可连接的IC 数量仅受最大总线电容。在某些条件下可以允许更大的电容。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_aea9c907170ceaab59c4b416474f075e.jpg"><img alt="" src="/laumy.github.io/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_aea9c907170ceaab59c4b416474f075e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_aea9c907170ceaab59c4b416474f075e.jpg"><img alt="" src="/note_page/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_aea9c907170ceaab59c4b416474f075e.jpg"/></a></p>
 <p>串行数据 (SDA) 和串行时钟 (SCL) 两条线在连接到总线的设备。每个设备都由唯一的地址识别（无论是是微控制器、LCD 驱动器、存储器或键盘接口），并且可以作为发送器或接收器运行，具体取决于设备的功能。 LCD驱动器可能只是接收器，而存储器既可以接收也可以传输数据。此外发射器和接收器，当设备也可以被视为控制器或目标时执行数据传输。控制器是发起数据的设备总线上的传输并生成时钟信号以允许该传输。</p>
 <h2 id="_2">传输协议</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_eb2ceecddb56d1d6675f88244e8b8e8a.jpg"><img alt="" src="/laumy.github.io/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_eb2ceecddb56d1d6675f88244e8b8e8a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_eb2ceecddb56d1d6675f88244e8b8e8a.jpg"><img alt="" src="/note_page/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_eb2ceecddb56d1d6675f88244e8b8e8a.jpg"/></a></p>
 <ul>
 <li>Start：数据传输的开始信号，由主机产生；</li>
 <li>Slave address：主机产生用于标识从设备的地址，bit7~bit1;</li>
@@ -76,9 +76,9 @@
 <li>Data：发送的数据，以字节为单位，每8bit数据，从设备回一个ACK信号；</li>
 <li>Stop：数据传输的结束信号，由主机产生。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_afdb47b634f08b2cfb51727363bd2af1.jpg"><img alt="" src="/laumy.github.io/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_afdb47b634f08b2cfb51727363bd2af1.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_afdb47b634f08b2cfb51727363bd2af1.jpg"><img alt="" src="/note_page/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_afdb47b634f08b2cfb51727363bd2af1.jpg"/></a></p>
 <h3 id="_3">开始和停止标志</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_cb5d0395cd42c6102b2d089b60ce1a4e.jpg"><img alt="" src="/laumy.github.io/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_cb5d0395cd42c6102b2d089b60ce1a4e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_cb5d0395cd42c6102b2d089b60ce1a4e.jpg"><img alt="" src="/note_page/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_cb5d0395cd42c6102b2d089b60ce1a4e.jpg"/></a></p>
 <p>所有事务均以 START (S) 开始，并以 STOP (P) 终止（如上图图）。当 SCL为高电平时，SDA 线上的高电平到低电平的转换定义为启动信号。当SCL为高电平时，SDA线上的低电平到高电平转换定义了停止信号。</p>
 <p>启动和停止条件始终由控制器生成。在 START 条件之后，总线被认为是繁忙的。在 STOP 条件后的某个时间，总线被认为再次空闲。</p>
 <p>如果生成重复的 START (Sr) 而不是 STOP 条件，则总线保持忙碌状态。在这方面，START (S) 和重复START (Sr)条件在功能上是相同的。因此，对于本文档的其余部分，S符号用作通用术语来表示 START 和重复 START 条件，除非 Sr特别相关。如果连接到总线的设备包含必要的接口硬件，则可以轻松检测启动和停止条件。然而，没有此类接口的微控制器必须在每个时钟周期对 SDA 线进行至少两次采样才能感测转换。</p>
@@ -96,14 +96,14 @@
 <h3 id="_5">时钟同步（两个主设备）</h3>
 <p>两个控制器可以同时在空闲总线上开始传输，并且必须有一种方法来决定哪个控制器控制总线并完成传输。这是通过时钟同步和仲裁完成的。在单控制器系统中，不需要时钟同步和仲裁。（这里的控制器指的是主机）。</p>
 <p>时钟同步是使用 I2C 接口到 SCL 线的有线“与”的方式连接来执行的。这意味着 SCL 线上从高到低的转换会导致相关控制器开始计算其低电平周期，并且一旦控制器时钟变为低电平，它就会将 SCL 线保持在该状态，直到达到时钟高电平状态（见图 7）。但是，如果另一个时钟仍处于其低电平周期内，则该时钟从低电平到高电平的转换可能不会改变 SCL 线的状态。因此，具有最长低电平周期的控制器将 SCL 线保持在低电平。具有较短低电平周期的控制器在此期间进入高电平等待状态。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_d399d3203f5920f1ee11367255bb7e38.jpg"><img alt="" src="/laumy.github.io/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_d399d3203f5920f1ee11367255bb7e38.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_d399d3203f5920f1ee11367255bb7e38.jpg"><img alt="" src="/note_page/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_d399d3203f5920f1ee11367255bb7e38.jpg"/></a></p>
 <p>当所有相关控制器都已计数完其低电平周期时，时钟线被释放并变为高电平。然后控制器时钟和 SCL 线的状态之间没有差异，并且所有控制器都开始计数其高电平周期。第一个完成其高电平周期的控制器将再次将 SCL 线拉低。这样，就生成了一个同步的 SCL 时钟，其低电平周期由时钟低电平周期最长的控制器决定，其高电平周期由时钟高电平周期最短的控制器决定。</p>
 <h3 id="_6">仲裁</h3>
 <p>仲裁与同步类似，是指仅当系统中使用多个控制器时才需要的协议部分。目标设备（从设备）不参与仲裁程序。仅当总线空闲时，控制器才可以启动传输，两个控制器可以在 START 条件的最小保持时间 (tHD;STA) 内生成 START 条件，从而在总线上产生有效的 START 条件。然后需要仲裁来确定哪个控制器将完成其传输。</p>
 <p>仲裁逐位进行。在每一位期间，当 SCL为高电平时，每个控制器检查 SDA 电平是否与其发送的电平匹配。此过程可能需要许多位。只要传输相同，两个控制器实际上可以完成整个事务而不会出错。控制器第一次尝试发送高电平，但检测到 SDA 电平为低电平时，控制器知道它已失去仲裁并关闭其 SDA 输出驱动器。另一个控制器继续完成其事务。</p>
 <p>仲裁过程中不会丢失任何信息。失去仲裁的控制器可以生成时钟脉冲，直到失去仲裁的字节结束，并且 必须在总线空闲时重新启动其事务。如果控制器还包含目标功能，并且在寻址阶段失去仲裁，则获胜的控制器可能正在尝试寻址它。因此，失败的控制器必须立即切换到其目标模式。</p>
 <p>下图显示了两个控制器的仲裁程序。可能涉及更多，具体取决于连接到总线的控制器数量。一旦生成 DATA1 的控制器的内部数据电平与 SDA 线上的实际电平之间出现差异，DATA1输出就会关闭。这不会影响获胜控制器发起的数据传输。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_27a06f674a1c99fd2abd3be4561b2805.jpg"><img alt="" src="/laumy.github.io/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_27a06f674a1c99fd2abd3be4561b2805.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_27a06f674a1c99fd2abd3be4561b2805.jpg"><img alt="" src="/note_page/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_27a06f674a1c99fd2abd3be4561b2805.jpg"/></a></p>
 <p>由于 I2C 总线的控制完全取决于竞争控制器发送的地址和数据，因此总线上没有中央控制器，也没有任何优先级顺序。</p>
 <p>如果当一个控制器发送重复的 START 或 STOP 条件而另一个控制器仍在发送数据时，仲裁程序仍在进行中，则会出现未定义的情况。换句话说，以下组合会导致未定义的情况：</p>
 <ul>
@@ -113,12 +113,12 @@
 </ul>
 <p>小结： 所谓仲裁就是多个主设备该咋发咋发，但是了发了同时要进行检测，所发送的电平与自己发送的电平是否一致，如果不一直那就让别人先发。</p>
 <h3 id="_7">读写位</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_b752dd75ce41112ca6a64da8fcba20f3.jpg"><img alt="" src="/laumy.github.io/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_b752dd75ce41112ca6a64da8fcba20f3.jpg"/></a></p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_0759ed16dc7dc42704d4aaba5f90f29d.jpg"><img alt="" src="/laumy.github.io/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_0759ed16dc7dc42704d4aaba5f90f29d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_b752dd75ce41112ca6a64da8fcba20f3.jpg"><img alt="" src="/note_page/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_b752dd75ce41112ca6a64da8fcba20f3.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/10/wp_editor_md_0759ed16dc7dc42704d4aaba5f90f29d.jpg"><img alt="" src="/note_page/assets/doc/05-外设/i2c协议总结/images/wp_editor_md_0759ed16dc7dc42704d4aaba5f90f29d.jpg"/></a></p>
 <p>参考： 《I2C-bus specification and user manual》</p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/阅读/随记.html">← 随记</a>
-    <a class="next" href="/laumy.github.io/posts/rtos/系统死机排查思路.html">系统死机排查思路 →</a>
+    <a class="prev" href="/note_page/posts/阅读/随记.html">← 随记</a>
+    <a class="next" href="/note_page/posts/rtos/系统死机排查思路.html">系统死机排查思路 →</a>
   </div>
 </article>
 
@@ -133,7 +133,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

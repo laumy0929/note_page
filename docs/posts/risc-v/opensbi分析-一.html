@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>opensbi分析（一） - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -99,9 +99,9 @@
 <h2 id="_1">重定位和初始化</h2>
 <h3 id="_2">预备信息</h3>
 <h4 id="_fw_start">_fw_start</h4>
-<p>_fw_start的值，在链接脚本 build/platform/generic/firmware/fw_jump.elf.ld中指定 <a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_9c3807da2c0941724b7dbfc629354ac2.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/opensbi分析（一）/images/wp_editor_md_9c3807da2c0941724b7dbfc629354ac2.jpg"/></a></p>
+<p>_fw_start的值，在链接脚本 build/platform/generic/firmware/fw_jump.elf.ld中指定 <a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_9c3807da2c0941724b7dbfc629354ac2.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/opensbi分析（一）/images/wp_editor_md_9c3807da2c0941724b7dbfc629354ac2.jpg"/></a></p>
 <p>从通过工具链读取到_fw_start为0x80000000,如下：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_2b32ae0fe9b5e437f62b9d2e48fff47d.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/opensbi分析（一）/images/wp_editor_md_2b32ae0fe9b5e437f62b9d2e48fff47d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_2b32ae0fe9b5e437f62b9d2e48fff47d.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/opensbi分析（一）/images/wp_editor_md_2b32ae0fe9b5e437f62b9d2e48fff47d.jpg"/></a></p>
 <h4 id="reladyn">.rela.dyn</h4>
 <p>.rela.dyn是重定位段，重定位是连接符号引用与符号定义的过程。例如，程序调用函数时，关联的调用指令必须在执行时将控制权转移到正确的目标地址。可重定位文件必须包含说明如何修改其节内容的信息。通过此信息，可执行文件和共享目标文件可包含进程的程序映像的正确信息。重定位项即是这些数据。</p>
 <div class="codehilite"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">elf32_rela</span><span class="p">{</span>
@@ -123,9 +123,9 @@
 <li>r_addend：重定位计算的值</li>
 </ul>
 <p>使用 riscv64-unknown-linux-gnu-readelf -S build/platform/generic/firmware/fw_jump.elf命令可以看到重定位表的地址。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_053503180c2ea4d7d1a4daae09be0ec3.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/opensbi分析（一）/images/wp_editor_md_053503180c2ea4d7d1a4daae09be0ec3.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_053503180c2ea4d7d1a4daae09be0ec3.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/opensbi分析（一）/images/wp_editor_md_053503180c2ea4d7d1a4daae09be0ec3.jpg"/></a></p>
 <p>如上图.rela.dyn的地址为0x8001c3a8，长度为0x2418。</p>
-<p>执行riscv64-unknown-linux-gnu-readelf -rW build/platform/generic/firmware/fw_jump.elf可以查看重定位信息表。 <a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_a334cd8ead484a4434f97d55a5abea15.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/opensbi分析（一）/images/wp_editor_md_a334cd8ead484a4434f97d55a5abea15.jpg"/></a></p>
+<p>执行riscv64-unknown-linux-gnu-readelf -rW build/platform/generic/firmware/fw_jump.elf可以查看重定位信息表。 <a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_a334cd8ead484a4434f97d55a5abea15.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/opensbi分析（一）/images/wp_editor_md_a334cd8ead484a4434f97d55a5abea15.jpg"/></a></p>
 <p>上图所示，fw_jump.elf的重定位表中有385个条目，即有385个地址需要重定位，上图中r_info是0x3,即类型是R_RISCV_RELATIVE，则重定位方式是按照B+A，B表示执行过程中将共享目标文件装入内存的基本地址，通常生成的共享目标文件的基本虚拟地址为0，在本节中B为_fw_start - FW_TEXT_START；A表示常量加数，用于计算存储在可重定位字段中的值，即r_addend的值，所以0x80020018的地址重定位到0x80000000。</p>
 <p>怎么理解_fw_start 和 FW_TEXT_START地址？</p>
 <ul>
@@ -133,7 +133,7 @@
 <li>FW_TEXT_START表示链接地址</li>
 </ul>
 <p>在opensbi 1.2版本，_fw_start和FW_TEXT_START是一样的。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_da1a1fd18d1fc19cf1244668f42433bf.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/opensbi分析（一）/images/wp_editor_md_da1a1fd18d1fc19cf1244668f42433bf.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_da1a1fd18d1fc19cf1244668f42433bf.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/opensbi分析（一）/images/wp_editor_md_da1a1fd18d1fc19cf1244668f42433bf.jpg"/></a></p>
 <p>OpenSBI在什么时候引入的PIE支持？</p>
 <p>在1.0版本引入的，<a href="https://github.com/riscv-software-src/opensbi/commit/0f20e8a?diff=split&amp;w=0">https://github.com/riscv-software-src/opensbi/commit/0f20e8a?diff=split&amp;w=0</a></p>
 <ul>
@@ -699,11 +699,11 @@
 <span class="w">    </span><span class="cp"># scratch的地址作为参数，跳转到sbi_init执行。</span>
 </code></pre></div>
 <h2 id="_5">小结</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_9e0252c9c3914a87a4e0af3c33349b68.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/opensbi分析（一）/images/wp_editor_md_9e0252c9c3914a87a4e0af3c33349b68.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/05/wp_editor_md_9e0252c9c3914a87a4e0af3c33349b68.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/opensbi分析（一）/images/wp_editor_md_9e0252c9c3914a87a4e0af3c33349b68.jpg"/></a></p>
 <p>本文参考： [泰晓科技OpenSBI分析1](https://tinylab.org/sbi-firmware-analyze-41/ \"泰晓科技OpenSBI分析1\") [泰晓科技OpenSBI分析2](https://tinylab.org/sbi-firmware-analyze-2/ \"泰晓科技OpenSBI分析2\") [泰晓科技OpenSBI分析3](https://tinylab.org/sbi-firmware-analyze-3/ \"泰晓科技OpenSBI分析3\") [泰晓科技OpenSBI分析4](https://tinylab.org/sbi-firmware-analyze-4/ \"泰晓科技OpenSBI分析4\") [passenger12234的博客 OpenSBI分析](https://blog.csdn.net/passenger12234/category_11411139.html \"passenger12234的博客 OpenSBI分析\") [OpenSBI ELF rela.dyn和.dynsym动态链接过程](https://blog.csdn.net/dai_xiangjun/article/details/123629743 \"OpenSBI ELF rela.dyn和.dynsym动态链接过程\")</p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/risc-v/opensbi分析-二.html">← opensbi分析（二）</a>
-    <a class="next" href="/laumy.github.io/posts/risc-v/qemu-opensbi-uboot-linux-busybox启动环境搭建.html">qemu+opensbi+uboot+linux+busybox启动环境搭建 →</a>
+    <a class="prev" href="/note_page/posts/risc-v/opensbi分析-二.html">← opensbi分析（二）</a>
+    <a class="next" href="/note_page/posts/risc-v/qemu-opensbi-uboot-linux-busybox启动环境搭建.html">qemu+opensbi+uboot+linux+busybox启动环境搭建 →</a>
   </div>
 </article>
 
@@ -718,7 +718,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

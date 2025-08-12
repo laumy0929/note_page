@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Linux中断实现 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -80,14 +80,14 @@
 <span class="cp">         = { .compatible = "arm,gic-v3",              \\</span>
 <span class="cp">             .data = gic_of_init  }</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_55593fd38b57f7196ae93cc4bf046b15.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_55593fd38b57f7196ae93cc4bf046b15.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_55593fd38b57f7196ae93cc4bf046b15.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_55593fd38b57f7196ae93cc4bf046b15.jpg"/></a></p>
 <p>上图是中断控制器驱动匹配设备树的调用路径，调用到of_irq_init函数，传入的参数是__irqchip_of_table，该table中定义了所有interrupt controller的compatible信息，在一个完整的系统中不仅只有一个gic控制器，还包括一些级联等其他控制器，通过宏定义IRQCHIP_DECLARE的方式会集中在__irqchip_of_table这个段。</p>
 <h2 id="irq-domain">IRQ domain</h2>
 <ul>
 <li>硬件中断号：1.1和1.2章节控制器为每个硬件中断源分配了一个唯一编号，用于区分不同的中断源。</li>
 <li>软件中断号：Linux系统在处理中断过程中使用的编号，也称为虚拟中断号。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e74e4064038bb25d0e6393ff7d6bfe86.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_e74e4064038bb25d0e6393ff7d6bfe86.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_e74e4064038bb25d0e6393ff7d6bfe86.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_e74e4064038bb25d0e6393ff7d6bfe86.jpg"/></a></p>
 <p>为什么要进行中断映射？</p>
 <p>上图是一个HW interrupt ID 到Linux IRQ的映射关系图示例。在Linux软件处理过程中，不应该关注中断来自那个中断来源，尤其在中断系统结构中，会出现级联的情况，中断控制器的中断源是另外一个中断控制器的输出，不同的中断控制器会出现重复中断源编号。使用级联这样做的好处就是扩展的中断请求的数量，同时对中断源可以按照控制器分类。如GPIO类型中断控制器，对于Port A（GPIO A1~GPIO A20），这20个GPIO组成的一个中断控制器给到主控制器，也就是说GPIO A1~GPIO A20给到上一级的控制是一个中断信号，系统收到这个信号需要再去读取GPIO Port A的控制器相关掩码进一步判断到是那个GPIO。</p>
 <p>Linux系统为了处理硬件中断到虚拟中断的映射关系，引入了Linux IRQ domain。每个中断控制器对应一个IRQ domain，在2.1章节中IRQ domain负责将硬件的中断编号 HW interrupt ID与Linux系统中的IRQ number进行映射。目前IRQ domain支持2中映射方式：linear map，tree map，no map</p>
@@ -96,18 +96,18 @@
 <li>Tree map：当HW interrupt数量比较多时，使用Linear map会消耗比较大的内存，选择用树的方式进行映射可以节约内存。</li>
 <li>No map：有些控制器可以支持通过些寄存器配置HW interrupt id而不是由物理连接决定，那么这种情况下就不需要进行映射了。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_66ca0f063bb9e00810729cf14bf92635.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_66ca0f063bb9e00810729cf14bf92635.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_66ca0f063bb9e00810729cf14bf92635.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_66ca0f063bb9e00810729cf14bf92635.jpg"/></a></p>
 <p>上图是设备树中级联描述关系，pinctrl设备虽然没有描述interrupt-parent节点，那么就默认使用开头定义的interrupt-parent = &lt;0x01&gt;，因此pinctrl节点的父中断控制器是interrupt-controller@0，而interrupt-contrller@0指明了interrupt-parent=&lt;0x18&gt;，所有其父中断控制器是interrupt-controller@3400000即GIC，Timer_arch的interrupt-parent直接指向的是GIC。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_6af19718554906ef636f727186eba635.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_6af19718554906ef636f727186eba635.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_6af19718554906ef636f727186eba635.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_6af19718554906ef636f727186eba635.jpg"/></a></p>
 <p>上图为struct irq_domain的数据结构，下面是对关键变量的说明。 - link：所有创建的irq domain链接到全局链表irq_domain_list中。 - ops: 对应irq domain操作使用方法集合。 - revmap_size:映射表的大小。 - revmap_tree:Radix Tree映射的根节点。 - revmap[]:反向映射表，将硬件中断号映射回中断数据结构。</p>
 <h3 id="root-domaingic">root domain创建（GIC）</h3>
 <p>在interrupt controller初始化章节，在of_irq_init函数中会调用for_each_matching_node进行遍历设备设备树是否与__irqchip_of_table中的定义的匹配，如果匹配并且是interrupt-controller则获取对应的data（即回调函数），并将其添加intc_desc_list链表中。最后在逐一遍历调用对应的回调函数，gic控制器就对应调用的是gic_of_init。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_341f094f00b8ea080fe11ec0c7285886.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_341f094f00b8ea080fe11ec0c7285886.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_341f094f00b8ea080fe11ec0c7285886.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_341f094f00b8ea080fe11ec0c7285886.jpg"/></a></p>
 <p>gic控制器初始化调用gic_of_init函数，在该函数中较关键的是调用gic_init_bases进行了一系列的初始化。在linux系统中，定义了一个struct gic_chip_data gic_data[CONFIG_ARM_GIC_MAX_NR] __read_mostly的全局变量，用于管理gic中断控制器。在gic_init_bases创建了gic irq domain（下一章节描述），设置中断函数的入口gic_handler_irq等等。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_dad436c9db2ca2b5eb2e3bfb2db6f4f3.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_dad436c9db2ca2b5eb2e3bfb2db6f4f3.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_dad436c9db2ca2b5eb2e3bfb2db6f4f3.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_dad436c9db2ca2b5eb2e3bfb2db6f4f3.jpg"/></a></p>
 <p>在interrupt controller初始化章节，gic_init_bases调用irq_domain_crate_tree创建了一个irq domain，该函数调用__irq_domain_add添加一个irq domain。 首先分配了一个struct domain数据结构并初始化相关成员，其中domain-&gt;revmap_tree树用于hwirq和virq直接的映射；接着填充domain的操作函数结合ops；再调用irq_domain_check_hierarchy检测domain是否为级联（有子中断控制器连接？），判断的方式是检测ops-&gt;alloc是否为空，这里明显是不为空，所以gic是hierarchy，这里决定着后续在映射中断号时的区别（见2.2.2），最后将domain添加到全局链表irq_domain_list中。</p>
 <h2 id="gic">中断号映射（GIC）</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_9881c79ef674020caf04aecdf2597e26.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_9881c79ef674020caf04aecdf2597e26.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_9881c79ef674020caf04aecdf2597e26.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_9881c79ef674020caf04aecdf2597e26.jpg"/></a></p>
 <p>中断号的映射就是将硬件中断号与Linux系统中的中断号建立起映射关系。在linux系统中，每个linux中断号都对应struct irq_desc实体，其与各关键数据结构的关系如上图。 Linux系统中大部分在DTS描述的节点是可以转换为platform_device的，如果其节点在DTS中指定了中断属性，那么可以在DTS解析设备树的时候可以获取到设备的中断信息，进而建立起映射关系。而对于如果节点没有转换为platform_device信息的，如I2C,SPI设备，那么需要在驱动中主动调用of_irq_get函数去实现，如下。</p>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">spi_probe</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">device</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="p">)</span>
 <span class="p">{</span>
@@ -147,15 +147,15 @@
 <li>interrupt-parent：指向其父节点，表示中断信号由那个中断控制器来处理，这个属性取值是一个整数或引用到其他节点的phandle。也就是说该字段指明了所属的中断控制器。</li>
 <li>interrupts:指定中断的详细信息，&lt;中断类型，中断号，方式&gt;。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_528f9451dc358eae8f5670ec0567a8b2.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_528f9451dc358eae8f5670ec0567a8b2.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_528f9451dc358eae8f5670ec0567a8b2.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_528f9451dc358eae8f5670ec0567a8b2.jpg"/></a></p>
 <p>内核初始化阶段，会解析DTS中设备，进而解析设备中中断信息，首先调用of_irq_count函数统计设备节点dev中的中断数量num_irq（大多数的设备只有一个中断），接着根据num_irq中断数量调用of_irq_to_resource解析节点的中断信息。在of_irq_to_resource函数中调用of_irq_get函数获取中断号IRQ。 在of_irq_get函数中调用of_irq_parse_one解析中断的描述信息，包括DTS中interrupt-parent和interruts的信息，包含了该中断所属的父节点，中断类型，中断号，中断触发方式等。 获取到中断信息后，调用irq_domain_translate将DTS中描述的中断号（interrupts的第二个cells）转为hwiq，转换方法为如果是SPI类型的中断+32，如果是PPI类型的中断+16。见1.1和1.2章节中，PPI和SGI类型的中断占用了前32号。 获取到hwiq后先调用irq_find_mapping查询是否能获取到virq，如果获取到了则结束整个过程。如果没有获取到中断号，先进行判断domain是否为hierarchy，如果是级联的方式则调用irq_domain_alloc_irqs来进行映射，否则调用irq_carete_mapping来进行映射，对于gic来说这里调用的是irq_domain_alloc_irqs。</p>
 <h3 id="_1">无中断控制器映射</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b8bcd2203e6825728fccbb86998bb87c.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_b8bcd2203e6825728fccbb86998bb87c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b8bcd2203e6825728fccbb86998bb87c.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_b8bcd2203e6825728fccbb86998bb87c.jpg"/></a></p>
 <p>中断line接入到的控制器是非级联的，则调用irq_create_mapping进行映射，主要分为两部分，创建desc和建立hwirq和virq的映射。 调用irq_domain_alloc_decs分配一个struct desc描述符，一个virq对应一个struct desc实体。struct desc实体通过virq作为键值插入到irq_desc_tree中，这样就建立起virq与desc直接的联系。 调用irq_domain_associate建立hwirq和virq的映射，会根据hwirq的值来进行判断，如果hwirq比较小采用线性映射的方式即revmap[hwirq]=irq_data，irq_data中存储了irq,hwirq,domain等信息。如果hwirq较大，则使用树映射。</p>
 <h3 id="_2">有中断控制器的映射</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_5da2d31a112218b26e1d793097bbc155.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_5da2d31a112218b26e1d793097bbc155.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_5da2d31a112218b26e1d793097bbc155.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_5da2d31a112218b26e1d793097bbc155.jpg"/></a></p>
 <p>级联中断控制器通常是中断输入接了有下一级的中断控制器，一般GIC都是级联中断控制器，从上图函数调用关系（黄色部分是与非级联的差异）可以看出级联中断控制器与非级联中断控制器的主要区别是子中断控制器需要为父中断控制器分配irq_data，由其irq_data-&gt;parent_data指向其值（有什么用？），调用irq_domain_alloc_irqs_hierarchy创建中断控制器的级联信息（见下）。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_cf7a09b9dc92f4f2c5bf1b5bfcbe9625.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_cf7a09b9dc92f4f2c5bf1b5bfcbe9625.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_cf7a09b9dc92f4f2c5bf1b5bfcbe9625.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_cf7a09b9dc92f4f2c5bf1b5bfcbe9625.jpg"/></a></p>
 <p>以gic_irq_domain_alloc为例，主要的作用先调用gic_irq_domain_translate进行转译hwirq（看起来与irq_domain_translate重复了），接着调用gic_irq_domain_map完成domain信息的设置，根据中断类型设置中断的入口函数，SPIs类型的入口函数为handle_fasteoi_irq，注意2.1章节gic_handle_irq是所有中断的入口，最后再根据中断类型进行分类下陷到各类型入口，之间的关系是gic_handle_irq-&gt;......-&gt;handle_fasteoi_irq。</p>
 <h3 id="_3">小结</h3>
 <p>（1）解析DTS中断信息，包括父节点，中断号，中断类型，触发类型等。 （2）从allocated_irq位图中获取一个空闲的IRQ中断号。 （3）为IRQ中断号分配一个struct irq_desc实体，并使用IRQ作为键值插入到irq_desc_tree中，以此就建立了IRQ与desc之间的联系。 （4）设置desc-&gt;handle_irq的处理函数。 （5）建立IRQ中断与hwirq中断的联系，分为直接映射和树映射。</p>
@@ -167,7 +167,7 @@
 
 <span class="kt">int</span><span class="w"> </span><span class="n">request_threaded_irq</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">irq</span><span class="p">,</span><span class="n">irq_handler_t</span><span class="w"> </span><span class="n">handler</span><span class="p">,</span><span class="n">irq_handler_t</span><span class="w"> </span><span class="n">thread_fn</span><span class="p">,</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">name</span><span class="p">,</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">dev</span><span class="p">);</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_949f8cf33ea60a3f3a9919d98818bd3c.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_949f8cf33ea60a3f3a9919d98818bd3c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_949f8cf33ea60a3f3a9919d98818bd3c.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_949f8cf33ea60a3f3a9919d98818bd3c.jpg"/></a></p>
 <p>中断注册常用的函数是request_irq和request_threaded_irq，request_irq最终也会调用到request_theaded_irq，如上图将中断注册的重要几个阶段进行了描述。 （1）首先调用irq_to_desc获取中断描述符irq_desc，传入的参数是linux 的irq number，前面我们提到每个linux irq都对应一个irq_desc，其中断注册的数据信息将会该结构进行导出。 （2）其次会对用户设置的中断处理函数handler和thread_fn进行判断，如果hanlder传入为空，则设置默认为irq_default_primary_handler，也就是说当中断处理第三级函数将会调用该函数，该函数如下仅仅是返回IRQ_WAKE_THRAED，该返回将会唤醒创建的中断线程，在下章节我们再详细描述。</p>
 <div class="codehilite"><pre><span></span><code><span class="cm">/*</span>
 <span class="cm"> * Default primary interrupt handler for threaded interrupts. Is</span>
@@ -187,13 +187,13 @@
 <li>最后调用wake_up_and_wait_for_irq_thread_ready来激活中断线程，等待中断函数的触发。</li>
 </ul>
 <p>小结，整个中断注册过程中重点需要关注的是否支持强制中断线程化，如果没有强制启动中断线程化，那么用户handler则是中断的顶半部（在中断上下文中处理），而thread_fn则是在线程中处理的。当强制中断线程化的时候，中断的顶半部则为irq_default_primary_handler，该函数直接激活中断线程，用户注册的handler将会变成底半步（在线程中处理用户注册的中断回调），在中断线程中回调处理用户注册的中断服务函数。而当用户同时设置了handler和thread_fn，会创建两个中断线程，第一个线程用于回调处理handler，第二个线程用于处理thread_fn，这种场景应该是比较少的，目前还没有遇到，可以结合下一章节中断处理流程来进行分析理解。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_8a95ca87dfa3595c9a75f0959160dbff.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_8a95ca87dfa3595c9a75f0959160dbff.jpg"/></a></p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_db4225a28bfe2b6044f3c0bfb6a55daa.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_db4225a28bfe2b6044f3c0bfb6a55daa.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_8a95ca87dfa3595c9a75f0959160dbff.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_8a95ca87dfa3595c9a75f0959160dbff.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_db4225a28bfe2b6044f3c0bfb6a55daa.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_db4225a28bfe2b6044f3c0bfb6a55daa.jpg"/></a></p>
 <h2 id="_5">中断处理</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c935a851b1c79e5d481446e5118c134a.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_c935a851b1c79e5d481446e5118c134a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c935a851b1c79e5d481446e5118c134a.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_c935a851b1c79e5d481446e5118c134a.jpg"/></a></p>
 <p>中断的处理流程这里分为3级，第一级中断是所有中断的入口gic_handle_irq，对于gic来说中断进行了分配包括PPI,SPI等，每一类注册的中断函数是不一样，因此根据每类注册的中断函数irq desc-&gt;handler下陷到第二级中断处理。上面是以SPI类型的中断为例，入口函数为handle_fasteoi_irq，在二级中断处理流程中会最终调用到用户注册的中断回调函数action-&gt;handler，下陷到第三级的中断处理。 CPU响应GIC的中断后，会立即关闭本地CPU的中断响应（屏蔽掉CPSR相关的位），只有等中断处理结束后在再次打开才能再次响应中断，这个期间我们称为处理中断的上下文，中断的上下文是禁止调用睡眠的。 上图的第一级和第二级是处于中断上下文中的，而第三级如果没有启用线程化那么也是处于中断上下文（第三级的函数直接在第二级的回调函数中调用），如果启动中断线程化处理，那么用户的中断回调函数即在任务中回调，即脱离了中断上下文。 在中断上下文中处理我们称之为中断上半部（顶半部），在中断线程中处理我们称为下半部（底半部）。因为上半部本地CPU已经关了本地中断响应，无法响应其他中断，需要等待该中断处理完成（发送eoi指令），因此上半部中对于程序的要求比较高，执行程序不能太长，更不能执行睡眠函数，这样会影响其他中断的响应，因此对于程序处理时间太长或有睡眠要求的都启用中断线程化来进行处理，即在下半部运行。 在第三级中启用了中断线程化，需要注意的是oneshot处理，该机制是为了解决中断洪泛引入的。在启用中断线程化是，第一级和第二级中断处理完成后即退出了退出了中断上下文，本地CPU打开了中断响应（上图handle_fasteoi_irq -&gt; chip-&gt;irq_eoi），那么之后cpu即可再次响应中断，如果该中断来得非常快，尤其是电平类触发的外设再没有读写数据或清除外设标志时，电平时不会消除的，这就会导致该中断还在线程中没处理完，下一个中断又触发了导致中断洪泛，为了解决这个问题通过oneshot标志来进行判断，在第二级中断处理时如果检测到了oneshot标志，那么就先调用mask_irq设置中断控制器不再响应该中断，这样即使第二级中断处理结束退出打开本地CPU中断响应该中断也不会再触发，因为中断控制器的中断影响被屏蔽了，最后等到该中断在线程中处理完成之后在使能该中断（在irq_finalize_oneshot中unmask_irq）。</p>
 <h2 id="_6">级联中断控制器</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_087ee0f79cafdc371baefb5d54f10e9f.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_087ee0f79cafdc371baefb5d54f10e9f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_087ee0f79cafdc371baefb5d54f10e9f.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_087ee0f79cafdc371baefb5d54f10e9f.jpg"/></a></p>
 <p>此前描述了IRQ domain，重点说明了root domain（GIC）创建流程，在实际的架构中，还存在着级联的中断控制器，根中断控制器连接子中断控制器，子中断控制器的输出接入到根中断控制器的输入。根据级联的结构分为两种情况N对1和1对1。 级联N对1是子中断控制器的多个中断共用一个中断输出，如上图的Port B、Port C及Port D各自对应一个中断输出接入到GIC的中断输入，而Port B、Port C及PortD各自对应是Port B1~Port Bn、Port C1~Port Cn及Port D1~Port Dn中断输入，在中断处理上以Port B1为例，linux系统先处理irq number 93的中断（Port B 69的映射），在93号中断处理函数中接着再查询具体是Port B上的那一个端口触发的中断，查询到是PB1且PB1映射号是IRQ 96，则再处理IRQ 96的中断。 级联1对1的子中断控制器每一个中断输入直接对应到根中断控制器的输入，对于这种结构，中断处理流程就与非级联的没有多大区别了，本身就是一对一的关系。 本小结pinctrl为例来说明子中断控制器的创建过程和中断处理流程的差异。Pinctrl是一个中断控制器，对应的就是级联N对1的这种结构。</p>
 <h3 id="child-domain">child domain的创建</h3>
 <div class="codehilite"><pre><span></span><code><span class="nl">pio</span><span class="p">:</span><span class="w"> </span><span class="n">pinctrl</span><span class="err">@</span><span class="n">xxxx</span><span class="w"> </span><span class="p">{</span>
@@ -255,14 +255,14 @@
 <span class="n">fs_initcall</span><span class="p">(</span><span class="n">xxx_pio_init</span><span class="p">);</span>
 </code></pre></div>
 <p>Xxx_pio_init注册一个pinctrl的驱动，驱动的描述在xxx_pinctrl_driver中，其中保活了of_device_id的信息将与设备树进行匹配，最后调用xxx_pinctrl_probe函数进行初始化。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_13c9969372279946ae87ca54a68f2cea.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_13c9969372279946ae87ca54a68f2cea.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_13c9969372279946ae87ca54a68f2cea.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_13c9969372279946ae87ca54a68f2cea.jpg"/></a></p>
 <p>上图只列出pinctrl与中断相关的关键流程，下面进行简要说明。 （1）分配一个struct gpio_chip结构，该结构中存储了gpio的操作函数集合。 （2）分配一个数组pctl-&gt;irq，用于存储每个bank对应的irq number。 （3）调用irq_domain_add_linear为pinctrl创建一个中断domain，每个中断控制器都有一个domain。 （4）调用platform_get_irq获取每个bank的irq number（virq），对应gpio控制器中interrupts的描述，该函数会调用of_irq_get来获取中断号，of_irq_get中会判断hwirq是否已经建立了到virq的映射，在kernel_init中会解析DTS所有的interrupts统一建立好根中断控制器的中断号映射关系，因此这里调用of_irq_get中调用virq= irq_find_mapping(domain, hwirq)即可查询到hwirq对应的virq。 （5）遍历每个bank，调用irq_create_mapping将bank上输入的gpio建立起中断映射，即挂接在每个bank上的gpio都用于一个irq desc描述符。 （6）为每个gpio对应的irq设置irq chip和desc-&gt;handler，在中断注册请求的时候还会调用.irq_set_type进行设置一次，这个流程看起来有点多余。 （7）调用irq_set_chained_handler_and_data为每个bank的irq注册回调函数，注册了该回调函数，对于GPIO的中断就于直接连接到GIC的中断不同，GPIO的中断会先调用irq_set_chained_handler_and_data注册的中断xxx_pinctrl_irq_handler，而直接连接到GIC的中断调用handle_fasteoi_irq（见2.5章节）。 小结，Pinctrl的初始化中创建了一个domain，先是获取到bank的irq，在建立起bank外接GPIO的中断号映射得到irq，最后会为bank的irq和gpio的irq分别注册回调函数，bank是直接连接到gic上的，所以在中断处理时系统首先响应bank对应的irq中断处理函数，继而再bank 对应的irq处理函数中查询具体是挂在该bank上的那一个gpio，进行处理该gpio的irq中断，可以结合下一章节的中断处理流程就比较清楚初始化的流程。</p>
 <h3 id="_7">中断处理流程</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_de05432a4587c88f6bdf7c89a41a78ac.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_de05432a4587c88f6bdf7c89a41a78ac.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_de05432a4587c88f6bdf7c89a41a78ac.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/linux中断实现之控制器与irq-domain/images/wp_editor_md_de05432a4587c88f6bdf7c89a41a78ac.jpg"/></a></p>
 <p>与未级联的处理流程相比，多了一级。在第二级中插入了一级响应，第一级响应后下陷不再是调用到handle_fasteoi_irq，而是调用pinctrl初始化是调用irq_set_chained_handler_and_data注册的中断处理函数，因为pinctrl中断控制器是一个bank对应一个gic的中断输入，而bank上又外挂了多个gpio，即多个gpio对应的是一个gic的输入，因此需要插入一级先处理bank的中断响应，在该中断响应中识别出bank上的那一个gpio，获取到该gpio的irq再进行处理第三级和第四级。 对应上述的第1、2、3级是处于中断上下文中。</p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/其他/wordpress使用笔记.html">← wordpress使用笔记</a>
-    <a class="next" href="/laumy.github.io/posts/linux/arm64体系结构简介.html">Arm64体系结构简介 →</a>
+    <a class="prev" href="/note_page/posts/其他/wordpress使用笔记.html">← wordpress使用笔记</a>
+    <a class="next" href="/note_page/posts/linux/arm64体系结构简介.html">Arm64体系结构简介 →</a>
   </div>
 </article>
 
@@ -277,7 +277,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

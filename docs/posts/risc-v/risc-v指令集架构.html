@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>RISC-V指令集架构 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -85,44 +85,44 @@
 <p>根据以上RV32IMAC表示32位实现，支持interger，multiply，atomic，compressed；RV64GC，就是表示支持RV64位IMAFDC。</p>
 <h2 id="_2">指令集</h2>
 <p>RISC-V的指令集可分为6中，每种的编码格式如下：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_09497aa55c661c176eb5beab5d2dd0c8.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_09497aa55c661c176eb5beab5d2dd0c8.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_09497aa55c661c176eb5beab5d2dd0c8.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_09497aa55c661c176eb5beab5d2dd0c8.jpg"/></a></p>
 <h3 id="_3">整形指令集</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_73663b05545c28d5613477825e0fe95c.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_73663b05545c28d5613477825e0fe95c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_73663b05545c28d5613477825e0fe95c.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_73663b05545c28d5613477825e0fe95c.jpg"/></a></p>
 <h3 id="_4">乘除指令集</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_eaad957d98058795794b5858e6b26267.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_eaad957d98058795794b5858e6b26267.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_eaad957d98058795794b5858e6b26267.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_eaad957d98058795794b5858e6b26267.jpg"/></a></p>
 <h3 id="_5">原子扩展指令集</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_f610791797524f021b91b439eae0e0a9.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_f610791797524f021b91b439eae0e0a9.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_f610791797524f021b91b439eae0e0a9.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_f610791797524f021b91b439eae0e0a9.jpg"/></a></p>
 <h3 id="_6">浮点扩展指令集</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_5631b217c44ba0e5184a566c9e7b1898.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_5631b217c44ba0e5184a566c9e7b1898.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_5631b217c44ba0e5184a566c9e7b1898.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_5631b217c44ba0e5184a566c9e7b1898.jpg"/></a></p>
 <h3 id="_7">伪指令</h3>
 <p>为了方便编程，对指令进一步封装，形成伪指令</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_f4f2d8aa275ea08d3b5a151de477767e.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_f4f2d8aa275ea08d3b5a151de477767e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_f4f2d8aa275ea08d3b5a151de477767e.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_f4f2d8aa275ea08d3b5a151de477767e.jpg"/></a></p>
 <h2 id="_8">寄存器</h2>
 <h3 id="_9">通用寄存器</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_7f01262e0eb4069dddb2af53508e714b.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_7f01262e0eb4069dddb2af53508e714b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_7f01262e0eb4069dddb2af53508e714b.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_7f01262e0eb4069dddb2af53508e714b.jpg"/></a></p>
 <h3 id="_10">特权寄存器</h3>
 <p>RISC-V指令运行，根据访问权限，分为M/S/U模式，每个模式下有自己对应的寄存器，这里重点列出M模式相关的寄存器。</p>
 <h4 id="mstatus">mstatus寄存器</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_79d43c8bffcbde2b30d3040aa855d44b.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_79d43c8bffcbde2b30d3040aa855d44b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_79d43c8bffcbde2b30d3040aa855d44b.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_79d43c8bffcbde2b30d3040aa855d44b.jpg"/></a></p>
 <h4 id="mie">mie寄存器</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_087b9e60788d7e4b8068b7d65606c5b5.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_087b9e60788d7e4b8068b7d65606c5b5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_087b9e60788d7e4b8068b7d65606c5b5.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_087b9e60788d7e4b8068b7d65606c5b5.jpg"/></a></p>
 <h4 id="mip">mip寄存器</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_3df50c63e292f90596fea5b378a460ed.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_3df50c63e292f90596fea5b378a460ed.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_3df50c63e292f90596fea5b378a460ed.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_3df50c63e292f90596fea5b378a460ed.jpg"/></a></p>
 <h4 id="mtvec">mtvec寄存器</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_5ab5033fe5ecc5b5ebb4f2fec309318e.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_5ab5033fe5ecc5b5ebb4f2fec309318e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_5ab5033fe5ecc5b5ebb4f2fec309318e.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_5ab5033fe5ecc5b5ebb4f2fec309318e.jpg"/></a></p>
 <h3 id="mepc">mepc寄存器</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_fa472fc5a440dc329446958520de83e6.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_fa472fc5a440dc329446958520de83e6.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_fa472fc5a440dc329446958520de83e6.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_fa472fc5a440dc329446958520de83e6.jpg"/></a></p>
 <h4 id="mscratch">mscratch寄存器</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_9f0e5d44172cf6005adad6277e67907b.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_9f0e5d44172cf6005adad6277e67907b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_9f0e5d44172cf6005adad6277e67907b.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_9f0e5d44172cf6005adad6277e67907b.jpg"/></a></p>
 <h4 id="mcause">mcause寄存器</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_9321d039df470545c49a94f42828cf46.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_9321d039df470545c49a94f42828cf46.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_9321d039df470545c49a94f42828cf46.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_9321d039df470545c49a94f42828cf46.jpg"/></a></p>
 <p>对于mcause exception code如下：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_a2ecc618b879e25a0dbd320647ace748.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_a2ecc618b879e25a0dbd320647ace748.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_a2ecc618b879e25a0dbd320647ace748.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_a2ecc618b879e25a0dbd320647ace748.jpg"/></a></p>
 <h2 id="_11">异常处理流程</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_7c027a9c2fa6f88fecb400c687ac5f09.jpg"><img alt="" src="/laumy.github.io/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_7c027a9c2fa6f88fecb400c687ac5f09.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/04/wp_editor_md_7c027a9c2fa6f88fecb400c687ac5f09.jpg"><img alt="" src="/note_page/assets/doc/02-risc-v/risc-v指令集架构/images/wp_editor_md_7c027a9c2fa6f88fecb400c687ac5f09.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/risc-v/平头哥risc-v-gdb-vscode调试.html">← 平头哥RISC-V+gdb+vscode调试</a>
-    <a class="next" href="/laumy.github.io/posts/risc-v/qemu-system-riscv64-virt平台rom代码启动分析.html">qemu-system-riscv64 virt平台ROM代码启动分析 →</a>
+    <a class="prev" href="/note_page/posts/risc-v/平头哥risc-v-gdb-vscode调试.html">← 平头哥RISC-V+gdb+vscode调试</a>
+    <a class="next" href="/note_page/posts/risc-v/qemu-system-riscv64-virt平台rom代码启动分析.html">qemu-system-riscv64 virt平台ROM代码启动分析 →</a>
   </div>
 </article>
 
@@ -137,7 +137,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

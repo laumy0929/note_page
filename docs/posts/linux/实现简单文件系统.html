@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>实现简单文件系统 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -609,7 +609,7 @@
 <span class="n">MODULE_DESCRIPTION</span><span class="p">(</span><span class="s">"a simple file system"</span><span class="p">);</span>
 </code></pre></div>
 <p>更完善的文件系统示例：<a href="https://github.com/sysprog21/simplefs/tree/master">https://github.com/sysprog21/simplefs/tree/master</a>，一个简单的文件系统主要就是围绕四大对象进行填充描述，而超级块和inode是基础。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_cf158055b8de4a26b4af450e53c5adfa.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/实现简单文件系统/images/wp_editor_md_cf158055b8de4a26b4af450e53c5adfa.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_cf158055b8de4a26b4af450e53c5adfa.jpg"><img alt="" src="/note_page/assets/doc/01-linux/文件系统/实现简单文件系统/images/wp_editor_md_cf158055b8de4a26b4af450e53c5adfa.jpg"/></a></p>
 <ul>
 <li>分配超级块结构，填充超级块信息。</li>
 <li>定义具体文件系统inode，如struct ext4_inode。其中每个具体的文件系统inode会内嵌一个VFS inode，具体文件系统的inode在.alloc_inode中分配。</li>
@@ -618,8 +618,8 @@
 <li>实现文件与磁盘的映射address space操作集合。</li>
 </ul></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/linux/文件系统常见系统调用.html">← 文件系统常见系统调用</a>
-    <a class="next" href="/laumy.github.io/posts/linux/虚拟文件系统.html">虚拟文件系统 →</a>
+    <a class="prev" href="/note_page/posts/linux/文件系统常见系统调用.html">← 文件系统常见系统调用</a>
+    <a class="next" href="/note_page/posts/linux/虚拟文件系统.html">虚拟文件系统 →</a>
   </div>
 </article>
 
@@ -634,7 +634,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

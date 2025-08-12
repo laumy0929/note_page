@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>内存初始化基本概念 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -53,13 +53,13 @@
   <h1>内存初始化基本概念</h1>
   <div class="meta">2023-06-10 · linux</div>
   <div class="post-content"><h2 id="nodezonepage">三级结构Node、Zone、Page</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_6d2fb92edac71f0ea5c3246ddc3268c6.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_6d2fb92edac71f0ea5c3246ddc3268c6.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_6d2fb92edac71f0ea5c3246ddc3268c6.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_6d2fb92edac71f0ea5c3246ddc3268c6.jpg"/></a></p>
 <h3 id="nodeumanuma">Node与内存架构UMA、NUMA</h3>
 <h4 id="umauniform-memory-acces">UMA架构（uniform memory acces）</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_0a1c139caeb6c241c942e721cc090c95.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_0a1c139caeb6c241c942e721cc090c95.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_0a1c139caeb6c241c942e721cc090c95.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_0a1c139caeb6c241c942e721cc090c95.jpg"/></a></p>
 <p>一致内存访问，所有CPU访问内存都需要过总线，距离都是一样的，所以每个处理器访问各个内存块都是同样快。如上图4个CPU都通过系统总线来访问物理内存DDR。目前大部分嵌入式系统或台式机系统采用UMA架构。</p>
 <h4 id="numanon-uniform-memory-acces">NUMA架构（Non-uniform memory acces）</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b08b157023aa1ddb245823aec5045b2b.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_b08b157023aa1ddb245823aec5045b2b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b08b157023aa1ddb245823aec5045b2b.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_b08b157023aa1ddb245823aec5045b2b.jpg"/></a></p>
 <p>非统一内存访问，系统中有多个内存节点和多个CPU簇，CPU访问本地内存节点的速度最快，访问远端的内存节点速度要慢一点。如上图该系统使用NUMA架构，有两个内存节点，其中CPU0和CPU1组成一个节点（Node0）,他们可以通过系统总线访问本地DDR物理内存，同理CPU2和CPU3组成另外一个节点（Node1）,他们也可以通过系统总线访问本地DDR物理内存。两个节点通过超路径互联总线连接，那么CPU0可以通过这个内部总线访问远端内存节点的物理内存，但是访问速度要比访问本地物理内存慢很多。</p>
 <div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="n">linux</span><span class="o">/</span><span class="n">mmzone</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
 <span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">pglist_data</span><span class="w"> </span><span class="p">{</span><span class="w"> </span>
@@ -78,7 +78,7 @@
 <span class="p">}</span><span class="w"> </span><span class="n">pg_data_t</span><span class="p">;</span>
 </code></pre></div>
 <h4 id="zone">物理内存分区（zone）</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f4956ab199544d2b9d3fb6eae04f8415.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_f4956ab199544d2b9d3fb6eae04f8415.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f4956ab199544d2b9d3fb6eae04f8415.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_f4956ab199544d2b9d3fb6eae04f8415.jpg"/></a></p>
 <p>物理内存是以页（4KB）来进行管理的，理想状态任何种类的数据都可以存放在页框中，但实际上受计算机体现结构硬件方面的制约，限制了页框的使用方式，如在X86体系结构下，ISA总线的DMA控制器，只能对内存前16MB进行寻址，所以导致ISA设备不能在整个32位地址空间指向DMA，只能使用物理内存的前16MB进行DMA操作，因此物理内存前16MB专门留给内核用于DMA分配，称之DMA ZONE。 32位的处理器只支持4G的虚拟地址，其中1G的地址空间给内核，如果物理内存实际有4G，那么1G的内核空间地址无法一一映射，Linux内核提出的解决方案将物理内存分成2部分，一部分直接做线性映射，另一部分采用动态映射，称为高端内存。如果是64位的处理器一般不会有高端内存，应该地址空间足够大。 16~896MB的物理空间区域被直接映射到内核态虚拟地址空间3G+16M~3G+896M这个范围。 剩余的128M，显然剩余的3200M的ZONE HIGH区域是无法通过直接映射的方式进行映射的，因此物理内存中的ZONE_HIGHMEM区域就只能采用动态映射的方式映射128M大小内核虚拟内存空间。 注意DMA_ZONE不是说只给DMA用，DMA要是不用还是可以继续给其他用，只要设置分配内存为GFP_DMA。 - ZONE_DMA(24): isa设备的DMA操作，寻址范围0~16M。 - ZONE_DMA32: 对于64位系统中，16M的空间不够用，于是定义可以寻址到4G，满足32位的DMA寻址。 - ZONE_NORMAL: 线性映射物理内存 - ZONE_HIGHMEM:高端内存，标记超出内核虚拟地址空间的物理内存段。64位架构没有该ZONE - ZONE_MOVABLE:虚拟内存域，防止内存碎片的机制中会使用到该内存区域。（从逻辑上划分） ZONE_DEVICE:为支持热插拔而分配的非易失性内存。（从逻辑上划分）</p>
 <div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="n">linux</span><span class="o">/</span><span class="n">mmzone</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
 <span class="k">enum</span><span class="w"> </span><span class="n">zone_type</span><span class="w"> </span><span class="p">{</span><span class="w"> </span>
@@ -102,7 +102,7 @@
 </code></pre></div>
 <h4 id="page">page</h4>
 <p>page（页）是linux内核管理物理内存的最小单元，内核将整个物理内存按照页对齐方式划分成成千上万个页进行管理，内核为了管理这些页将每个页抽象成struct page结构管理每个页状态及属性。struct page结构本身就占有一定内存，所以struct page不能过大。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_d6712698068a1faf1c43e2bbd75f27d7.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_d6712698068a1faf1c43e2bbd75f27d7.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_d6712698068a1faf1c43e2bbd75f27d7.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_d6712698068a1faf1c43e2bbd75f27d7.jpg"/></a></p>
 <p>PFN（page frame number）：PFN与struct page一一对应，内核提供两个宏来完成PFN与物理页结构struct page之间相互转换,分别是page_to_pfn与pfn_to_page。 在Linux内核中，struct page数据结构通常与实际的物理内存页帧是一一对应的。Linux内核使用一个双向链表来跟踪所有可用和不可用的物理页面。 在初始化期间，内核通过调用\"memblock_init()\"等函数将系统中所有的物理内存区域划分为相同大小的页面，并为每个页面分配一个struct page数据结构。这些页面的struct page结构体被组织成一个双向链表，并存储在pgdat_list全局变量中。 当需要分配物理页面时，内核会从pgdat_list中选择一个合适的节点，并在该节点的伙伴系统上查找一个可用的物理页面。如果找到了一个可用页面，则将该页面的struct page结构体标记为已占用，并返回一个指向该页面的指针。反之，则会尝试从其他NUMA节点或者交换空间中获取可用页面。 因此，无论是通过伙伴系统获取物理页面，还是直接访问某个物理地址，都可以通过struct page数据结构来跟踪和管理实际的物理内存页面。</p>
 <div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="n">linux</span><span class="o">/</span><span class="n">mm_types</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
 <span class="k">struct</span><span class="w"> </span><span class="nc">page</span><span class="w"> </span><span class="p">{</span>
@@ -206,7 +206,7 @@
 <span class="w">    </span><span class="n">atomic_t</span><span class="w"> </span><span class="n">_refcount</span><span class="p">;</span>
 <span class="p">}</span><span class="w"> </span><span class="n">_struct_page_alignment</span><span class="p">;</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f093117278494b3fa37354efe957a2a7.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_f093117278494b3fa37354efe957a2a7.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f093117278494b3fa37354efe957a2a7.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_f093117278494b3fa37354efe957a2a7.jpg"/></a></p>
 <p>struct page数据结构可以分为4个部分： - 标志位：页面的标志位。 - 5字联合体：用于匿名/文件页面描述，slab分配器描述等8个部分。 - 4字节联合体：用于管理页面使用的情况。 - 4字节引用：用于管理页面引用情况。</p>
 <h5 id="_1">标志位</h5>
 <div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="n">linux</span><span class="o">/</span><span class="n">page</span><span class="o">-</span><span class="n">flags</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
@@ -337,7 +337,7 @@
 <p>物理内存被划分为多个相同长度的页，如何组织管理这些页的方式称为物理内存模型，不同的物理内存模型，对应的page_to_pfn和pfn_to_page计算逻辑不一样。</p>
 <h3 id="flat-memory-model">FLAT memory model</h3>
 <p>所有的物理内存是连续的，中间内存没有空洞，划分出来的一页一页的物理页必然也是连续的，并且每页的大小是固定的，Linux早期使用的就是这种内存模型。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1ebfe0cafce7b8f89266e5df543372b4.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_1ebfe0cafce7b8f89266e5df543372b4.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1ebfe0cafce7b8f89266e5df543372b4.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_1ebfe0cafce7b8f89266e5df543372b4.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="k">asm</span><span class="o">-</span><span class="n">generic</span><span class="o">/</span><span class="n">memory_model</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
 <span class="cp">#if defined(CONFIG_FLATMEM)</span>
 
@@ -352,7 +352,7 @@
 </code></pre></div>
 <p>在平坦内存模型下，page_to_pfn与pfn_to_page计算逻辑基于mem_map数组进行偏移操作。</p>
 <h3 id="discontiguous-memory-model">Discontiguous memory model</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8cf8ff134d2f47ac98a22ca7540814d0.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_8cf8ff134d2f47ac98a22ca7540814d0.jpg"/></a>   平坦度内存模型适用于一整块连续的物理内存，而对于多块非连续的物理内存使用平坦度内存模型会造成很大的空间浪费（平坦度模型使用数组mem_map[]来进行管理，而数组是连续的，从0开始递增的，而物理内存有空洞，那么中间就会出现mem_map一段指向空，但是还占用了内存空间），所以为了组织和管理不连续的物理内存，内核引入了DISCONTIGMEM非连续内存模型，用来消除这些不联系的内存地址空洞对mem_map的空间浪费。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8cf8ff134d2f47ac98a22ca7540814d0.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_8cf8ff134d2f47ac98a22ca7540814d0.jpg"/></a>   平坦度内存模型适用于一整块连续的物理内存，而对于多块非连续的物理内存使用平坦度内存模型会造成很大的空间浪费（平坦度模型使用数组mem_map[]来进行管理，而数组是连续的，从0开始递增的，而物理内存有空洞，那么中间就会出现mem_map一段指向空，但是还占用了内存空间），所以为了组织和管理不连续的物理内存，内核引入了DISCONTIGMEM非连续内存模型，用来消除这些不联系的内存地址空洞对mem_map的空间浪费。</p>
 <div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">include</span><span class="o">/</span><span class="k">asm</span><span class="o">-</span><span class="n">generic</span><span class="o">/</span><span class="n">memory_model</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
 <span class="cp">#if defined(CONFIG_DISCONTIGMEM)</span>
 <span class="cp">#define __pfn_to_page(pfn)          \\</span>
@@ -373,7 +373,7 @@
 </code></pre></div>
 <p>通过arch_pfn_to_nid根据物理页的PFN定位到物理页所在的node，再根据node中node_mem_map算偏移。   通过page_to_nid根据struct page定义page所在的node。</p>
 <h3 id="sparse-memory-model">Sparse memory model</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fdc496aba23c8bb7647a8eccb45c500f.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_fdc496aba23c8bb7647a8eccb45c500f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fdc496aba23c8bb7647a8eccb45c500f.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_fdc496aba23c8bb7647a8eccb45c500f.jpg"/></a></p>
 <p>随着内存技术的发展，内核可以支持物理内存热插拔，这样node节点中的物理内存可能也不是连续的，为了解决这个问题，内核又引入了稀疏内存模型。</p>
 <p><a href="http://8.134.108.235/wp-content/uploads/2023/11/wp_editor_md_88d32e7b1f5ddb711d94581d3e5540d5.jpg"><img alt="" src="images/wp_editor_md_88d32e7b1f5ddb711d94581d3e5540d5.jpg"/></a></p>
 <p>稀疏内存模型使用struct mem_section结构体来表示，用于管理连续内存块单元的被称为section，通常情况下物理页为4K，section大小为128M，物理页16K，section大小为512M。这些小的连续物理内存通过数组的方式被组织管理，每个struct mem_sction结构体中有一个指针指向section中管理连续内存的page数组。所有的mem_section被存放在一个全局数组中，每个mem_section都可以在系统运行时改变系统运行offline/online状态，以支持热插拔功能。   为了减少管理内存占用的数据结构空间，稀疏内存模型的思想与多级页表的思想类似，一级页表是必须要分配内存的，但是后面的几级进行按需分配，这里也类似，先定义一个静态的数组指针，每个数组指针管理一大块内存（4K物理页，就是128M），数组指向的实例根据实际进行动态分配空间。</p>
@@ -400,13 +400,13 @@
 <span class="cp">#endif </span><span class="cm">/* CONFIG_FLATMEM/DISCONTIGMEM/SPARSEMEM */</span>
 </code></pre></div>
 <h2 id="_3">内核虚拟地址空间分布</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fb6718bc276e68f64c77bea7b2344085.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_fb6718bc276e68f64c77bea7b2344085.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_fb6718bc276e68f64c77bea7b2344085.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_fb6718bc276e68f64c77bea7b2344085.jpg"/></a></p>
 <p>上图表示的是整个虚拟地址空间，虚拟地址使用了48bit来寻址，因此寻址范围为2^48=256TB。在实际应用过程中，可以通过内核的配置选项来确定虚拟地址的位宽。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f00e16d03228cad703e5e78f9390c9d5.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_f00e16d03228cad703e5e78f9390c9d5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f00e16d03228cad703e5e78f9390c9d5.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之三级结构node、zone、page/images/wp_editor_md_f00e16d03228cad703e5e78f9390c9d5.jpg"/></a></p>
 <p>PABITS指的是物理地址的寻址范围，一般物理地址的寻址范围由硬件决定，内核只需要配置成与硬件一样即可，通常ARM64位的PABITS=48。</p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/linux/内存初始化之页表基本操作.html">← 内存初始化之页表基本操作</a>
-    <a class="next" href="/laumy.github.io/posts/linux/文件系统缓存.html">文件系统缓存 →</a>
+    <a class="prev" href="/note_page/posts/linux/内存初始化之页表基本操作.html">← 内存初始化之页表基本操作</a>
+    <a class="next" href="/note_page/posts/linux/文件系统缓存.html">文件系统缓存 →</a>
   </div>
 </article>
 
@@ -421,7 +421,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

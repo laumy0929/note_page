@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>workqueue - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -135,7 +135,7 @@
 <h2 id="_1">数据结构</h2>
 <p><a href="http://8.134.108.235/wp-content/uploads/2023/11/wp_editor_md_c819144f78a2488094de7ae1c6fcde74.jpg"><img alt="" src="images/wp_editor_md_c819144f78a2488094de7ae1c6fcde74.jpg"/></a></p>
 <p>workqueue涉及到几个重要的数据结构，可以结合下面的图来进行理解。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_66ba0133a9799ad0f14a278b7a3d6358.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_66ba0133a9799ad0f14a278b7a3d6358.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_66ba0133a9799ad0f14a278b7a3d6358.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_66ba0133a9799ad0f14a278b7a3d6358.jpg"/></a></p>
 <ul>
 <li>work_struct: “任务项”，也可以称为工作，填充了用户实际要处理函数任务。初始化后的work将会被添加到worker_pool中链表上。</li>
 <li>workqueue_struct：“项目”；任务由那个工作队列负责运行，即可理解为任务所属“项目”，“项目”是多个任务的集合。一个工作队列可以处理多个任务。系统在初始化时默认创建了一些工作队列如system_wq,system_highpri_wq等，用户也可以调用alloc_workqueue来创建一个工作队列。系统定义了一个全局的链表workqueues，所有的工作队列都连接到该链表上。</li>
@@ -152,7 +152,7 @@
 <p>worker_pool线程池与workqueue是没有直接联系的，当用户创建一个workqueue只是选择一个或多个线程池而已，对于bound类型的线程池，每个cpu有两个线程池对于高低优先级；对应unbound类型线程池，根据属性动态创建线程池。创建线程池后，默认情况下线程池会创建一个worker 线程来处理work，随着work数量的提交，woker_pool动态的调整worker来应对work数量。 后续约定workqueue简写wq；worker_pool简写pool，也称为线程池；pool_workqueue简写pwq；</p>
 <h2 id="_2">初始化</h2>
 <p>workqueue初始化分为两个阶段，分别为早期workqueue_init_early和workqueue_init。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b3c939d6f6f43c427a05211704227723.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_b3c939d6f6f43c427a05211704227723.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b3c939d6f6f43c427a05211704227723.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_b3c939d6f6f43c427a05211704227723.jpg"/></a></p>
 <h3 id="workqueue-early-init">workqueue early init</h3>
 <div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">workqueue_init_early</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
@@ -276,12 +276,12 @@
 <span class="p">}</span>
 </code></pre></div>
 <h2 id="_3">创建工作队列</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1ccdb0e599edf5672277bbf0d36a0714.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_1ccdb0e599edf5672277bbf0d36a0714.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1ccdb0e599edf5672277bbf0d36a0714.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_1ccdb0e599edf5672277bbf0d36a0714.jpg"/></a></p>
 <p>创建工作队列主要的工作就是确定好工作队列使用的线程池（worker_pool），工作队列分为BOUND CPU类型和UNBOUND CPU类型。用户可以调用create_workqueue、create_freezable_workqueue以及create_singlethread_workqueue等API接口来创建队列，这些API接口最终都会调用alloc_workqueue来实现，只不过每个函数传入的参数是不一样的，对于后两个函数就是UNBOUND类型，同时create_singlethread_workqueue还是ORDERED类型，该类型的工作队列表示其所处理的工作都是按顺序排队运行的。 在解释创建工作队列的流程前我们再来说明下workqueue、pool_workqueue、worker_pool之间的关系。worker_pool是线程的集合，可以实际处理任务的，挂在workqueue上的工作最终都会交由worker_pool来处理，但是workqueue和worker_pool并没有直接一对一的关系，而是多对多的关系，可以理解要生产的产品和工厂是解耦的，工厂是一个共享的池子，因此要做一个产品（workqueue）和工厂产线生产（worker_pool）之间的联系需要个中间人来张罗，所以pool_workqueue就是这中间人，用于确定制作这个产品选择那个工厂。 Workqueue如何获取到worker_pool? （1）对于bound workqueue，是每个cpu都绑定了两个高优先级和普通优先级的线程池，这些cpu上的线程池都是共享的，因此对于workqueue需要为每个cpu的每个线程池分配一个pool_workqueue来对应到线程池，即该workqueue需要分配2*cpu个数的pool_workqueue，pool_workqueue与worker_pool是一一对应的关系。在alloc_workqueue调用alloc_percpu来分配pwq，然后遍历每个cpu获取到worker_pool，建立器pwq,wq,pool之间的联系。 （2）对于unbound workqueue，就稍微复杂些因为workqueue要找的线程池没有与cpu进行绑定，不像bound workqueue定义好了worker_pool，所以了workqueue需要动态的分配创建pwq，pool。而unbound workqueue又分为两种类型排队运行的工作队列和标准的工作队列，排队运行的工作队列所有的工作将排队依次运行而标准的工作队列意味这可并发。两种类型的队列属性分别存储在ordered_wq_attrs[]和unbound_std_wq_attrs[]两个数组中。当检查到workqueue是unbound类型后，就调用apply_workqueue_attrs分别传入不同的属性创建线程池。 A.unbound std类型：与内存节点node有关联，将会为每个node节点创建高优先级和普通优先级的线程池，之所以这么做是因为不同的node节点之间切会带来性能损耗，因此每个node都创建2个线程池。 B.unbound ordered类型：与内存节点node没有关联了，多个同一优先级的workqueue共享一个worker_pool。</p>
-<p><a href="http://8.134.108.235/wp-content/uploads/2023/11/wp_editor_md_66ba0133a9799ad0f14a278b7a3d6358.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_66ba0133a9799ad0f14a278b7a3d6358.jpg"/></a></p>
+<p><a href="http://8.134.108.235/wp-content/uploads/2023/11/wp_editor_md_66ba0133a9799ad0f14a278b7a3d6358.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_66ba0133a9799ad0f14a278b7a3d6358.jpg"/></a></p>
 <h2 id="_4">调度工作运行</h2>
 <h3 id="_5">触发调度</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_287cf369c9fc86074e86585182ac7c09.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_287cf369c9fc86074e86585182ac7c09.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_287cf369c9fc86074e86585182ac7c09.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_287cf369c9fc86074e86585182ac7c09.jpg"/></a></p>
 <p>触发调度最后都会调用到_queue_work来执行，只是根据不同的场景有不同的参数可选择配置。对于常用的queue_work(struct workqueue_struct *wq,struct work_struct *work)来说是将work递交到指定的wq来运行，一般用户自己创建的wq，而schedule_work(struct work_struct *work)只有一个参数，将work递交到默认的system_wq来运行，queue_work和schedule_work递交的work在wq中处理，都不绑定cpu，这里的绑定不是WQ_UNBOUND,WQ_UNBOUND和WORK_CPU_UNBOUND是有区别的，WQ_UNBOUND确定WQ的类型是normal Per-CPU worker_pool还是unbound worker_pool，确定了WQ的类型才使用WORK_CPU_UNBOUND进一部分确定work是否要绑定cpu运行。</p>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">__queue_work</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">cpu</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">workqueue_struct</span><span class="w"> </span><span class="o">*</span><span class="n">wq</span><span class="p">,</span>
 <span class="w">             </span><span class="k">struct</span><span class="w"> </span><span class="nc">work_struct</span><span class="w"> </span><span class="o">*</span><span class="n">work</span><span class="p">)</span>
@@ -432,7 +432,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <h3 id="_6">执行调度</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_67df566b6acca29b854416345bba05f5.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_67df566b6acca29b854416345bba05f5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_67df566b6acca29b854416345bba05f5.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_67df566b6acca29b854416345bba05f5.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">worker_thread</span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">__worker</span><span class="p">)</span>
 <span class="p">{</span>
 <span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">worker</span><span class="w"> </span><span class="o">*</span><span class="n">worker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__worker</span><span class="p">;</span>
@@ -685,12 +685,12 @@
 </code></pre></div>
 <p>总结：工作队列可以分为3种，Per CPU，Unbound，Ordered（属于unbound的一种） - Per CPU： create_workequeue(name)，创建的WQ使用的线程池是使用Per - CPU静态定义的线程池，每个CPU有两个线程池，分别对于高优先级和低优先级。当触发queue_work时，如果没有指定cpu，则将work递交给当前运行cpu的线程池。该类型的wq，同一个work不能同时递交到多个线程池上运行，同时在一个线程池中也不能同时有多个worker来运行，work一旦选定worker将需要在该worker上运行结束；不同的work可以递交到不同的线程池，这样会在不同的cpu上并发执行。 - Unbound：create_freezable_workqueue(name)，创建的WQ使用的线程池动态创建的，会优先选择当前代码运行的cpu，获取到对应的node节点，然后查询当前node节点上是否有线程池，如果有则递交到该线程池处理，如果没有则新建一个线程池。对应这种类型的wq是需要考虑功耗的，在选择cpu时会尽可能的选择当前运行的cpu，让已经休眠的cpu尽可能的保持休眠，毕竟cpu从休眠到唤醒会有更大功耗消耗。如果没有NUMA的架构，那么就只有一个dfl默认的线程池。 - Ordered：create_singlethread_workqueue(name)，该类型的wq也是unbound的一种，只不过该工作队列只有一个线程池，这样可以保证工作队列的工作可以顺序运行，也就是说在该wq上的work是没法并发运行的，只能排队运行。</p>
 <h2 id="_7">线程池动态管理</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_f99de8b370923ccfa3fe2f769611a779.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_f99de8b370923ccfa3fe2f769611a779.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_f99de8b370923ccfa3fe2f769611a779.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_f99de8b370923ccfa3fe2f769611a779.jpg"/></a></p>
 <p>线程池将进行动态的增减管理worker，当创一个新的wq后，线程池至少会创建一个worker，该worker会挂到pool-&gt;idle_list链表上，当用户调用queue_work或者有另外一个worker处理work导致进入休眠将会触发worker从idle转到running状态进行处理work，当worker从idle进入running中状态时检查是否还有剩余的worker，如果没有了需要动态再创建要给worker，以备后续其他work的运行。处于running状态的worker如果在执行work回调函数时遇到阻塞该worker将进入到休眠状态，唤醒后再次返回到运行状态。当worker处理完线程池pool-&gt;worklist上的所有work时将会进入到idle状态，后台会有一个定时器检查处于idle状态的worker，如果大于1个就进行销毁。 下面是running-&gt;sleep触发另外一个worker运行和worker销毁的流程。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_35b1f784722e9865850a7109043de85d.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_35b1f784722e9865850a7109043de85d.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_35b1f784722e9865850a7109043de85d.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/workqueue之api与数据结构/images/wp_editor_md_35b1f784722e9865850a7109043de85d.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/linux/中断小结.html">← 中断小结</a>
-    <a class="next" href="/laumy.github.io/posts/linux/软中断和tasklet.html">软中断和tasklet →</a>
+    <a class="prev" href="/note_page/posts/linux/中断小结.html">← 中断小结</a>
+    <a class="next" href="/note_page/posts/linux/软中断和tasklet.html">软中断和tasklet →</a>
   </div>
 </article>
 
@@ -705,7 +705,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

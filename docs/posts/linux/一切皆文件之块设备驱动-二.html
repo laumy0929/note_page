@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>一切皆文件之块设备驱动（二） - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -53,7 +53,7 @@
   <h1>一切皆文件之块设备驱动（二）</h1>
   <div class="meta">2023-06-04 · linux</div>
   <div class="post-content"><h2 id="_1">打开块设备</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8cb0c52c358ef8ad24b7aef183457582.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（二）/images/wp_editor_md_8cb0c52c358ef8ad24b7aef183457582.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_8cb0c52c358ef8ad24b7aef183457582.jpg"><img alt="" src="/note_page/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（二）/images/wp_editor_md_8cb0c52c358ef8ad24b7aef183457582.jpg"/></a></p>
 <h3 id="mknod">mknod</h3>
 <p>块设备同样要使用mknod创建设备节点，这与字符设备一样。会调用到init_special_inode填充inode的file_operations，只不过块设备注册的是def_blk_fops。</p>
 <div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">init_special_inode</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">inode</span><span class="w"> </span><span class="o">*</span><span class="n">inode</span><span class="p">,</span><span class="w"> </span><span class="n">umode_t</span><span class="w"> </span><span class="n">mode</span><span class="p">,</span><span class="w"> </span><span class="kt">dev_t</span><span class="w"> </span><span class="n">rdev</span><span class="p">)</span>
@@ -110,12 +110,12 @@
 </code></pre></div>
 <h3 id="bdev">bdev文件系统</h3>
 <p>blk_dev_open调用blkdev_get_by_dev获取到块设备得bdev，获取块设备是通过bdev文件系统来查询获取，下面先来了解下bdev文件系统的注册过程。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c0b3a00985afb828dd0272f25604fb43.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（二）/images/wp_editor_md_c0b3a00985afb828dd0272f25604fb43.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_c0b3a00985afb828dd0272f25604fb43.jpg"><img alt="" src="/note_page/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（二）/images/wp_editor_md_c0b3a00985afb828dd0272f25604fb43.jpg"/></a></p>
 <p>bdev是系统注册是在系统启动初始化阶段调用bdev_cache_init注册的，每个块设备在bdev文件系统中都有一个inode，linux利用block_inode数据结构将inode和block_device进行关联起来，对设备block_device的查找转化为在bdev文件系统中对inode的查找。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_865a6282bf3aa00e5ad1f7a0941e7d54.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（二）/images/wp_editor_md_865a6282bf3aa00e5ad1f7a0941e7d54.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_865a6282bf3aa00e5ad1f7a0941e7d54.jpg"><img alt="" src="/note_page/assets/doc/01-linux/文件系统/一切皆文件之块设备驱动（二）/images/wp_editor_md_865a6282bf3aa00e5ad1f7a0941e7d54.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/linux/一切皆文件之块设备驱动-五.html">← 一切皆文件之块设备驱动（五）</a>
-    <a class="next" href="/laumy.github.io/posts/linux/一切皆文件之块设备驱动-三.html">一切皆文件之块设备驱动（三） →</a>
+    <a class="prev" href="/note_page/posts/linux/一切皆文件之块设备驱动-五.html">← 一切皆文件之块设备驱动（五）</a>
+    <a class="next" href="/note_page/posts/linux/一切皆文件之块设备驱动-三.html">一切皆文件之块设备驱动（三） →</a>
   </div>
 </article>
 
@@ -130,7 +130,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

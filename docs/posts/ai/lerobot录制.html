@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>lerobot录制 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -88,7 +88,7 @@
 </code></pre></div>
 <p>主要的区别是如果是采集模式需要使用--teleop参数启动遥控机器，如果是模型推理模式则不需要启动遥控机器，但是需要指定模型路径--policy.path，本质上就是机器人的动作指令来源于哪里，要么来之遥控器的，要么来自模型推理出来的。</p>
 <p>在阅读本文前，这里先做一个总结：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_643928e8d5da2fdf1d721700de6bbb9e.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/lerobot/lerobot数据采集与模型测试/images/wp_editor_md_643928e8d5da2fdf1d721700de6bbb9e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/07/wp_editor_md_643928e8d5da2fdf1d721700de6bbb9e.jpg"><img alt="" src="/note_page/assets/doc/04-ai/lerobot/lerobot数据采集与模型测试/images/wp_editor_md_643928e8d5da2fdf1d721700de6bbb9e.jpg"/></a></p>
 <p>从上图可以看出整个录制流程主要围绕机器设备、遥控设备、模型、数据集四个要素进行展开。</p>
 <ul>
 <li>机器：有SO101Follower、LeKiwi等机器，都继承Robot类。通过命令行参数robot.type调用make_robot_from_config函数选择创建具体的实例设备，函数返回的还是Robot但是指向的是具体的机器实例如SO101Follower，利用了多态的特性做到了解耦，如果要新添机器时，只需要参考SO101Follower添加一个新的设备即可。在创建机器实例时传递RobotConfig参数，这个参数依旧是抽象基类，其继承了draccus.ChoiceRregistry，通过命令行参数robot.type选择注册具体的配置如SO101FollowerConfig。</li>
@@ -1140,7 +1140,7 @@
     <span class="k">if</span> <span class="n">display_data</span><span class="p">:</span>
         <span class="n">log_rerun_data</span><span class="p">(</span><span class="n">observation</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>  <span class="c1"># 记录数据用于 Rerun 可视化</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_6f48aacc8f8cb50e0cf1732fb3e741c9.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/lerobot/lerobot数据采集与模型测试/images/wp_editor_md_6f48aacc8f8cb50e0cf1732fb3e741c9.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_6f48aacc8f8cb50e0cf1732fb3e741c9.jpg"><img alt="" src="/note_page/assets/doc/04-ai/lerobot/lerobot数据采集与模型测试/images/wp_editor_md_6f48aacc8f8cb50e0cf1732fb3e741c9.jpg"/></a></p>
 <p>可以看到界面显示的observation.xxx和action.xxx就是调用的这里log_rerun_data函数，理论上来说observation和action要越吻合越好，因为action是模型推理或主臂的动作，observation是实际的动作。</p>
 <h2 id="_15">数据存储</h2>
 <p>在上一节中，循序录制过程中，将经过处理的遥控机器数据action_frame和经过处理后的机器观测数据observation_frame合并得到的数据frame，然后先调用dataset.add_frame(frame, task=single_task)写入，最后调用save_episode方法将缓存数据写入磁盘。</p>
@@ -1320,8 +1320,8 @@
 </code></pre></div>
 <p>将数据上传到hugging Face Hub上。</p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/ai/lerobot训练.html">← lerobot训练</a>
-    <a class="next" href="/laumy.github.io/posts/语言/python补习.html">python补习 →</a>
+    <a class="prev" href="/note_page/posts/ai/lerobot训练.html">← lerobot训练</a>
+    <a class="next" href="/note_page/posts/语言/python补习.html">python补习 →</a>
   </div>
 </article>
 
@@ -1336,7 +1336,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

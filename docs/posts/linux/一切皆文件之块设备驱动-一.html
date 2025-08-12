@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>一切皆文件之块设备驱动（一） - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -198,7 +198,7 @@
 </ul>
 <p>接下来将单独对三者关系进行深入描述。</p>
 <h2 id="biorequestrequest_queue">bio,request,request_queue</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_6e9f2cd13fec0f8325a29151ea196e01.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备/images/wp_editor_md_6e9f2cd13fec0f8325a29151ea196e01.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_6e9f2cd13fec0f8325a29151ea196e01.jpg"><img alt="" src="/note_page/assets/doc/01-linux/文件系统/一切皆文件之块设备/images/wp_editor_md_6e9f2cd13fec0f8325a29151ea196e01.jpg"/></a></p>
 <h3 id="generic-block-layer">Generic Block layer</h3>
 <p>文件系统向下就是Generic Block Layer，文件系统请求读写的文件位置需要被转换到对应的存储介质的位置（如磁盘的扇区号）。如下是文件系统写过程，将写请求根据文件的pos位转化为bio。</p>
 <div class="codehilite"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="nf">__block_write_begin</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">page</span><span class="w"> </span><span class="o">*</span><span class="n">page</span><span class="p">,</span><span class="w"> </span><span class="n">loff_t</span><span class="w"> </span><span class="n">pos</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="n">len</span><span class="p">,</span>
@@ -213,7 +213,7 @@
 <span class="w">                    </span><span class="o">--&gt;</span><span class="n">submit_bio</span><span class="p">(</span><span class="n">bio</span><span class="p">)</span>
 </code></pre></div>
 <p>bio是块设备数据传输最小单元，下面是struct bio的数据结构。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_fef97739b4f80ac0b84dbf1e1518686b.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备/images/wp_editor_md_fef97739b4f80ac0b84dbf1e1518686b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_fef97739b4f80ac0b84dbf1e1518686b.jpg"><img alt="" src="/note_page/assets/doc/01-linux/文件系统/一切皆文件之块设备/images/wp_editor_md_fef97739b4f80ac0b84dbf1e1518686b.jpg"/></a></p>
 <ul>
 <li>bio_vec:标识存储设备中数据缓存在page的位置，描述IO请求在内存段的数据位置属性（page地址，页内偏移，长度）。</li>
 <li>bvec_iter：标识操作数据在存储设备的位置，描述IO请求在存储器段的数据位置属性（起始sector，长度）。</li>
@@ -221,10 +221,10 @@
 <h3 id="io-scheduler-layer">I/O Scheduler Layer</h3>
 <p>从submit_bio调用开始，bio被block层抽象为request进行管理，request会被组织到request queue中。IO调度器的目的是在现有请求下，让尽可能少操作存储设备，提高存储设备的读写效率。在IO调度器中，从文件系统提交下来的bio被构造成request结构，一个request结构包含了多个bio，而物理存储设备都会有对应的request queue，里面存放着相关的request，新的bio可能被合并到request queue现有的request结构中，也有可能生成新的request，如何合并、插入等取决于设备驱动选择的IO调度算法。</p>
 <h4 id="io">I/O请求</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_2a74945cf47ccdb99af4b4756648d7b8.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备/images/wp_editor_md_2a74945cf47ccdb99af4b4756648d7b8.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_2a74945cf47ccdb99af4b4756648d7b8.jpg"><img alt="" src="/note_page/assets/doc/01-linux/文件系统/一切皆文件之块设备/images/wp_editor_md_2a74945cf47ccdb99af4b4756648d7b8.jpg"/></a></p>
 <p>早期阶段，只有一个单队列single-queue，随着多核体系结构的发展，单队列的暴露了较多劣势，如多核请求队列时，需要使用spinlock来做同步，锁的竞争带来比较高的额外开销，因此后来引入了multi-queue，将单个队列请求锁的竞争分散到多个队列中，这样就极大提高了并发IO的处理能力。</p>
 <p>multi-queue结构分为两层队列设计，分别是Per-CPU级别的软件暂存队列（Software staging queue，Per CPU）和存储设备硬件派发队列（Hardware Dispatch queue，Per Disk Per channel）；</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_cdcee2f38ff80b89823cb696631b3762.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备/images/wp_editor_md_cdcee2f38ff80b89823cb696631b3762.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_cdcee2f38ff80b89823cb696631b3762.jpg"><img alt="" src="/note_page/assets/doc/01-linux/文件系统/一切皆文件之块设备/images/wp_editor_md_cdcee2f38ff80b89823cb696631b3762.jpg"/></a></p>
 <ul>
 <li>
 <p>软件暂存队列（ctx）：对应的数据结构blk_mq_ctx,为每个cpu分配一个软件队列，将bio生成一个新的request或合并到已有的request中。bio的提交/完成处理、IO请求合并/排序/标记、调度记账等block layer操作都在该队列中进行。队列是Per CPU，所以每个CPU io请求并发的时候不存在锁竞争问题。</p>
@@ -235,10 +235,10 @@
 </ul>
 <p><a href="https://blog.csdn.net/morecrazylove/article/details/128712522">https://blog.csdn.net/morecrazylove/article/details/128712522</a></p>
 <p><a href="https://blog.csdn.net/juS3Ve/article/details/79890688">https://blog.csdn.net/juS3Ve/article/details/79890688</a></p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_08f19f9823ab9bce38fb1c551f2671a8.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/文件系统/一切皆文件之块设备/images/wp_editor_md_08f19f9823ab9bce38fb1c551f2671a8.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/12/wp_editor_md_08f19f9823ab9bce38fb1c551f2671a8.jpg"><img alt="" src="/note_page/assets/doc/01-linux/文件系统/一切皆文件之块设备/images/wp_editor_md_08f19f9823ab9bce38fb1c551f2671a8.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/linux/内存管理概述.html">← 内存管理概述</a>
-    <a class="next" href="/laumy.github.io/posts/linux/一切皆文件之字符设备.html">一切皆文件之字符设备 →</a>
+    <a class="prev" href="/note_page/posts/linux/内存管理概述.html">← 内存管理概述</a>
+    <a class="next" href="/note_page/posts/linux/一切皆文件之字符设备.html">一切皆文件之字符设备 →</a>
   </div>
 </article>
 
@@ -253,7 +253,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

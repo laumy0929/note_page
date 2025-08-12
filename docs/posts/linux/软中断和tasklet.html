@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>软中断和tasklet - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -71,7 +71,7 @@
 </code></pre></div>
 <h2 id="_1">抢占计数</h2>
 <p>在讨论softirq前，我们先来讨论下抢占计数，这与softirq有密切的关系。Linux配置打开了CONFIG_PREEMPT表示允许高优先级的任务抢占低优先级任务，但是在spin lock，中断/软中断上下文中依旧不允许抢占的。在linux系统中使用了一个Per-CPU的32位变量来标识一些特殊场景，如下。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3b15bb3b2af9aa854ff5a2d097d230e5.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_3b15bb3b2af9aa854ff5a2d097d230e5.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3b15bb3b2af9aa854ff5a2d097d230e5.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_3b15bb3b2af9aa854ff5a2d097d230e5.jpg"/></a></p>
 <ul>
 <li>PREEMPT_BITS:用于记录禁止抢占计数，当调用preempt_enable/preempt_disable会进行减加操作，直到count位0才能允许开启抢占。上述还包括spin lock，read lock等都会禁止抢占。</li>
 <li>SOFTIRQ_BITS:软中断计数区域，进入软中断会调用local_bh_disble计数+1，退出软中断调用local_bh_enable计数-1，当SOFTIRQ_BITS为正数就表明处于softirq上下文中，in_softirq为真。其中第8位表示正在处理软中断。</li>
@@ -162,14 +162,14 @@
 <span class="n">DECLARE_PER_CPU_ALIGNED</span><span class="p">(</span><span class="n">irq_cpustat_t</span><span class="p">,</span><span class="w"> </span><span class="n">irq_stat</span><span class="p">);</span>
 </code></pre></div>
 <h2 id="softirq">触发softirq</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_afc1199009c36d7bd6ce4e8354c3af53.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_afc1199009c36d7bd6ce4e8354c3af53.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_afc1199009c36d7bd6ce4e8354c3af53.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_afc1199009c36d7bd6ce4e8354c3af53.jpg"/></a></p>
 <p>从上图可以看出触发softirq主要有两个函数raise_softirq和raise_softirq_irqoff。raise_softirq会关闭本地中断响应，而raise_softirq_irqoff不会。 raise_softirq是用于进程上下文触发软中断的，而在进程上下文关闭本地cpu的中断响应是为了保护临界访问，软中断的触发实际是设置软中断的pending位，而只需要关闭本地中断响应是因为每个cpu都维护了一个软中断的pending位。 raise_softirq_irqoff是用于中断上下文触发中断的，实际上大部分的软中断都是在中断上下文触发的，因为本身就处于中断上下文了，本地中断响应已经关闭了，因此不需要再支持local_irq_save。 软中断处理过程中，调用__raise_softirq_irqoff设置软中断的pengding位，这样再执行软中断是会进行检测该位，如果使能才会执行软中断。 在raise_softirq_irqoff中还会进行判断是否处于中断上下文中且是否有软中断置位，对于处于进程上下文触发的软中断，那么可以直接激活软中断线程进程处理软中断。而处于中断上下文中，则什么都不用做，因为在中断退出时才会检测软中断进行执行软中断，因此对于处于中断上下文触发的软中断，仅仅是设置软中断的pending位。</p>
 <h2 id="softirq_1">执行softirq</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_328c756d7cddf15aa8a2363859b93da6.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_328c756d7cddf15aa8a2363859b93da6.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_328c756d7cddf15aa8a2363859b93da6.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_328c756d7cddf15aa8a2363859b93da6.jpg"/></a></p>
 <p>软中断执行时机可以分为3种情况，分别是在中断退出时检测是否有软中断执行、进程上下文中主动执行、在spin_unlock_bh（实际调用__local_bh_enable_ip）。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ba9a74ba8d4913ce34c4b7d4e1bb13ec.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_ba9a74ba8d4913ce34c4b7d4e1bb13ec.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ba9a74ba8d4913ce34c4b7d4e1bb13ec.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_ba9a74ba8d4913ce34c4b7d4e1bb13ec.jpg"/></a></p>
 <p>先来看一下执行中断退出执行软中断的场景，如上图进程被中断打断后进入到中断上下文中，进入中断后cpu硬件会自动关闭cpu本地中断响应，处理中断完成后在执行irq_exit中断退出时，当检测到有软中断pending时执行软中断；如果软中断是在中断上下文执行时，在软中断处理中会调用local_irq_enable打开CPU本地中断响应再处理软中断程序，如果是触发的软中断线程，硬中断已经完成退出也会使能本地中断。因此在软中断执行过程中打开了中断响应，所以可能会再次进入硬中断上下文。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_77197aa931d67a104cb86e1f1c473779.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_77197aa931d67a104cb86e1f1c473779.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_77197aa931d67a104cb86e1f1c473779.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_77197aa931d67a104cb86e1f1c473779.jpg"/></a></p>
 <p>再来看上面这张图，在一个task中处理一个变量此时被硬件中断打断进行中断处理函数，在中断处理快结束时如果有软中断pending将会先处理软中断，如果软中断中也访问了该变量，那么就出现竞态异常，因此为了处理进程和软中断的竞态，调用spin_lock_bh和spin_unlock_bh进行保护，在硬件中断处理完要进入软中断将会被禁止，硬件中断会被直接退出，继而task可以继续运行，当task再执行spin_unlock_bh时会触发执行软中断。另外如果软中断处理函数中的竞态可能在多核直接发生，为了保护多核的临界处理在软中断中只需要调用spin_lock和spin_unlock即可，不需要调用spin_lock_bh和spin_unlock_bh，因为每个cpu上只有一个软中断可以运行不需要做软中断之间的临界保护。总结就是在进程上下文中要避免软中断和多核的竞态保护就调用spin_lock_bh和spin_unlock_bh，软中断中避免多核的竞态保护就调用spin_lock和spin_unlock即可。</p>
 <h2 id="tasklet">Tasklet</h2>
 <p>Tasklet是软中断类型的一种，便于用户实现软中断。</p>
@@ -246,11 +246,11 @@
 <span class="n">EXPORT_SYMBOL</span><span class="p">(</span><span class="n">tasklet_init</span><span class="p">);</span>
 </code></pre></div>
 <h3 id="tasklet_2">触发执行tasklet</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_16bebf463ff7bbbfcb53e56d9a87392f.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_16bebf463ff7bbbfcb53e56d9a87392f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_16bebf463ff7bbbfcb53e56d9a87392f.jpg"><img alt="" src="/note_page/assets/doc/01-linux/中断管理/软中断和tasklet简介/images/wp_editor_md_16bebf463ff7bbbfcb53e56d9a87392f.jpg"/></a></p>
 <p>触发tasklet得到执行，也比较简单，上面以普通的tasklet为例。用户可调用tasklet_schedule，该函数将tasklet插入到链表中然后调用raise_softirq_irqoff触发软中断，最终触发了softirq，关于softirq的运行在上一章节中已经描述，最后softirq运行tasklet_action，在该函数中进行while遍历链表执行对应的tasklet回调函数。</p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/linux/workqueue.html">← workqueue</a>
-    <a class="next" href="/laumy.github.io/posts/其他/wordpress使用笔记.html">wordpress使用笔记 →</a>
+    <a class="prev" href="/note_page/posts/linux/workqueue.html">← workqueue</a>
+    <a class="next" href="/note_page/posts/其他/wordpress使用笔记.html">wordpress使用笔记 →</a>
   </div>
 </article>
 
@@ -265,7 +265,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

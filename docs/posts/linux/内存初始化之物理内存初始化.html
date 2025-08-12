@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>内存初始化之物理内存初始化 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -53,7 +53,7 @@
   <h1>内存初始化之物理内存初始化</h1>
   <div class="meta">2023-07-01 · linux</div>
   <div class="post-content"><h2 id="__create_page_tables">恒等映射与内核镜像映射__create_page_tables</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_0799025c3a2daf03a2a31ced36b88d37.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_0799025c3a2daf03a2a31ced36b88d37.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_0799025c3a2daf03a2a31ced36b88d37.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_0799025c3a2daf03a2a31ced36b88d37.jpg"/></a></p>
 <ul>
 <li>preserve_boot_args：保持启动参数到boot_args[]数组</li>
 <li>set_cpu_boot_maode_flag：设置关于cpu boot相关的全局变量</li>
@@ -188,7 +188,7 @@
 <span class="p">[</span><span class="w">    </span><span class="mf">0.000000</span><span class="p">]</span><span class="w"> </span><span class="n">FIXADDR_START</span><span class="o">~</span><span class="n">TOP</span><span class="w">    </span><span class="o">:</span><span class="mh">0xfffffffdfdbf9000</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mh">0xfffffffdfe000000</span><span class="w">   </span><span class="p">(</span><span class="w">  </span><span class="mi">4124</span><span class="w"> </span><span class="n">KB</span><span class="p">)</span>
 </code></pre></div>
 <p>上面0xfffffffdfdbf9000 - 0xfffffffdfe000000这段虚拟地址范围就是fixed map区域，这段区域可以通过FIXADDR_START和FIXADDR_TOP来确定。Fixmap虚拟地址平均分成两个部分，两个部分permanent fixed addresses和temporary fixed addresses。permanent fixed addresses是永久映射，temporary fixed addresses是临时映射。永久映射是指在建立的映射关系在kernel阶段不会改变，仅供特定模块一直使用。临时映射就是模块使用前创建映射，使用后解除映射。fixmap区域又被继续细分，分配给不同模块使用。kernel中定义枚举类型作为index，根据index可以计算在fixmap区域的虚拟地址。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_23663a9fb10854c6c0043aad12af115c.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_23663a9fb10854c6c0043aad12af115c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_23663a9fb10854c6c0043aad12af115c.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_23663a9fb10854c6c0043aad12af115c.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="n">arch</span><span class="o">/</span><span class="n">arm64</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="k">asm</span><span class="o">/</span><span class="n">fixmap</span><span class="p">.</span><span class="n">h</span>
 <span class="k">enum</span><span class="w"> </span><span class="n">fixed_addresses</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="n">FIX_HOLE</span><span class="p">,</span>
@@ -293,7 +293,7 @@
 <span class="err">（</span><span class="mi">7</span><span class="err">）</span><span class="n">将bm_pte的物理地址写到pmd页表中</span><span class="err">。</span>
 <span class="p">}</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a43f5a5f0c5c2ac250675dd7c3dbf93e.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_a43f5a5f0c5c2ac250675dd7c3dbf93e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a43f5a5f0c5c2ac250675dd7c3dbf93e.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_a43f5a5f0c5c2ac250675dd7c3dbf93e.jpg"/></a></p>
 <p>TIPS:当使用3级页表时，内核如何判断是否需要创建PUD页表？</p>
 <div class="codehilite"><pre><span></span><code><span class="n">arch</span><span class="o">/</span><span class="n">arm64</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="k">asm</span><span class="o">/</span><span class="n">pgtable</span><span class="o">-</span><span class="n">types</span><span class="p">.</span><span class="n">h</span>
 
@@ -332,7 +332,7 @@
 </code></pre></div>
 <p>实际上，early_fixmap_init只是建立了一个映射的框架，实际的物理地址和虚拟地址的映射关系是没有填充的，这个需要实际使用的时候再去填充对应的pte entry。 bm_pud/bm_pmd/bm_pte是全局数组（全局数据段），该阶段访问这几个全局数组的虚拟地址能够可以通过mmu转化为物理地址，因为这几个变量是属于内核映像中，在上一章节中内核镜像中的所有包括数据段、代码段等都可以进行访问了，因此这几个全局数组的虚拟地址是不需要映射的。</p>
 <h3 id="fixmap_3">fixmap相关函数</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_15bdb7e35e942367df40075724cada93.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_15bdb7e35e942367df40075724cada93.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_15bdb7e35e942367df40075724cada93.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_15bdb7e35e942367df40075724cada93.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="cp">#define pte_offset_phys(dir,addr)   (pmd_page_paddr(READ_ONCE(*(dir))) + pte_index(addr) * sizeof(pte_t))</span>
 <span class="c1">//查找虚拟地址对应PTE的物理地址（基地址），也就是对应PMD条目中的值。</span>
 
@@ -445,14 +445,14 @@
 <span class="o">+++</span><span class="w"> </span><span class="n">b</span><span class="o">/</span><span class="n">drivers</span><span class="o">/</span><span class="n">of</span><span class="o">/</span><span class="n">Makefile</span>
 <span class="o">+</span><span class="n">ccflags</span><span class="o">-</span><span class="n">y</span><span class="w"> </span><span class="o">:=-</span><span class="n">DDEBUG</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ed6d752d1d9e8e158c2bd68dd3305e77.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_ed6d752d1d9e8e158c2bd68dd3305e77.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_ed6d752d1d9e8e158c2bd68dd3305e77.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_ed6d752d1d9e8e158c2bd68dd3305e77.jpg"/></a></p>
 <h2 id="memblock">Memblock</h2>
 <p>Linux内核使用伙伴系统管理内存，在伙伴系统之前，内核通过memblock来管理。在系统启动阶段，使用memblock记录理内存的使用情况，可以分成好几块。 - 永久分配给系统内核：内核镜像占用的部分，如代码、数据段等；设备树DTB等 - 预留给外设的连续内存：如GPU/Camera/多核共享等需要预留大量连续内存。 - 其他部分：以上的剩余部分内存，需要进行内存管理。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f5ab56223e97582a9c49b7282b87bb9d.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_f5ab56223e97582a9c49b7282b87bb9d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_f5ab56223e97582a9c49b7282b87bb9d.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_f5ab56223e97582a9c49b7282b87bb9d.jpg"/></a></p>
 <p>Memblock将以上内存按功能划分为若干内存区，使用不同的类型存放在memory和reserved两个集合中，memory即动态内存，reserved即静态分配的内存。</p>
 <h3 id="_3">获取物理内存大小</h3>
 <p>在设备树中，使用节点名称为memory来描述内存信息，如果系统中有多个内存范围，那么device tree中可能会创建多个内存节点，或者一个单独的内存节点通过reg属性指定内存的访问。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_bc46cb00223ef61f78821936b736e7f2.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_bc46cb00223ef61f78821936b736e7f2.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_bc46cb00223ef61f78821936b736e7f2.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_bc46cb00223ef61f78821936b736e7f2.jpg"/></a></p>
 <p>假设一个64位系统具有以下的物理内存块： - RAM:起始地址0x0,长度0x80000000(2GB) - RAM：起始地址0x100000000,长度0x100000000(4GB) 方法一</p>
 <div class="codehilite"><pre><span></span><code><span class="n">memory</span><span class="err">@</span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w"> </span>
 <span class="w">　   </span><span class="n">device_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="err">\</span><span class="s">"memory</span><span class="se">\"</span><span class="s">; </span>
@@ -561,7 +561,7 @@
 <span class="p">}</span>
 </code></pre></div>
 <h3 id="_4">管理结构体</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a869009d572cf7995e9b217791b39879.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_a869009d572cf7995e9b217791b39879.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_a869009d572cf7995e9b217791b39879.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_a869009d572cf7995e9b217791b39879.jpg"/></a></p>
 <ul>
 <li>第一层：struct memblock，定义一个全局变量，用来维护所有的物理内存；</li>
 <li>第二层：struct memblock_type，系统中内存类型，包括可分配使用的内存和保留的内存；</li>
@@ -592,7 +592,7 @@
 <p>Memblock系统提供一些列接口供内核模块使用，包括内存区块的添加、预留、内存申请等功能。 - memblock_add:将内存块添加到可用内存集合，添加新的内存块区域到memblock.memory中。 - memblock_reserve:将内存块添加到预留内存集合 - memblock_phys_alloc:用于申请memblock中的物理内存 - memblock_remove:删除内存块区域 - memblock_alloc:分配内存 - memblock_free:释放内存</p>
 <h4 id="memblock_add">memblock_add</h4>
 <p>memblock_add函数将物理内存区块添加到可用内存集合中，结构管理图如下</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_47d2c5ceb64eb74d8a7a5f45335b5149.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_47d2c5ceb64eb74d8a7a5f45335b5149.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_47d2c5ceb64eb74d8a7a5f45335b5149.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_47d2c5ceb64eb74d8a7a5f45335b5149.jpg"/></a></p>
 <h4 id="memblock_reserve">memblock_reserve</h4>
 <p>与memblock_add类似</p>
 <h4 id="memblock_alloc">memblock_alloc</h4>
@@ -605,7 +605,7 @@
 </code></pre></div>
 <p>最终调用memblock_find_in_range_node实现物理内存的分配。memblock_phys_alloc函数与该函数类似，区别是memblock_alloc在分配后会会调用phys_to_virt将物理地址转化为虚拟地址，而memblock_phys_alloc不会。</p>
 <h3 id="arm64-memblock-init">Arm64 memblock init</h3>
-<p>物理内存都添加到系统之后，会调用arm64_memblock_init对整个物理内存进行整理，主要的工作就是remove掉一些no-map区域（不归内核管理），同时保留一些关键区域，如内核镜像区，dtb中reserved的内存节点。 <a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1ada4f67a7860c6a54b457c46a606fc6.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_1ada4f67a7860c6a54b457c46a606fc6.jpg"/></a></p>
+<p>物理内存都添加到系统之后，会调用arm64_memblock_init对整个物理内存进行整理，主要的工作就是remove掉一些no-map区域（不归内核管理），同时保留一些关键区域，如内核镜像区，dtb中reserved的内存节点。 <a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_1ada4f67a7860c6a54b457c46a606fc6.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_1ada4f67a7860c6a54b457c46a606fc6.jpg"/></a></p>
 <p>上图中，浅绿色的就是reserved部分，不能被分配使用，而剩下的部分就可以通过调用上小章节中的函数去使用内存了。</p>
 <p>小结： （1）系统通过memblock以数组memory type的方式记录物理内存空间，数组中每一个内存区域描述了一段内存信息，包括base，size，node id等。 （2）在memblock信息中，已经被使用或者被内核定义需要保留的区域，会存储在reserved 数组中。 （3）memory type数组中并不是代表整个内核系统的内存空间，因为股份驱动会保留一段内存区域供自己单独使用，其在dts中具有no-map熟悉的reserved-memory节点，不会由内核创建地址映射。 （4）可以通过内核调试节点/sys/kernel/debug/memblockk进行查询相关信息</p>
 <h2 id="paging_init">paging_init</h2>
@@ -665,10 +665,10 @@
 <span class="n">swapper_pg_dir是实现分配的一段空间</span><span class="err">，</span><span class="n">处于内核镜像的data段</span><span class="err">。</span>
 </code></pre></div>
 <p>通过__pa_symbol先将swapper_pg_dir转化为物理地址，然后与FIX_PGD地址范围进行映射，后续就可以通过虚拟地址FIX_PGD这段访问访问到swapper_pg_dir这块物理空间。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_298d61f904629b7e9dc7780f3cb7d71c.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_298d61f904629b7e9dc7780f3cb7d71c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_298d61f904629b7e9dc7780f3cb7d71c.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_298d61f904629b7e9dc7780f3cb7d71c.jpg"/></a></p>
 <h3 id="early_pgtable_alloc">early_pgtable_alloc</h3>
 <p>对内核各个段、以及memblock管理的物理内存建立映射，在上一章节中已经获取到了PGD全局目录页表，但是接下来的PUD,PMD,PTE对应的页表是需要进行动态分配的，空间的分配可以使用memblock提供的函数进行分配，但是如何进行访问填充页表了？memblock分配空间内核是没法直接访问的，因为没有创建页表，没法通过查表的方式进行查找到物理地址。这个时候前面fixmap就发挥作用了，在fixmap章节中，已经创建了虚拟地址到物理地址的页表，有一段实际的虚拟地址对应的物理地址是待填充的，那就是FIX_PTE~FIX_PGD，所以就可以利用这段空间将memblock分配到的物理地址与FIX_PTE~FIX_PGD对应上，这样内核就可以通过虚拟地址进行访问了，就可以填充页表内容。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_0d80fb38225d4efc6a0cf49ece64f8b4.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_0d80fb38225d4efc6a0cf49ece64f8b4.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_0d80fb38225d4efc6a0cf49ece64f8b4.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_0d80fb38225d4efc6a0cf49ece64f8b4.jpg"/></a></p>
 <p>内核访问物理内存使用的都是虚拟地址，而硬件模块比如MMU等访问内存使用的是物理地址，不需要从虚拟地址到物理地址转换（否则就陷入循环了）。虚拟地址转为物理地址需要查找页表找到对应的物理地址，而这个页表需要进行填充（建立映射关系），因此内核在填充页表的时候，也是使用的虚拟地址访问。只要把各级页表填充好之后就可以了，最终MMU在翻译的时候就访问的是物理地址。</p>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="n">phys_addr_t</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="n">early_pgtable_alloc</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">shift</span><span class="p">)</span>
 <span class="p">{</span>
@@ -741,7 +741,7 @@
 <span class="w">    </span><span class="n">vm_area_add_early</span><span class="p">(</span><span class="n">vma</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b18c2463b591ae314ded0293f324b1aa.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_b18c2463b591ae314ded0293f324b1aa.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b18c2463b591ae314ded0293f324b1aa.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_b18c2463b591ae314ded0293f324b1aa.jpg"/></a></p>
 <h3 id="-map_mem">线性映射-map_mem</h3>
 <p>完成对物理内存的映射，这部分的物理内存是同故宫memblock_add添加系统中的，函数中将会遍历memblock中的各个块，然后调用__map_memblock来完成实际的映射操作。</p>
 <div class="codehilite"><pre><span></span><code><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">map_mem</span><span class="p">(</span><span class="n">pgd_t</span><span class="w"> </span><span class="o">*</span><span class="n">pgdp</span><span class="p">)</span>
@@ -795,7 +795,7 @@
 <span class="p">}</span>
 <span class="n">Start是要映射的物理地址</span><span class="err">，</span><span class="n">__phys_to_virt</span><span class="p">(</span><span class="n">start</span><span class="p">)</span><span class="n">是要映射的虚拟地址</span><span class="err">，</span><span class="n">由此可见</span><span class="err">，</span><span class="n">这段空间是进行的线性映射</span><span class="err">。</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_d72d6060b232c98f975ac6a73a875895.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_d72d6060b232c98f975ac6a73a875895.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_d72d6060b232c98f975ac6a73a875895.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_d72d6060b232c98f975ac6a73a875895.jpg"/></a></p>
 <h3 id="__create_pgd_mapping">__create_pgd_mapping</h3>
 <p>map_kernel与map_mem最终都会调用__create_pgd_mapping进行映射。</p>
 <p><a href="http://8.134.108.235/wp-content/uploads/2023/11/wp_editor_md_3322c2565dfff87c8655ca5612a64302.jpg"><img alt="" src="images/wp_editor_md_3322c2565dfff87c8655ca5612a64302.jpg"/></a></p>
@@ -1113,7 +1113,7 @@
 <p>number表示在函数中调用一次init_pte调用set_pte的此次，为16次。</p>
 <h2 id="bootmem_init">bootmem_init</h2>
 <p>完成了linux物理内存框架的初始化，包括Node, Zone, Page Frame以及对应的数据结构等。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3dc9de3996ef2284d9b13d36376b4fe1.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_3dc9de3996ef2284d9b13d36376b4fe1.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_3dc9de3996ef2284d9b13d36376b4fe1.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_3dc9de3996ef2284d9b13d36376b4fe1.jpg"/></a></p>
 <div class="codehilite"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">bootmem_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
 <span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">min</span><span class="p">,</span><span class="w"> </span><span class="n">max</span><span class="p">;</span>
@@ -1217,7 +1217,7 @@
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_de4b23f4cb7caf0de027860f16b8ab25.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_de4b23f4cb7caf0de027860f16b8ab25.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_de4b23f4cb7caf0de027860f16b8ab25.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_de4b23f4cb7caf0de027860f16b8ab25.jpg"/></a></p>
 <p>物理内存空间按照seciton来组织的，每个section内部其memory是连续的。一个section包含多个page，在内核中由PAGES_PER_SECTION来决定，linux 5.15内核3级页表中为32768，因此内存的范围是32768*4KB=128MB，也就是说一个section最大的内存范围是128MB。</p>
 <p>PFN找到对应的page，可以通过PFN-&gt;section-&gt;page。 page找到PFN，page-&gt;section index-&gt;memory_section-&gt;section_mem_map-&gt;PFN</p>
 <h4 id="sparse_init_nid">sparse_init_nid</h4>
@@ -1536,15 +1536,15 @@
 </code></pre></div>
 <p>内核如何直到给定的分配内存属于何种迁移类型？ 内核提供两个标志，分别用于分配内存是可移动的(__GFP_MOVABLE)或可回收的(__GFP_RECATMABLE)，如果这些标志都没有设置，则分配的内存假定为不可移动。</p>
 <p>如何初始化可移动性的分组？</p>
-<p><a href="https://www.laumy.tech//wp-content/uploads/2023/11/wp_editor_md_53db4a12d9ea1a1b1474f54fab1b6e53.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_53db4a12d9ea1a1b1474f54fab1b6e53.jpg"/></a></p>
+<p><a href="https://www.laumy.tech//wp-content/uploads/2023/11/wp_editor_md_53db4a12d9ea1a1b1474f54fab1b6e53.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_53db4a12d9ea1a1b1474f54fab1b6e53.jpg"/></a></p>
 <h2 id="build_all_zonelists">build_all_zonelists</h2>
-<p><a href="https://www.laumy.tech//wp-content/uploads/2023/11/wp_editor_md_f3030335698a5e978b014bfb37c37d12.jpg"><img alt="" src="/laumy.github.io/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_f3030335698a5e978b014bfb37c37d12.jpg"/></a></p>
+<p><a href="https://www.laumy.tech//wp-content/uploads/2023/11/wp_editor_md_f3030335698a5e978b014bfb37c37d12.jpg"><img alt="" src="/note_page/assets/doc/01-linux/内存管理/内存初始化之物理内存初始化（一）/images/wp_editor_md_f3030335698a5e978b014bfb37c37d12.jpg"/></a></p>
 <p>主要是为node创建一个内存分配时优先级的顺序。将系统中各个节点的各个zone，按照备选节点的优先级顺序依次填写到对应结构体描述符的struct zonelist node_zonelist[]数组中。某node的zonelist可以按下面的优先级进行赋值：</p>
 <p>（1）对于不同节点，本地node内存放在zonelist的最前面，其他node的内存根据其与本节点的distance值从小到大依次排列。</p>
 <p>（2）对于node内部不同的zone也存在优先级关系，normal zone排在dma zone的前面。</p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/linux/伙伴系统.html">← 伙伴系统</a>
-    <a class="next" href="/laumy.github.io/posts/linux/内存初始化之页表基本操作.html">内存初始化之页表基本操作 →</a>
+    <a class="prev" href="/note_page/posts/linux/伙伴系统.html">← 伙伴系统</a>
+    <a class="next" href="/note_page/posts/linux/内存初始化之页表基本操作.html">内存初始化之页表基本操作 →</a>
   </div>
 </article>
 
@@ -1559,7 +1559,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

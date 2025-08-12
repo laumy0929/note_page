@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>优化算法 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -54,9 +54,9 @@
   <div class="meta">2025-05-12 · ai</div>
   <div class="post-content"><h2 id="_1">局部最小与全局最小</h2>
 <p>对应任何目标函数f(x)，当然这里的目标函数可以是损失函数。如果在x处对应的f(x)小于x附近任意点的f(x)，那么f(x)是局部最小的。如果f(x)在x处的值是整个域中目标函数的最小值，那么f(x)是全局最小值。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_3c00370d20ac34f8d4b7429761b9cac3.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/深度学习/优化算法/images/wp_editor_md_3c00370d20ac34f8d4b7429761b9cac3.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_3c00370d20ac34f8d4b7429761b9cac3.jpg"><img alt="" src="/note_page/assets/doc/04-ai/深度学习/优化算法/images/wp_editor_md_3c00370d20ac34f8d4b7429761b9cac3.jpg"/></a></p>
 <p>除了局部最优解外，鞍点也是梯度为0的区域。什么是鞍点了？如下图。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_1c2a5afddd3ea733bbdf6eef56680547.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/深度学习/优化算法/images/wp_editor_md_1c2a5afddd3ea733bbdf6eef56680547.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_1c2a5afddd3ea733bbdf6eef56680547.jpg"><img alt="" src="/note_page/assets/doc/04-ai/深度学习/优化算法/images/wp_editor_md_1c2a5afddd3ea733bbdf6eef56680547.jpg"/></a></p>
 <p>在深度学习模型训练中，通常往往会有许多局部最优解或鞍点，要解决这种局部最优解需要一定程度的噪音才能使参数跳出局部最小值，实际上使用小批量随机梯度下降也可以将参数从局部极小值中跳出。</p>
 <h2 id="gd">梯度下降(gd)</h2>
 <p>对于多变量的输入$\mathbf{x} = [x_1, x_2, \ldots, x_d]^\top$的情况。它的梯度也是多元的，是一个由$d$个偏导数组成的向量：</p>
@@ -64,7 +64,7 @@
 <p>梯度中的每个偏导数元素$\partial f(\mathbf{x})/\partial x_i$代表了当输入$x_i$时$f$在$\mathbf{x}$处的变化率。最陡下降的方向由负梯度$-\nabla f(\mathbf{x})$得出。选择合适的学习率$\eta &gt; 0$来生成典型的梯度下降算法：</p>
 <p>$$\mathbf{x} \leftarrow \mathbf{x} - \eta \nabla f(\mathbf{x})$$</p>
 <p>假设一个目标函数$f(\mathbf{x})=x_1^2+2x_2^2$，并有二维向量$\mathbf{x} = [x_1, x_2]^\top$作为输入，标量作为输出。则梯度$\nabla f(\mathbf{x}) = [2x_1, 4x_2]^\top$给出。下面是梯度从[-5,-2]开始进行下降。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_97ffd036de5bccd7c98ac095f52e28d2.jpg"><img alt="" src="/laumy.github.io/assets/doc/04-ai/深度学习/优化算法/images/wp_editor_md_97ffd036de5bccd7c98ac095f52e28d2.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/05/wp_editor_md_97ffd036de5bccd7c98ac095f52e28d2.jpg"><img alt="" src="/note_page/assets/doc/04-ai/深度学习/优化算法/images/wp_editor_md_97ffd036de5bccd7c98ac095f52e28d2.jpg"/></a></p>
 <p>注意，在实际训练时，如果f(x)是损失函数，那么x就是参数，通常对应的是w。</p>
 <h2 id="sgd">随机梯度下降(sgd)</h2>
 <p>在深度学习中，在训练数据时，有很多样本，按照前面的梯度下降方法，那么对于多个样本的损失我们可以使用平均值来表示。给定$n$个样本的训练数据集，我们假设$f_i(\mathbf{w})$是关于索引$i$的训练样本的损失函数，其中$\mathbf{w}$是参数向量，我们得到损失函数为：</p>
@@ -149,8 +149,8 @@
 </ul>
 <p>Adam优化器通过结合动量法和自适应学习率调整的机制，能够加速模型训练过程，提高收敛速度，尤其适用于处理大规模数据和复杂的深度学习模型。</p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/linux/perf工具使用.html">← perf工具使用</a>
-    <a class="next" href="/laumy.github.io/posts/ai/计算机视觉.html">计算机视觉 →</a>
+    <a class="prev" href="/note_page/posts/linux/perf工具使用.html">← perf工具使用</a>
+    <a class="next" href="/note_page/posts/ai/计算机视觉.html">计算机视觉 →</a>
   </div>
 </article>
 
@@ -165,7 +165,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

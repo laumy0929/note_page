@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>动态function tracer原理 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -781,8 +781,8 @@
 </code></pre></div>
 <p>register_ftrace_function是一个通用的注册函数，传递的参数struct ftrace_ops *ops即想要在函数入口插入跟踪的函数，无论是function tracer、irqsoff、fprobes、trace_event等函数都是调用该函数进行注册插桩，也可以自定义自己想要插桩的函数。 从原理上来讲，使能了-fpatchable-function-entry编译参数后，入口函数处就占了坑位，默认是先用nop指令填充，那么可以在运行阶段想换成啥就换成啥。</p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/linux/静态ftrace.html">← 静态ftrace</a>
-    <a class="next" href="/laumy.github.io/posts/linux/ftrace-概述.html">ftrace-概述 →</a>
+    <a class="prev" href="/note_page/posts/linux/静态ftrace.html">← 静态ftrace</a>
+    <a class="next" href="/note_page/posts/linux/ftrace-概述.html">ftrace-概述 →</a>
   </div>
 </article>
 
@@ -797,7 +797,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 

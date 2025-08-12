@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>静态链接与动态链接 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="/laumy.github.io/assets/style.css">
+    <link rel="stylesheet" href="/note_page/assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/laumy.github.io/">Laumy的技术栈</a>
+        <a class="logo" href="/note_page/">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="/laumy.github.io/">首页</a></div>
+          <div class="nav-item"><a href="/note_page/">首页</a></div>
         </nav>
       </div>
     </header>
@@ -81,22 +81,22 @@
 <h3 id="_2">空间与地址分配</h3>
 <p>这里的空间和地址有两个含义：一个是输出的可执行文件空间，另一个是装载运行后的虚拟地址空间。对于有实际数据的段，如.text和.data来说，它们在可执行文件中和虚拟地址中都要分配空间。而对于.bss，不需要分配可执行文件空间，因为他在文件中并没有内容（不占用文件大小），但是需要分配虚拟地址空间。</p>
 <p>需要注意的是：对于使用MMU的OS来说，使用的是虚拟地址，而如果没有MMU那么直接使用的就是物理地址空间。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_3a5fd321b0149ea88c936a9277eb0ea0.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_3a5fd321b0149ea88c936a9277eb0ea0.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_3a5fd321b0149ea88c936a9277eb0ea0.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_3a5fd321b0149ea88c936a9277eb0ea0.jpg"/></a></p>
 <p>上图中a.o和b.o中的.text，.data，.bss依次进行了合并，.bss不占用实际空间，只是方便描述。在空间与地址分配过程中，扫描所有的输入目标文件，获取各个目标文件中的各个section的长度、属性、位置，然后将相同属性的section合并，然后计算出输出文件中各个段合并后的长度和位置。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_05aa96444cbbbcd7e1eea92ed1f7a17e.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_05aa96444cbbbcd7e1eea92ed1f7a17e.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_05aa96444cbbbcd7e1eea92ed1f7a17e.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_05aa96444cbbbcd7e1eea92ed1f7a17e.jpg"/></a></p>
 <p>上图是使用objdump -h 分别查看a.o,b.o以及输出的ab链接前后地址分配情况。VMA就是虚拟地址空间（如果没有使用MMU，那么代表的就是时间的物理地址空间），对应虚拟地址空间的分配也主要关注VMA这部分，因为VMA代表的是程序被加载到内核时间运行的地址范围。可以看出a.o和b.o中各个sections的VMA都是为0，因为a.o和b.o没有经过链接器进行链接，所以还没有分配地址空间。当使用链接器ld将a.o和b.o进行链接生成ab后，可以看出各个section都分配了VMA地址。需要注意的是上图中的size是VMA的size，.text和.data实际占用大小与VMA大小相等，而.bss实际占用大小为0，VMA却不是。</p>
 <p>总结：链接器的第一步是输出一个可执行文件空间（合并后的section范围）和装载运行后的虚拟地址空间（VMA范围），简称为空间与地址分配。</p>
 <h3 id="_3">符号解析与重定位</h3>
 <p>先来思考一个问题，在示例代码中a.c调用了外部swap函数，而swap在b.c中使用gcc -c a.c不会编译报错？之所以不报错，是因为编译器当遇到外部符号是，先占个\\\\"坑\\\\"，等后续链接阶段再来填。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_812327e074adccb5bfe930b0416af902.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_812327e074adccb5bfe930b0416af902.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_812327e074adccb5bfe930b0416af902.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_812327e074adccb5bfe930b0416af902.jpg"/></a></p>
 <p>如上图，通过objdump -d a.o和objdump -d ab可以看出，在a.o中执行swap函数时，偏移值是0（e8是callq操作码），而到ab中偏移值已经修正为(0x07)。</p>
 <p>因此在单独编译每个目标文件（模块）时，遇到外部符号会暂时使用地址0（或其他值）占个\\\\"坑\\\\"代替，把真正地址计算工作留给链接器处理，在上一小节中链接器完成地址和空间分配之后已经确定了所有符号的虚拟地址（也就是说swap函数地址已确定），那么链接器就可以根据符号的地址对每个需要重定位的指令进行修正（修正的是地址不是操作码）。</p>
 <p>在链接阶段需要重定位的指令做修正，那么链接器是如何判断哪些指令地址需要修正了？在ELF文件中，专门一个重定位表(.rel.xxx)专门用来保存需要修正的地址。如代码段.text需要被重定位，在会有一个.rel.text保存重定位信息，数据段.data需要被重定位，则会有一个.rel.data来保存重定位信息，可以使用objdump -r来查询目标文件重定位表。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_2cb49c260e411c862d12c6f356f19a64.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_2cb49c260e411c862d12c6f356f19a64.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_2cb49c260e411c862d12c6f356f19a64.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_2cb49c260e411c862d12c6f356f19a64.jpg"/></a></p>
 <p>如上图可知a.o中.text和.eh_frame 这两个sections有需要被重定位，b.o中有.eh_frame一处需要被重定位，ab是没有的，在a.o中.text OFFSET表明了修正的偏移位置。</p>
 <p>链接器根据重定位表知道哪些位置需要被修正，就会去查找有所有输入目标文件的符号表组成的全局符号表（这个过程就是符号解析），找到对应的符号后获取地址进行修正。</p>
 <p>可以使用readelf -s xx来查询符号表。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_a550d3a43063394586c5e0c30bbd28c3.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_a550d3a43063394586c5e0c30bbd28c3.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_a550d3a43063394586c5e0c30bbd28c3.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_a550d3a43063394586c5e0c30bbd28c3.jpg"/></a></p>
 <h3 id="_4">小结</h3>
 <p>静态链接可以让各程序文件（模块）单独编译生产目标文件，最终通过链接器合并起来，链接器会将各个模块需要外部代码复制进来打包成一个可执行文件。链接器在链接阶段主要使用了空间和地址分配、符号解析和重定位方法，前者确定了最终可执行文件空间和虚拟地址，后者使得程序在编译的时候可以独立编译最终在链接阶段整合。符号解析和重定位是静态链接的核心内容，主要核心思想是使用.rel.xxx重定位表记录要重定向的地址，然后通过解析全局符号搜索地址完成重定位地址的修正。</p>
 <h2 id="_5">动态链接</h2>
@@ -157,16 +157,16 @@
 </ul>
 <p>模块内部调用，调用的函数与调用者都在同一个模块中，他们之间的相对位置是固定的，根据相对地址的调用就可以实现，因此这种调用不需要重定位。 模块间的调用，模块间的数据访问目标地址需要等到装载时才能确定，所以在装载运行时才能找到目标地址，那么只能把跟地址相关的部分放到数据段里面，这些其他模块的全局变量地址跟模块装载地址有关。这个数据段里面存储的是指向全局变量的地址，称为全局偏移表（GOT）。为引用外部符号生成一个全局GOT表，这个GOT在编译期间已经生成，只是这期间的内容不是指向正确的地址，因为目标地址还不知道，等到运行装载时，目标地址确定了，由装载器进行更新这个表，这样就可以通过GOT表访问到外部符号。</p>
 <p>使用静态链接时，调用外部模块的符号时可以通过链接器进行符号解析并重定位修正地址，而要使用动态链接时，因为在链接时外部符号的地址是不确定的，不清楚加载到那个位置，因为可执行程序和动态库是独立的不是一个整体，只有在运行的时候才加载动态库，也就是说在运行阶段才能进行修正，那么问题又来了，在运行阶段.text是只读属性，没法进行修改了指令了，要解决这个问题，ELF的做法就是在数据段里面建立一个表用于存储要修改的符号地址，称为全局偏移表（Gloabal Offset Table），当需要修正的代码统一先跳转到GOT的位置，而GOT又是在数据段便可以进行修改，在运行阶段扫描获取外部符号的运行地址进行填充，那么解决了这个问题。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_2c448f1f7245745c7b8b424e53faea53.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_2c448f1f7245745c7b8b424e53faea53.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_2c448f1f7245745c7b8b424e53faea53.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_2c448f1f7245745c7b8b424e53faea53.jpg"/></a></p>
 <p>如上图a.out应用了libt.so中的变量b和swap函数，在编译链接生成a.out时，解析出b和swap是外部符号，那么就统一跳转到GOT表中，根据GOT中变量所对应的表项找到目标地址执行。 GOT表的填充是在程序加载时（要运行前）就完成了，加载程序会解析a.out中的.interp找到要加载的动态链接器ld的位置（解释器），然后通过.dymamic段获取动态库的信息（依赖哪些动态库、动态链接符号表位置等），最后通过.symtab动态符号表（与静态链接的符号表类似）和.rel.xxx(.rel.dyn和.rel.plt分别对应数据，函数的修正)符号解析和重定位。</p>
 <h3 id="_7">地址和空间分配</h3>
 <p>先来看下a.out实际运行时，地址的范围情况：</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_fcaf6ef4633b08af093b6253bb32e446.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_fcaf6ef4633b08af093b6253bb32e446.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_fcaf6ef4633b08af093b6253bb32e446.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_fcaf6ef4633b08af093b6253bb32e446.jpg"/></a></p>
 <p>a.out实际运行时，虚拟地址空间中的模块可以分为几个部分：a.out、libc-2.19.so、libt.so、ld-2.19.so、stack等，a.out的可执行代码地址范围0x00400000~0x00401000,数据段:0x00601000~0x00602000;libt.so的地址范围：0x7f1d921ab000-0x7f1d923ad000。</p>
 <p>使用objdump -h a.out查看section情况，VMA与落在运行时的地址范围。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_19752c18a32677f9a637d2f026c9716d.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_19752c18a32677f9a637d2f026c9716d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_19752c18a32677f9a637d2f026c9716d.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_19752c18a32677f9a637d2f026c9716d.jpg"/></a></p>
 <p>使用objdump -h libt.so查看section情况如下。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_0103bdff8b22045de86f88aa3e116de4.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_0103bdff8b22045de86f88aa3e116de4.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_0103bdff8b22045de86f88aa3e116de4.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_0103bdff8b22045de86f88aa3e116de4.jpg"/></a></p>
 <p>因为libt.so编译时使用了-fPIC参数，表示地址无关，地址是从0x00000000开始的，这地址不是实际运行的地址，代表的只是偏移，实际地址落在0x7f1d921ab000-0x7f1d923ad000中。共享对象的最终装载地址在编译时时不确定的，而是在装载时，装载器根据当前地址空间空闲情况，动态分配一块足够大小的虚拟地址空间给相应的共享对象。</p>
 <p>可执行文件与静态链接地址和空间分配没什么差异，而动态库是有差别的，虚拟地址空间分配的是相对值，其实际运行的虚拟地址需要到被调用的可执行文件运行时才会分配。</p>
 <h3 id="plt">延迟绑定PLT</h3>
@@ -176,17 +176,17 @@
 <li>动态链接的链接工作在程序开始执行时完成，链接器寻找并装载所需要的共享对象，然后进行符号查找地址重定位，这个过程就会减慢程序启动速度。</li>
 </ul>
 <p>正如上面第二点缺点，程序开始执行前动态链接会消耗不少时间用于解决模块之间的函数引用的符号查找并进行重定位工作，但是一个程序在运行过程中，可能很多外部函数符号在执行结束都可能用不到，比如一些错误处理等，如果一开始就把所有外部函数符号都进行一次性链接那么实际上是种浪费，因此ELF采用了延迟绑定（Lazy Bingding）来进行优化，核心思想就是函数第一次被用到时才进行绑定（符号查找，重定位），如果没有用到则不进行绑定。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_d3964d0796ef5f0a53fa9d0418c68d14.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_d3964d0796ef5f0a53fa9d0418c68d14.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_d3964d0796ef5f0a53fa9d0418c68d14.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_d3964d0796ef5f0a53fa9d0418c68d14.jpg"/></a></p>
 <p>引入延时绑定后ELF的构成就变成如上图所示。</p>
 <ul>
 <li>.plt: 每个外部符号都对应一个plt项，plt中的内容存放着几条指令，主要的作用是先跳转到got表中查询是否有目标地址，如果没有就调用_dl_runtime_resolve查询全局符号表将目标地址填充到.got表中，跳转运行。填充好后，下次再调用时就可以直接从got表中跳转，不需要再调用_dl_runtime_resolve查询。</li>
 <li>.got:保存全局变量引用的地址。</li>
 <li>.got.plt:保存函数引用的地址，与.got还有一个特殊的地方就是前3项存储的是.dynamic的地址，模块的ID，_dl_runtime_resolve地址。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_9ef19d58966e7420165c919c4b889026.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_9ef19d58966e7420165c919c4b889026.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_9ef19d58966e7420165c919c4b889026.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_9ef19d58966e7420165c919c4b889026.jpg"/></a></p>
 <p>上图以调用外部swap函数为例，说明流程。 ①：执行到swap函数，跳转到swap@plt。 ②：swap@plt在.plt的第4个表项PLT[3]，从上图中PLT[3]存储了3条指令，第一条指令jmpq _GOT[3]处，GOT[3]中存储的是400616,即下一条指令，因为是第一次调用，swap在got表项并没有目标地址，GOT[3]中存储的是PLT[3]第二条指令地址，先入栈偏移量，这里的偏移是swap函数在got.plt的偏移量，便于查找到实际的swap地址填充到.got.plt表中，接着再下一条指令就是跳转到PLT[0]的地址执行。 ③：PLT[0]的第一条指令是pushq *GOT[1]，而_GOT[1]存储的是依赖库的module id，该id是用于寻找库的，将module ID压入栈，接着jmpq到*GOT[2],而GOT[2]保存的正好是_dl_runtime_resolve的地址。由此可知PLT[0]是公共表项，存储的2条指令用于跳转到_dl_runtime_resolve运行。 ④：调用_dl_runtime_resolve执行符号解析和重定位工作，并将swap的目标地址填充到GOT[3]。 至此，第一次调用流程完成，swap的地址已经填充到GOT表中，下次再执行swap函数时，就从GOT[3]获取到地址直接跳转，就没有查询过程。</p>
 <p>下面是通过反汇编objdump -D获取.plt实际情况。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_7b4608aa50847c30c83d443fad85d73b.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_7b4608aa50847c30c83d443fad85d73b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_7b4608aa50847c30c83d443fad85d73b.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_7b4608aa50847c30c83d443fad85d73b.jpg"/></a></p>
 <h3 id="_8">动态链接相关结构</h3>
 <h4 id="interp">.interp</h4>
 <p>interp是interpreter解释器的缩写，决定动态链接器ld的位置，里面一般就是一个字符串\\\\"/lib/ld-linux.so.2\\\\"</p>
@@ -339,12 +339,12 @@
 <li>将系统调用的返回地址修改为ELF可执行文件的入口点，如果是静态链接的ELF就是ELF文件中e_entry地址，如果是动态链接的ELF就是动态链接器LD。</li>
 </ol>
 <p>总结下，常用工具链调试命令。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_9e28a09d7562e1c3a8e9d6140b2131bd.jpg"><img alt="" src="/laumy.github.io/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_9e28a09d7562e1c3a8e9d6140b2131bd.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_9e28a09d7562e1c3a8e9d6140b2131bd.jpg"><img alt="" src="/note_page/assets/doc/07-调试/静态链接与动态链接/images/wp_editor_md_9e28a09d7562e1c3a8e9d6140b2131bd.jpg"/></a></p>
 <p>最后总结下动态链接的核心思想：编译成位置无关的库，当需要调用到这些库中的符号时，在数据段生成.got（外部变量表）和.got.plt（外部函数表），在程序开始要运行时，就执行查找到依赖的外部符号（变量或函数）地址填充到表中，即可运行。为了解决不需要把所有的符号在运行时一下全填充进.got_中，且降低刚启动寻址的时间，使用了延时绑定技术，先生成.plt表，表中存储在动态库中搜索符号的逻辑指令填充到.got_表中，第一次运行找不到符号时就在库中查找填充到.got_表中，下次就直接可以在.got_跳转运行。</p>
 <p>参考：&lt;程序员的自我修养 链接、装载与库&gt;</p></div>
   <div class="post-nav">
-    <a class="prev" href="/laumy.github.io/posts/阅读/金字塔原理.html">← 金字塔原理</a>
-    <a class="next" href="/laumy.github.io/posts/调试/elf格式解析.html">ELF格式解析 →</a>
+    <a class="prev" href="/note_page/posts/阅读/金字塔原理.html">← 金字塔原理</a>
+    <a class="next" href="/note_page/posts/调试/elf格式解析.html">ELF格式解析 →</a>
   </div>
 </article>
 
@@ -359,7 +359,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="/laumy.github.io/assets/site.js"></script>
+    <script src="/note_page/assets/site.js"></script>
   </body>
   </html>
 
