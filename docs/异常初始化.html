@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>异常初始化 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="">首页</a></div>
         </nav>
       </div>
     </header>
@@ -187,8 +187,8 @@
 </code></pre></div>
 <p>arch/riscv/kernel/entry.S是关于risc-v trap入口的实现，trap的包含异常和中断。trap的中总入口为handle_exception，主要处理一下事项。 - 保存上下文，主要是将一些寄存器压入栈中。 - 根据scause寄存器判断是异常还是中断，如果是中断跳转到do_IRQ运行，如果是异常根据异常的cause进分发处理。 - 异常中有一类是系统调用，根据scause查询如果是系统调用根据sys_call_table[]跳转处理。 - 异常如果不是系统调用，就是程序运行中出现的异常，根据scause查询excp_vect_table[]跳转处理。 - 异常和中断都处理完成之后，最终回到ret_from_exception，这里会根据sstatus的SSP位来判断是用户态陷入的还是内核态陷入，根据内核和用户态的更新tp。 - 最后调用RESTORE_ALL恢复上下文，退出trap。</p></div>
   <div class="post-nav">
-    <a class="prev" href="../虚拟地址空间与物理地址空间完整映射.html">← 虚拟地址空间与物理地址空间完整映射</a>
-    <a class="next" href="../挂载根文件系统.html">挂载根文件系统 →</a>
+    <a class="prev" href="虚拟地址空间与物理地址空间完整映射.html">← 虚拟地址空间与物理地址空间完整映射</a>
+    <a class="next" href="挂载根文件系统.html">挂载根文件系统 →</a>
   </div>
 </article>
 
@@ -203,7 +203,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="assets/site.js"></script>
   </body>
   </html>
 

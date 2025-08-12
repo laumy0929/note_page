@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>使能MMU - Laumy的技术栈</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="">首页</a></div>
         </nav>
       </div>
     </header>
@@ -159,8 +159,8 @@
 <p>当使能MMU时，下一条指令的取指就需要经过MMU进行翻译，但是下一条指令的地址依旧是物理地址，MMU查询不到对应的页表就会进入异常，而异常的入口实现使用了虚拟地址进行填充，虚拟地址的页表也在set_vm中进行了填充，因此虚拟地址是可以通过MMU查表找到物理地址，这样就从物理地址过渡到了虚拟地址的运行。</p>
 <p>针对前面做个小结： 引导linux系统启动，需要解决的是物理地址切换到虚拟地址运行，而分界点就是写satp寄存器，使能MMU的那一刻。虚拟地址转化为物理地址，而关键点就是为MMU分配页表并填充好页表，而此时内存管理未初始化，又分配不了，所以总结下，就遇到了如下的问题。 6.内存管理没准备好。 7.需要分配页表。 8.开了MMU后，分配的页表能够用虚拟地址访问。 9.开了MMU后，要能够用虚拟地址访问内核。 10.开了MMU后，能够用虚拟地址访问设备树。 针对上面的问题对应的解决办法： 1.提前定义全局的静态数组用于做页表。 2.对内核vmlinux做粗粒度映射。 3.固定一段虚拟地址fixmap用于访问设备树、新分配的页表。 4.物理地址到虚拟地址的切换巧妙使用进异常进行转化。</p></div>
   <div class="post-nav">
-    <a class="prev" href="../临时虚拟地址空间映射.html">← 临时虚拟地址空间映射</a>
-    <a class="next" href="../虚拟地址与物理地址概念.html">虚拟地址与物理地址概念 →</a>
+    <a class="prev" href="临时虚拟地址空间映射.html">← 临时虚拟地址空间映射</a>
+    <a class="next" href="虚拟地址与物理地址概念.html">虚拟地址与物理地址概念 →</a>
   </div>
 </article>
 
@@ -175,7 +175,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="../assets/site.js"></script>
+    <script src="assets/site.js"></script>
   </body>
   </html>
 
