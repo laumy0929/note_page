@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>进程基本概念 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="../../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -131,8 +131,8 @@
 <h2 id="_5">获取当前进程</h2>
 <p>系统运行时，调度操作的数据结构就是task_struct，因此在系统调度时要运行进程，必现要找到对应进程的task_struct结构体。Linux内核提供了current宏来方便快速找到当前要运行或正在运行的task_struct数据结构。   current的实现和具体的架构有关，通常有两类实现方式。在ARM32系统中，存放了一个thread_info的数据结构在内核栈里面，current宏通过arm32的SP寄存器来获取当前内核栈的地址，对齐后即可获取到thread_info数据结构的指针，最后通过thread_info-&gt;task成员获取task_struct数据结构。   在linux 5.0内核中，新增了一个配置选项CONFIG_THREAD_INFO_IN_TASK，将thread_info存放在task_struct数据结构中。在ARM64处理上，利用SP_EL0寄存器粗放囊当前进程的task_struct数据结构的地址。</p></div>
   <div class="post-nav">
-    <a class="prev" href="markdown使用说明.html">← markdown使用说明</a>
-    <a class="next" href="中断小结.html">中断小结 →</a>
+    <a class="prev" href="../../markdown使用说明.html">← markdown使用说明</a>
+    <a class="next" href="../../中断小结.html">中断小结 →</a>
   </div>
 </article>
 
@@ -147,7 +147,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="assets/site.js"></script>
+    <script src="../../assets/site.js"></script>
   </body>
   </html>
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>文件系统常见系统调用 - Laumy的技术栈</title>
-    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="../../assets/style.css">
     <!-- MathJax支持LaTeX数学公式 -->
     <script>
       window.MathJax = {
@@ -26,13 +26,13 @@
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="../">Laumy的技术栈</a>
+        <a class="logo" href="../../">Laumy的技术栈</a>
         <div class="search">
           <input id="search-input" type="text" placeholder="输入关键词回车搜索">
         </div>
         <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
         <nav class="top-nav">
-          <div class="nav-item"><a href="../">首页</a></div>
+          <div class="nav-item"><a href="../../">首页</a></div>
         </nav>
       </div>
     </header>
@@ -118,8 +118,8 @@
 <p><a href="https://www.laumy.tech/wp-content/uploads/2023/11/wp_editor_md_b200393de75355dfd208c2e0f43e8551.jpg"><img alt="" src="assets/doc/01-linux/文件系统/文件系统常见系统调用/images/wp_editor_md_b200393de75355dfd208c2e0f43e8551.jpg"/></a></p>
 <p>大体流程跟write的类似，我们重点看唤醒I/O读的方式，通过filemap_get_pages获取page，如果没有找到不但读取一页，还有进行预读，调用page_cache_sync_readahead函数发起预读操作，这次预读的操作应该是在原来的page缓存基础上发起预读补充，预读后再进行判断是否找到要读数据对应的page，如果还是没有则直接分配一个page添加到树上，然后从磁盘中读取数据填充，接着判断一下page的数据是否填满需要预读，如果需要则发起一次异步预读操作。最后找到要读数据对应的page后，调用copy_page_to_iter将数据拷贝到用户空间。</p></div>
   <div class="post-nav">
-    <a class="prev" href="一切皆文件之字符设备.html">← 一切皆文件之字符设备</a>
-    <a class="next" href="实现简单文件系统.html">实现简单文件系统 →</a>
+    <a class="prev" href="../../一切皆文件之字符设备.html">← 一切皆文件之字符设备</a>
+    <a class="next" href="../../实现简单文件系统.html">实现简单文件系统 →</a>
   </div>
 </article>
 
@@ -134,7 +134,7 @@
       <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
     </footer>
 
-    <script src="assets/site.js"></script>
+    <script src="../../assets/site.js"></script>
   </body>
   </html>
 
