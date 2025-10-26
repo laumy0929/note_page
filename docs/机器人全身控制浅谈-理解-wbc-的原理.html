@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>机器人全身控制浅谈：理解 WBC 的原理 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">概念</a><ul></ul></li><li><a href="#_2">原理</a><ul><li><a href="#_3">动力学方程</a></li><li><a href="#_4">优化问题</a></li></ul></li><li><a href="#_5">示例</a><ul></ul></li><li><a href="#wbcmpc">WBC与MPC</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>机器人全身控制浅谈：理解 WBC 的原理</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-29
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">概念</h2>
+<p>WBC（Whole-Body Control，全身控制）是什么？机器人是由“各关节”组成的，其不是“各关节各玩各的”而是一个耦合的整体。在某个时刻可能要做很多事情，比如保持平衡（重心别出圈）、手/脚要动作到目标位置、躯干姿态不能乱、关节不能超限、脚下不能打滑。这些都是一系列任务的组合。</p>
+<p>WBC的核心就是把这些任务（目标）和约束（物理/安全）写进一个<strong>小型优化问题</strong>，在每个控制周期（几百hz~1Khz）求解，得到<strong>“当下这毫秒，各关节应该怎么动/用多大力”</strong>。</p>
+<p>一句话总结就是WBC就是用优化的方法求解出要给“关节多少力“”以便让机器的各个关节一起配合完成多个目标，且不违反物理与安全约束。</p>
+<h2 id="_2">原理</h2>
+<h3 id="_3">动力学方程</h3>
+<p>要解释WBC的原理，那必须绕不开动力学方程，这里就先对动力学方程做个简单介绍。</p>
+<p>$$ M(q)\dot{v} + h(q,v) = S^T \tau + J_c^T \lambda $$</p>
+<p>配合接触约束：</p>
+<p>$$ J_c v = 0,\quad \lambda \in \text{摩擦锥} $$</p>
+<p>通俗理解公式就是：“惯性 × 加速度 + 自然出现的力 = 电机能给的力 + 地面/物体的反力”</p>
+<p><strong>公式左边：机器人自身的自然物理</strong></p>
+<ul>
+<li>变量$M(q)\dot{v}$：惯性项。$M(q)$是质量矩阵，描述机器人在不同姿态下的惯性特性。$\dot{v} $是广义加速度（关节加速度或身体的加速度）；其意义就像$F=ma$里面的$ma$，表示加速一个有惯性的物体需要的力</li>
+<li>变量$h(q,v)$：重力+速度相关项（科氏力、离心力）。如果机器人静止，这里主要就是重力。如果在运动，这里就会出现"速度带来的额外力"，类似开车转弯时身体被甩出去的感觉。</li>
+</ul>
+<p><strong>公式右边：外界能提供的“驱动力”</strong></p>
+<ul>
+<li>变量$S^T \tau$：电机能施加的关节力矩。$\tau$电机产生的力矩（控制器的输出），$S^T$选择矩阵，把电机力矩映射到广义坐标系中。</li>
+<li>变量$J_c^T \lambda$：接触点反力。$\lambda$来自地面或物体的力（约束反作用力），$J_c$接触点的雅可比，把关节速度映射到接触点速度。$J_c^T \lambda$把“地面推脚的力”转换回“关节的力”。</li>
+</ul>
+<p>直观记忆就是类比现实生活中的推车子：</p>
+<ul>
+<li>你推车：电机力矩$\tau$。</li>
+<li>地面支撑车子：接触反力$\lambda$。</li>
+<li>车子有质量，要加速就得克服惯性：$M(q)\dot{v}$。</li>
+<li>重力和转弯的惯性： $h(q,v)$。</li>
+</ul>
+<p><strong>接触力约束</strong></p>
+<p>还要满足接触力约束$J_c v = 0,\quad \lambda \in \text{摩擦锥}$，其中$J_c v = 0$意义是接触点速度为0，比如机器人脚贴在地上不滑、不穿透；$\quad \lambda \in \text{摩擦锥}$意义是接触力必须满足摩擦模型，脚不会不穷大摩擦，力要在摩擦椎范围内。</p>
+<p><strong>公式中涉及到一个雅可比，什么是雅可比$Jc$?</strong></p>
+<p>假设有一个机械臂：</p>
+<ul>
+<li>关节角度：就像是控制的"按钮"。</li>
+<li>手末端的位置：就是最终关心的"结果"。</li>
+</ul>
+<p>那么问题就是关节角度动一动，末端的位置会怎么动了？这个"关节空间的微小变化"影响到“末端空间的微小变化”。这样一个映射关系，就是雅可比矩阵$J$。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_9c627c65e696506119c68763ef55a836_1759129986.png"><img alt="" src="assets/doc/04-ai/算法模型/机器人全身控制浅谈：理解-wbc-的原理/images/wp_editor_md_9c627c65e696506119c68763ef55a836_1759129986.png"/></a></p>
+<p>图中红色箭头表示关节角度的小变化$\Delta \theta_1 , \Delta \theta_2$。红色箭头的变换导致绿色箭头末端位置的变化：$ \Delta x , \Delta y$。雅可比矩阵 $J$ 就是把</p>
+<p>$$ \begin{bmatrix}\Delta \theta_1 \ \Delta \theta_2\end{bmatrix} \longrightarrow \begin{bmatrix}\Delta x \ \Delta y\end{bmatrix} $$</p>
+<p>因此如果想要末端动多少就用$J$，想算末端力传回关节多少就用$J^T$。</p>
+<p>总结一下雅可比$J$就是关节空间和任务空间的桥梁，作用就是我们关节动多少，末端/接触点动多少。</p>
+<p><strong>动力学方程在WBC中的用处？</strong></p>
+<p>动力学方程是机器人身体运动的"牛顿定律"，我们来看看WBC的目标是什么？WBC不只是让机器人"走"或"站"，而是要全身协调，比如要去抓杯子，脚要保持不滑，躯干要保持平衡，关节力矩不能超过电机限制。所以WBC的本质是解一个<strong>优化问题</strong>，找出一组关节力矩$\tau$，既能完成任务目标，又<strong>满足动力学方程和约束</strong>。</p>
+<h3 id="_4">优化问题</h3>
+<p>WBC的核心思路是<strong>把机器人全身的目标任务转化为优化问题，在满足物理规律和约束条件的前提下，求出最合适的一组关节力矩$\tau$。</strong></p>
+<p>具体一点在WBC中求解的决策变量通常是如下三个：</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_da59dcb12c4b0ca31aa99472d5ce4b5f_1760058823.png"><img alt="" src="assets/doc/04-ai/算法模型/机器人全身控制浅谈：理解-wbc-的原理/images/wp_editor_md_da59dcb12c4b0ca31aa99472d5ce4b5f_1760058823.png"/></a></p>
+<ul>
+<li>最优的关节力矩$\tau$。</li>
+<li>接触点反力$\lambda$。</li>
+<li>机器人下一步的加速度$\dot{v} $。</li>
+</ul>
+<p><strong>优化问题转换为数学的目标函数如下</strong>：</p>
+<p>$$ \min_{x} | J_{\text{task}} \dot{v} - \dot{v}_{\text{des}} |^2 + | \tau |^2 + | \lambda |^2 $$</p>
+<p>公式中$J_{\text{task}}\dot{v} - \dot{v}<em _92_text_task="\text{task">{\text{des}}$表示实际加速度与期望加速度的误差，$J</em>$是我们期望任务空间实现的期望加速度（比如手往前加速 0.5 m/s²，质心保持 0 加速度）。}} \dot{v}$是在当前关节加速度下，末端/任务空的实际加速度，而$\dot{v}_{\text{des}</p>
+<p>同时优化问题还要满足以下约束条件：</p>
+<ul>
+<li>动力学约束：$M(q)\dot{v} + h(q,v) = S^T \tau + J_c^T \lambda$。这是硬约束，控制器必须遵守。</li>
+<li>接触约束：$J_c v = 0$，接触点不能乱动（不滑、不穿透）。</li>
+<li>摩擦约束：$\lambda \in \mathcal{K}_{\text{fric}}$，接触力必须符合摩擦模型（不能无限大）。</li>
+<li>力矩限制：$\tau_{\min} \leq \tau \leq \tau_{\max}$。</li>
+</ul>
+<p>总结一下优化问题的目标函数意思就是要满足任务误差最小化（手/身体/质心的加速度跟踪目标），同时要满足能量或力矩最小化（不能浪费力），同时满足接触力正则化（力要稳定不能乱跳）。</p>
+<p><strong>方程有了，怎么求解了？</strong></p>
+<p>这个目标函数是一个二次型，符合QP，所以可以用现成的QP求解器来解，例如：OSQP、qpOASES、Gurobi（商业求解器）、CPLEX（商业求解器）、CVXPy（Python 封装，常用于原型），这里就不过多阐述了。</p>
+<p>总结一下WBC核心就是要解决一个优化问题：二次目标（误差最小 + 力矩正则） + 动力学/接触/摩擦/限幅约束。其求解的方式通常使用QP 求解器（实时、高效、全局最优）。求解的结果是关节力矩$\tau$（给电机执行），同时还得到加速度$\dot{v}$和接触力$\lambda$。</p>
+<h2 id="_5">示例</h2>
+<p>接下来我们调用cvxpy库看看示例，直观体验一下。</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">cvxpy</span> <span class="k">as</span> <span class="nn">cp</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="c1"># ---- 机械臂参数 ----</span>
+<span class="n">l1</span><span class="p">,</span> <span class="n">l2</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span>
+<span class="n">m1</span><span class="p">,</span> <span class="n">m2</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span>
+<span class="n">theta1</span><span class="p">,</span> <span class="n">theta2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mi">45</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
+
+<span class="c1"># ---- 雅可比（末端位置对关节的导数）----</span>
+<span class="n">J_task</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+    <span class="p">[</span><span class="o">-</span><span class="n">l1</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta1</span><span class="p">)</span> <span class="o">-</span> <span class="n">l2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta1</span><span class="o">+</span><span class="n">theta2</span><span class="p">),</span> <span class="o">-</span><span class="n">l2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta1</span><span class="o">+</span><span class="n">theta2</span><span class="p">)],</span>
+    <span class="p">[</span> <span class="n">l1</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta1</span><span class="p">)</span> <span class="o">+</span> <span class="n">l2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta1</span><span class="o">+</span><span class="n">theta2</span><span class="p">),</span>  <span class="n">l2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta1</span><span class="o">+</span><span class="n">theta2</span><span class="p">)]</span>
+<span class="p">])</span>
+
+<span class="c1"># ---- 动力学质量矩阵 M（简化版）----</span>
+<span class="n">M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+    <span class="p">[</span><span class="n">m1</span><span class="o">*</span><span class="n">l1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">m2</span><span class="o">*</span><span class="p">(</span><span class="n">l1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">l2</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">l1</span><span class="o">*</span><span class="n">l2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta2</span><span class="p">)),</span> <span class="n">m2</span><span class="o">*</span><span class="p">(</span><span class="n">l2</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">l1</span><span class="o">*</span><span class="n">l2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta2</span><span class="p">))],</span>
+    <span class="p">[</span><span class="n">m2</span><span class="o">*</span><span class="p">(</span><span class="n">l2</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">l1</span><span class="o">*</span><span class="n">l2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta2</span><span class="p">)),</span> <span class="n">m2</span><span class="o">*</span><span class="n">l2</span><span class="o">**</span><span class="mi">2</span><span class="p">]</span>
+<span class="p">])</span>
+<span class="n">h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># 忽略重力/科氏项</span>
+
+<span class="c1"># ---- 接触约束：假设末端y方向不能动（竖直方向约束）----</span>
+<span class="n">Jc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]])</span> <span class="o">@</span> <span class="n">J_task</span>   <span class="c1"># 取末端y方向的行</span>
+
+<span class="c1"># ---- 变量 ----</span>
+<span class="n">ddq</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>   <span class="c1"># 关节加速度</span>
+<span class="n">tau</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>   <span class="c1"># 力矩</span>
+<span class="n">lam</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="c1"># 接触力 (竖直反作用力)</span>
+
+<span class="c1"># ---- 期望任务加速度（末端x方向=1.0, y方向=0.0）----</span>
+<span class="n">xddot_des</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+
+<span class="c1"># ---- 目标函数：末端任务 + 力矩/接触力正则 ----</span>
+<span class="n">objective</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">Minimize</span><span class="p">(</span>
+    <span class="n">cp</span><span class="o">.</span><span class="n">sum_squares</span><span class="p">(</span><span class="n">J_task</span> <span class="o">@</span> <span class="n">ddq</span> <span class="o">-</span> <span class="n">xddot_des</span><span class="p">)</span> <span class="o">+</span>
+    <span class="mf">0.01</span><span class="o">*</span><span class="n">cp</span><span class="o">.</span><span class="n">sum_squares</span><span class="p">(</span><span class="n">tau</span><span class="p">)</span> <span class="o">+</span>
+    <span class="mf">0.01</span><span class="o">*</span><span class="n">cp</span><span class="o">.</span><span class="n">sum_squares</span><span class="p">(</span><span class="n">lam</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1"># ---- 约束 ----</span>
+<span class="n">constraints</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">M</span> <span class="o">@</span> <span class="n">ddq</span> <span class="o">+</span> <span class="n">h</span> <span class="o">==</span> <span class="n">tau</span> <span class="o">+</span> <span class="n">Jc</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">lam</span><span class="p">,</span>   <span class="c1"># 动力学方程</span>
+    <span class="n">Jc</span> <span class="o">@</span> <span class="n">ddq</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>                     <span class="c1"># 接触点不加速</span>
+    <span class="n">tau</span> <span class="o">&gt;=</span> <span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="n">tau</span> <span class="o">&lt;=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">lam</span> <span class="o">&gt;=</span> <span class="mi">0</span>                           <span class="c1"># 接触力必须向上推</span>
+<span class="p">]</span>
+
+<span class="c1"># ---- 求解 ----</span>
+<span class="n">prob</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">Problem</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
+<span class="n">prob</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Optimal joint accelerations:"</span><span class="p">,</span> <span class="n">ddq</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Optimal torques:"</span><span class="p">,</span> <span class="n">tau</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Optimal contact force λ:"</span><span class="p">,</span> <span class="n">lam</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"End-effector acc achieved:"</span><span class="p">,</span> <span class="n">J_task</span> <span class="o">@</span> <span class="n">ddq</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Desired end-effector acc   :"</span><span class="p">,</span> <span class="n">xddot_des</span><span class="p">)</span>
+</code></pre></div>
+<p>上面的示例中可以分为几部分：</p>
+<p><strong>（1）任务</strong></p>
+<p>末端（手）在水平 $x$ 方向产生 $1.0 \text{m/s}^2$ 的加速度。在垂直 $y$ 方向不要加速（因为手撑在桌子上，不应该离开桌面）。</p>
+<p>数学写法：</p>
+<p>$$ \ddot{x}_{des} = [1.0,0.0]^T $$</p>
+<p><strong>（2）决策变量</strong></p>
+<p>优化器要决定的量是</p>
+<p>$$ \ddot{q} = [\ddot{\theta}_1,\ddot{\theta}_2]^T, \quad \tau = [\tau_1,\tau_2]^T, \quad \lambda $$</p>
+<p><strong>（3）要优化的目标函数</strong></p>
+<p>最小化</p>
+<p>$$ \min_{\ddot{q},\;\tau,\;\lambda}| J_{\text{task}} \ddot{q} - \ddot{x}_{des} |^2+ 0.01 |\tau|^2+ 0.01 |\lambda|^2 $$</p>
+<p><strong>（4）约束条件</strong></p>
+<ul>
+<li>动力学约束：$M(q)\ddot{q} + h(q,\dot{q}) = \tau + J_c^T \lambda$</li>
+<li>接触约束：$J_c \ddot{q} = 0$</li>
+<li>力矩范围：$-10 \leq \tau_i \leq 10$</li>
+<li>接触力非负：$\lambda \geq 0$</li>
+</ul>
+<p><strong>（5）输出结果</strong></p>
+<p>最后调用</p>
+<div class="codehilite"><pre><span></span><code><span class="n">prob</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">Problem</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
+<span class="n">prob</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+</code></pre></div>
+<p>求解得出结果：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">Optimal</span> <span class="n">joint</span> <span class="n">accelerations</span><span class="p">:</span> <span class="p">[</span> <span class="mf">0.50615867</span> <span class="o">-</span><span class="mf">1.88900987</span><span class="p">]</span>
+<span class="n">Optimal</span> <span class="n">torques</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.12977187</span> <span class="o">-</span><span class="mf">0.94450493</span><span class="p">]</span>
+<span class="n">Optimal</span> <span class="n">contact</span> <span class="n">force</span> <span class="n">λ</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.29515155e-23</span><span class="p">]</span>
+<span class="n">End</span><span class="o">-</span><span class="n">effector</span> <span class="n">acc</span> <span class="n">achieved</span><span class="p">:</span> <span class="p">[</span> <span class="mf">9.77823461e-01</span> <span class="o">-</span><span class="mf">5.00938335e-17</span><span class="p">]</span>
+<span class="n">Desired</span> <span class="n">end</span><span class="o">-</span><span class="n">effector</span> <span class="n">acc</span>   <span class="p">:</span> <span class="p">[</span><span class="mf">1.</span> <span class="mf">0.</span><span class="p">]</span>
+</code></pre></div>
+<p>QP 解出来的就是</p>
+<ul>
+<li>最优关节加速度：$\ddot{q}$</li>
+<li>最优关节力矩：$\tau$</li>
+<li>接触反力：$\lambda$</li>
+<li>实际末端加速度：$\ddot{x} = J_{\text{task}} \ddot{q}$</li>
+</ul>
+<p>并与期望值 $\ddot{x}_{des}$ 对比。</p>
+<p>上面的代码中只截取了关键部分，下面是绘制图像的效果如下，可以直观体会看看：</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_349498295cdb733ac00210787acf20fe_1759136346.gif"><img alt="" src="assets/doc/04-ai/算法模型/机器人全身控制浅谈：理解-wbc-的原理/images/wp_editor_md_349498295cdb733ac00210787acf20fe_1759136346.gif"/></a></p>
+<h2 id="wbcmpc">WBC与MPC</h2>
+<p>上一篇文章我们分析了MPC，那么MPC与WBC什么关系了？</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_25ab6a561d0a9a51a459b580eb178f71_1759137690.png"><img alt="" src="assets/doc/04-ai/算法模型/机器人全身控制浅谈：理解-wbc-的原理/images/wp_editor_md_25ab6a561d0a9a51a459b580eb178f71_1759137690.png"/></a></p>
+<p>MPC在WBC之上，MPC作为决策层做"未来几步的规划"，比如预测未来1S内，质心应该怎么移动，脚该放哪里，其输出的是期望的任务轨迹。WBC是在下层，拿到MPC给的任务（目标加速度/姿态/接触序列）在动力学和接触约束下，求解QP得到当下这一瞬间的关节力矩$\tau$。简而言之MPC决定“机器人未来要往哪走”，WBC决定“当前每个关节该怎么出力”。</p>
+<p>举个例子：双足机器人走路</p>
+<ul>
+<li>MPC：优化未来 1 秒的 质心轨迹、摆腿位置、支撑相切换。输出：期望的 $\ddot{x}_{des}$（质心加速度）、脚的落点计划。</li>
+<li>WBC：把这些期望当作任务输入，解 QP ，输出关节力矩 $\tau$，同时计算接触力 $\lambda$，保证机器人在每一步不摔倒。</li>
+</ul></div>
+  <div class="post-nav">
+    <a class="prev" href="为什么alphago能自学围棋-强化学习基本概念.html">← 为什么AlphaGo能自学围棋？强化学习基本概念</a>
+    <a class="next" href="机器人控制利器-mpc入门与实践解析.html">机器人控制利器：MPC入门与实践解析 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ROS2 建图与导航：Slam_toolbox、Nav2实践 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">地图构建</a><ul><li><a href="#slam_toolbox">slam_toolbox</a></li><li><a href="#cartographer">Cartographer</a></li><li><a href="#rtab">RTAB</a></li></ul></li><li><a href="#_2">自主导航</a><ul><li><a href="#_3">启动导航</a></li><li><a href="#_4">设定导航</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>ROS2 建图与导航：Slam_toolbox、Nav2实践</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-19
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ros系统
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">地图构建</h2>
+<p>在 ROS2 中，地图构建常用 SLAM（Simultaneous Localization and Mapping） 技术。其大概流程是:</p>
+<ul>
+<li>传感器采集数据：可使用激光雷达（2D/3D LiDAR）或相机（VSLAM）</li>
+<li>里程计信息：来自机器人轮式里程计/IMU</li>
+<li>SLAM算法处理：融合传感器数据+里程计，估计机器人位姿同时构建环境栅格地图。</li>
+<li>地图表示：最终生成map.pgm（图像）+map.yaml（参数配置）</li>
+</ul>
+<p>SLAM简单理解就是让机器人在一个陌生的环境能够自主定位和地图构建，常用的ROS2建图工具有：</p>
+<ul>
+<li>slam_toolbox：ROS2官方推荐，支持在线建图（机器人移动时建图）、离线建图（先存bag后生成地图）、增量式建图（可保存后编辑地图）。</li>
+<li>cartographer_ros：google出品，实时性能好，但配置较复杂。</li>
+<li>RTAB-Map：可用于视觉/激光SLAM，支持3D。</li>
+</ul>
+<h3 id="slam_toolbox">slam_toolbox</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_8ba0b75d0fa67369cc55fec1717c2ede_1758267336.png"><img alt="" src="assets/doc/05-ros系统/ros2-建图与导航：slam_toolbox、nav2实践/images/wp_editor_md_8ba0b75d0fa67369cc55fec1717c2ede_1758267336.png"/></a></p>
+<p>先来简单看看slam_toolbox的流程，其输入为/scan（激光雷达点云）、/odom（里程计）、/tf（坐标变换）三个话题；经过处理后输出/map（占据栅格地图nav_msgs/OccupancyGrid格式）、/tf（发布map-&gt;odom的变换用于定位）。</p>
+<p><strong>（1）安装依赖包</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">ros</span><span class="o">-</span><span class="err">$</span><span class="p">{</span><span class="n">ROS_DISTRO</span><span class="p">}</span><span class="o">-</span><span class="n">slam</span><span class="o">-</span><span class="n">toolbox</span>
+<span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">ros</span><span class="o">-</span><span class="err">$</span><span class="p">{</span><span class="n">ROS_DISTRO</span><span class="p">}</span><span class="o">-</span><span class="n">turtlebot3</span><span class="o">*</span>
+</code></pre></div>
+<p>上面的命令第一条命令安装slam_toolbox算法库，其支持在线建图/离线建图/增量式建图，包含的内容有online_async_launch.py（在线异步建图）、online_sync_launch.py（在线同步建图）、offline_launch.py（离线建图），提供的节点有async_slam_toolbox_node、sync_slam_toolbox_node。</p>
+<p>第二条命令是安装TurtleBot3 全套支持包，主要是提供机器人模型+仿真环境+驱动+可视化，主要包含的子包有turtlebot3_description（URDF机器人模型）、turtlebot3_gazebo（Gazebo 仿真环境）、turtlebot3_bringup（真机启动配置）、turtlebot3_teleop（键盘遥控程序）、turtlebot3_cartographer（Cartographer 建图的配置）、turtlebot3_navigation2（Nav2 配置文件）</p>
+<p>使用turtlebot3要添加环境变量。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">echo</span> <span class="s2">"export TURTLEBOT3_MODEL=burger"</span> <span class="o">&gt;&gt;</span> <span class="o">~/.</span><span class="n">bashrc</span>
+<span class="n">source</span> <span class="o">~/.</span><span class="n">bashrc</span>
+</code></pre></div>
+<p><strong>（2）启动Gazebo仿真环境</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">ros2</span> <span class="n">launch</span> <span class="n">turtlebot3_gazebo</span> <span class="n">turtlebot3_house</span><span class="o">.</span><span class="n">launch</span><span class="o">.</span><span class="n">py</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_73dac67d994cb2b290cc65879fbbc01c_1758266322.png"><img alt="" src="assets/doc/05-ros系统/ros2-建图与导航：slam_toolbox、nav2实践/images/wp_editor_md_73dac67d994cb2b290cc65879fbbc01c_1758266322.png"/></a></p>
+<p>启动之后就看到上图的环境了。启动后创建了以下节点</p>
+<div class="codehilite"><pre><span></span><code><span class="n">laumy</span><span class="nd">@ThinkBook</span><span class="o">-</span><span class="mi">14</span><span class="o">-</span><span class="n">G7</span><span class="o">-</span><span class="n">IAH</span><span class="p">:</span><span class="o">~</span><span class="err">$</span> <span class="n">ros2</span> <span class="n">node</span> <span class="nb">list</span>
+<span class="o">/</span><span class="n">robot_state_publisher</span>
+<span class="o">/</span><span class="n">ros_gz_bridge</span>
+</code></pre></div>
+<ul>
+<li>/robot_state_publisher：根据 URDF 模型发布机器人各个 link 的 TF 变换。输入为/joint_states，输出为/tf, /tf_static。</li>
+<li>/ros_gz_bridge：桥接 Gazebo (Ignition/Harmonic) 与 ROS2。将 Gazebo 插件产生的数据转成 ROS2 话题，比如 /odom、/scan、/imu。也把 ROS2 的 /cmd_vel 控制命令转发到 Gazebo 控制插件。</li>
+</ul>
+<p>以下话题</p>
+<div class="codehilite"><pre><span></span><code><span class="n">laumy</span><span class="nd">@ThinkBook</span><span class="o">-</span><span class="mi">14</span><span class="o">-</span><span class="n">G7</span><span class="o">-</span><span class="n">IAH</span><span class="p">:</span><span class="o">~</span><span class="err">$</span> <span class="n">ros2</span> <span class="n">topic</span> <span class="nb">list</span>
+<span class="o">/</span><span class="n">clock</span>
+<span class="o">/</span><span class="n">cmd_vel</span>
+<span class="o">/</span><span class="n">imu</span>
+<span class="o">/</span><span class="n">joint_states</span>
+<span class="o">/</span><span class="n">odom</span>
+<span class="o">/</span><span class="n">parameter_events</span>
+<span class="o">/</span><span class="n">robot_description</span>
+<span class="o">/</span><span class="n">rosout</span>
+<span class="o">/</span><span class="n">scan</span>
+<span class="o">/</span><span class="n">tf</span>
+<span class="o">/</span><span class="n">tf_static</span>
+</code></pre></div>
+<ul>
+<li>/clock：仿真时间（来自 Gazebo）</li>
+<li>/cmd_vel ： 速度控制输入（你发指令控制机器人时用）</li>
+<li>/imu ： IMU 传感器数据（加速度、角速度）</li>
+<li>/joint_states ： 关节状态（机器人轮子转角/速度）</li>
+<li>/odom ： 里程计数据（机器人相对位姿估计）</li>
+<li>/scan ： 激光雷达数据（2D 激光点云）</li>
+<li>/tf, /tf_static ： 坐标变换（map/odom/base_link/laser 等）</li>
+<li>/robot_description ： 机器人模型（URDF 内容）</li>
+<li>/rosout, /parameter_events ： 系统日志和参数事件（ROS2 通用）</li>
+</ul>
+<p>总体的数据流如下图</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_3ba1542dbb39512f96e6d93f1a493a00_1758268381.png"><img alt="" src="assets/doc/05-ros系统/ros2-建图与导航：slam_toolbox、nav2实践/images/wp_editor_md_3ba1542dbb39512f96e6d93f1a493a00_1758268381.png"/></a></p>
+<p><strong>（3）运行slam_toolbox建图</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">ros2</span> <span class="n">launch</span> <span class="n">slam_toolbox</span> <span class="n">online_async_launch</span><span class="o">.</span><span class="n">py</span> <span class="n">use_sim_time</span><span class="o">:=</span><span class="kc">True</span>
+</code></pre></div>
+<p>online_async_launch.py 表示使用异步建图（适合实时建图），use_sim_time:=True 使用 Gazebo 的仿真时间。</p>
+<p>运行上面命令已经开始在建图了。</p>
+<p><strong>（4）RViz可视化</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">ros2</span> <span class="n">run</span> <span class="n">rviz2</span> <span class="n">rviz2</span>
+</code></pre></div>
+<p>在RViz中进行设置</p>
+<ul>
+<li>Fixed Frame：设置为map</li>
+<li>添加插件：Map（话题/map）、LaserScan（话题/scan）</li>
+</ul>
+<p><strong>（5）控制机器人移动</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">ros2</span> <span class="n">run</span> <span class="n">turtlebot3_teleop</span> <span class="n">teleop_keyboard</span>
+</code></pre></div>
+<p>用键盘方向键让机器人在环境里转一圈，地图会逐渐补全。</p>
+<div class="codehilite"><pre><span></span><code>Control<span class="w"> </span>Your<span class="w"> </span>TurtleBot3!
+---------------------------
+Moving<span class="w"> </span>around:
+<span class="w">        </span>w
+<span class="w">   </span>a<span class="w">    </span>s<span class="w">    </span>d
+<span class="w">        </span>x
+</code></pre></div>
+<p>这个节点会根据键盘的输入发布消息到</p>
+<div class="codehilite"><pre><span></span><code>/cmd_vel<span class="w">   </span><span class="o">[</span>geometry_msgs/msg/Twist<span class="o">]</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_072439400415706b80f38119927ef27a_1758269033.png"><img alt="" src="assets/doc/05-ros系统/ros2-建图与导航：slam_toolbox、nav2实践/images/wp_editor_md_072439400415706b80f38119927ef27a_1758269033.png"/></a></p>
+<p><strong>（6）地图保存</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">ros2</span> <span class="n">run</span> <span class="n">nav2_map_server</span> <span class="n">map_saver_cli</span>
+</code></pre></div>
+<p>会把内存中的/map话题保存生成map.pgm和map.yaml两个文件，以便后续的导航Nav2使用。生成在当前执行命令的目录下。</p>
+<div class="codehilite"><pre><span></span><code>laumy@ThinkBook-14-G7-IAH:~/map$<span class="w"> </span>tree
+.
+├──<span class="w"> </span>map_1758272082.pgm
+└──<span class="w"> </span>map_1758272082.yaml
+
+<span class="m">1</span><span class="w"> </span>directory,<span class="w"> </span><span class="m">2</span><span class="w"> </span>files
+</code></pre></div>
+<h3 id="cartographer">Cartographer</h3>
+<p>待补充</p>
+<h3 id="rtab">RTAB</h3>
+<p>待补充</p>
+<h2 id="_2">自主导航</h2>
+<p>目前导航使用比较多的是Nav2，框架如下。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_69277e9e04df869d12e3ba61d6cdea36_1758272255.jpg"><img alt="" src="assets/doc/05-ros系统/ros2-建图与导航：slam_toolbox、nav2实践/images/wp_editor_md_69277e9e04df869d12e3ba61d6cdea36_1758272255.jpg"/></a></p>
+<p>其主要流程可以分为4大部分</p>
+<ul>
+<li>感知输入：输入激光雷达/scan、里程计/odom、TF（map-&gt;odom-&gt;base_link）、地图/map。</li>
+<li>定位：使用AMCL（Adaptive Monte Carlo Localization)，在已有的地图中定位机器人位置，发布map-&gt;odom的TF。</li>
+<li>规划：全局规划器 (planner_server)从当前位置到目标点，规划一条全局路径（比如 A*、Dijkstra、NavFn）。局部规划器 (controller_server)：根据实时传感器数据，计算机器人下一步的速度指令 /cmd_vel（如 DWB controller）。</li>
+<li>执行调度：行为树 (bt_navigator)管理整个任务流程定位 → 规划 → 控制 → 到达目标。恢复器 (recoveries_server)遇到障碍或失败时执行恢复动作（原地旋转、清理代价地图）。</li>
+</ul>
+<p>安装</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>update
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>ros-<span class="si">${</span><span class="nv">ROS_DISTRO</span><span class="si">}</span>-navigation2
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>ros-<span class="si">${</span><span class="nv">ROS_DISTRO</span><span class="si">}</span>-nav2-bringup
+</code></pre></div>
+<h3 id="_3">启动导航</h3>
+<p>先启动仿真环境，这里使用world地图不用house了。</p>
+<div class="codehilite"><pre><span></span><code>ros2<span class="w"> </span>launch<span class="w"> </span>turtlebot3_gazebo<span class="w"> </span>turtlebot3_world.launch.py
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_77db2fd8c5a4c6a0e4d5bff0b08e1631_1758276133.png"><img alt="" src="assets/doc/05-ros系统/ros2-建图与导航：slam_toolbox、nav2实践/images/wp_editor_md_77db2fd8c5a4c6a0e4d5bff0b08e1631_1758276133.png"/></a></p>
+<p>再启动导航，需要指定地图。</p>
+<div class="codehilite"><pre><span></span><code>ros2<span class="w"> </span>launch<span class="w"> </span>turtlebot3_navigation2<span class="w"> </span>navigation2.launch.py<span class="w"> </span>use_sim_time:<span class="o">=</span>True<span class="w"> </span>map:<span class="o">=</span>/home/laumy/map/map_1758275883.yaml
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_225924c771b3016cd365b2a84198246a_1758276467.png"><img alt="" src="assets/doc/05-ros系统/ros2-建图与导航：slam_toolbox、nav2实践/images/wp_editor_md_225924c771b3016cd365b2a84198246a_1758276467.png"/></a></p>
+<h3 id="_4">设定导航</h3>
+<p><strong>（1）设定机器人位置</strong></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_7b71f8506fa57a5507055db4382b2622_1758276679.png"><img alt="" src="assets/doc/05-ros系统/ros2-建图与导航：slam_toolbox、nav2实践/images/wp_editor_md_7b71f8506fa57a5507055db4382b2622_1758276679.png"/></a></p>
+<p>在 RViz 工具栏选择 2D Pose Estimate 工具。在地图上点击机器人所在位置，拖动鼠标设定朝向。RViz 会往 /initialpose 话题发布一条消息，AMCL 接收到后，就会生成 map → odom 的 TF。</p>
+<p><strong>（2）设定目标位置</strong></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_496035c1727a8df5d9435d6bea1f3b42_1758276968.png"><img alt="" src="assets/doc/05-ros系统/ros2-建图与导航：slam_toolbox、nav2实践/images/wp_editor_md_496035c1727a8df5d9435d6bea1f3b42_1758276968.png"/></a></p>
+<p>这样机器人就会自动移动到目标点。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_9886ae834422a15a4643affd03795db4_1758277050.png"><img alt="" src="assets/doc/05-ros系统/ros2-建图与导航：slam_toolbox、nav2实践/images/wp_editor_md_9886ae834422a15a4643affd03795db4_1758277050.png"/></a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="windows访问linux搭建的samba服务.html">← windows访问Linux搭建的samba服务</a>
+    <a class="next" href="ros2机器感知-相机-雷达-imu.html">ROS2机器感知：相机、雷达、IMU →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

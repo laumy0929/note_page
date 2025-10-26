@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Diffusion：如何从噪声中生成清晰图像 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">概述</a><ul></ul></li><li><a href="#_2">工作原理</a><ul><li><a href="#_3">推理</a></li><li><a href="#_4">训练</a></li></ul></li><li><a href="#_5">模型</a><ul><li><a href="#stable-diffusion">stable diffusion</a></li><li><a href="#dall-e">DALL-E</a></li><li><a href="#imagen">Imagen</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>Diffusion：如何从噪声中生成清晰图像</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-08-21
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">概述</h2>
+<p>图像生成是当下研究的热点，diffusion是一种人工智能领域图像生成的基础模型，当下Stable diffusion、DALL·E、MidJourney文生图模型的基座都使用了diffusion。</p>
+<p>diffusion扩散模型属于生成式模型，<strong>生成图像不是正向从0到1构成图像而是反向的预先生成一个随机的噪声图中然后根据文本提示词逐渐的去噪"扣"出图像</strong>。主要思想是先训练一个权重模型，把一张清晰照片弄得越来越模糊（加入噪声），然后把模糊的图片融合文本提示词作为输入去训练一个模型学会“擦亮它”，反向恢复成清晰图像。训练完成后，就得到了模型的权重，那么使用这个权重模型只要给一副完全随机的“噪点图”和要生成图片的提示词，它就能一步步去掉噪声，变出一幅崭新、逼真的图片。</p>
+<p>借用米开朗基罗雕刻"大卫像"时说的"我在大理石中看见天使，于是我不停地雕刻，直至使他自由”。而diffusion也是这样的原理，通过随机生成的一个噪声图片，结合输入的文字去掉噪音恢复到你想象的照片样子。</p>
+<h2 id="_2">工作原理</h2>
+<h3 id="_3">推理</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_a3dec8d301d71cf3eb6473149ef4f0e1_1755764049.png"><img alt="" src="assets/doc/04-ai/算法模型/diffusion：如何从噪声中生成清晰图像/images/wp_editor_md_a3dec8d301d71cf3eb6473149ef4f0e1_1755764049.png"/></a></p>
+<p><strong>（1）输入阶段</strong></p>
+<p>输入阶段有3个输入信息，分别是随机噪声图像、文本提示、时间步。</p>
+<ul>
+<li>随机噪声图像：最开始随机生成一个高斯噪声的图片。</li>
+<li>文本提示：告诉模型，想要生成的内容是什么。</li>
+<li>时间步：指明当前是去噪第几步，模型是一个多步迭代去噪的过程。按照数字依次递减进行迭代，数值越小去噪强度越弱。</li>
+</ul>
+<p><strong>（2）模型处理</strong></p>
+<p>核心组件是Noise Predictor（一般是一个U-Net结构神经网络），输入的带噪图像$X_{t}$、时间步$t$、以及提示文本通过Noise Predictor预测出这张图里有多少噪声，生成一张噪声图片$\epsilon^\theta(x_t, t, c)$。</p>
+<p><strong>（3）输出阶段</strong></p>
+<p>将输入-减去预测出的噪声图片就得到最后的去噪图片了，$x_{t-1} = x_t - \epsilon^\theta(x_t, t, c)$。</p>
+<p><strong>（4）迭代</strong></p>
+<p>迭代一轮得到一个降噪图片之后，接着将输出的降噪图片作为输入的带噪图片按照之前的步骤进行重复，直至$t$=$T$（比如$1000$）一直迭代到$t$=$0$得到最终的图像。当所有步骤完成后，随机噪声逐渐被“洗掉”，生成的就是一张符合条件描述的清晰图像。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_4c9f1c5d996ae9b3a13dc9789ef4e3a8_1755765275.png"><img alt="" src="assets/doc/04-ai/算法模型/diffusion：如何从噪声中生成清晰图像/images/wp_editor_md_4c9f1c5d996ae9b3a13dc9789ef4e3a8_1755765275.png"/></a></p>
+<p>下面是推理过程的算法伪代码</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_cf416c0e3d597813302e4b06e44d0d24_1755765603.png"><img alt="" src="assets/doc/04-ai/算法模型/diffusion：如何从噪声中生成清晰图像/images/wp_editor_md_cf416c0e3d597813302e4b06e44d0d24_1755765603.png"/></a></p>
+<ul>
+<li>初始化：$x_T \sim \mathcal{N}(0, I)$从标准高斯分布中采样一个随机噪声向量（或噪声图像），作为生成过程的起点。</li>
+<li>迭代循环：从$t$=$T$到$t$=$1$逐步迭代，每次去掉一部分噪声。如果$t$&gt;$1$，额外采样一个噪声向量$z\sim \mathcal{N}(0, I)$。如果$t$=$1$，则$z$=$0$，即最后一步不加噪声。</li>
+<li>核心公式：先去掉预测的噪声（括号里面的部分）得到更接近干净数据的样子，接着在进行缩放调整(除以$\sqrt{\alpha_t}$)，最后加一点随机噪声$\sigma_t z$来保持生成的多样性。</li>
+<li>输出：当循环结束时，最终的$x_0$就是最终生成的清晰图像了。</li>
+</ul>
+<p>对于核心公式的参数这里稍微补充一下</p>
+<ul>
+<li>参数 $\epsilon_\theta(x_t, t)$是预测的噪声；</li>
+<li>参数$\alpha_t$取值范围是$0$~$1$，控制在第$t$步中保留多少原始图像信息加入多少噪声，当$\alpha_t$接近$1$时几乎保留全部信息，噪声小；当值趋于0时，原始信号衰减就大，噪声比例高；</li>
+<li>参数$\bar{\alpha}_t$累积乘积参数，表示从第$1$步到$t$步累积保留原始信息的比例。</li>
+<li>参数$\sigma_t z$随机扰动项，保持采样的多样性。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_214d5e9aae682ece32a56a242721e325_1755767180.png"><img alt="" src="assets/doc/04-ai/算法模型/diffusion：如何从噪声中生成清晰图像/images/wp_editor_md_214d5e9aae682ece32a56a242721e325_1755767180.png"/></a></p>
+<h3 id="_4">训练</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_080636cca72dd493c2baeb3aae751a05_1755767719.png"><img alt="" src="assets/doc/04-ai/算法模型/diffusion：如何从噪声中生成清晰图像/images/wp_editor_md_080636cca72dd493c2baeb3aae751a05_1755767719.png"/></a></p>
+<p>训练模型我们需要把模型的输出结果和真实值进行比较才能进行梯度下降找到网络权重，那该如何设计准备训练结果和真实值的数据？</p>
+<p>diffusion模型的核心是要预测出图片的噪声分布然后减去预测的噪声得到真实的输出照片。以上图第一步进行说明，使用原始的图片，通过随机生成一个噪声图($x_{1}$)迭加作用到原始图片上这样就得到了模型的带噪声的输入图像，然后融合文本、时间步模型前向计算得到噪声图($x_2$)。已经知道了真实的噪声图是$x_{1}$，那么计算$x_{1}$和$x_{2}$的相似性就可以计算出损失了。</p>
+<p>训练过程中关于图片-文本可以从Lion平台上获取，通过上面步骤取样照片然后不断加强噪声得到越来越模糊的图片送入模型预测进行计算迭代权重，让模型学会真正准确预测每一步中"加进去的噪声"，训练完成之后，模型学会了如何"识别噪声"，在推理时就从纯随机噪声$x_T$出发，通过文本提示词反向迭代去噪得到最终的想要的照片。</p>
+<p>论文中的伪代码如下：</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_ca720da606dafe30c33795c2cafed3b8_1755768585.png"><img alt="" src="assets/doc/04-ai/算法模型/diffusion：如何从噪声中生成清晰图像/images/wp_editor_md_ca720da606dafe30c33795c2cafed3b8_1755768585.png"/></a></p>
+<ul>
+<li>repeat：表示循环执行训练过程。</li>
+<li>采样数据：$x_0 \sim q(x_0)$从真实数据分布$q(x_0)$中采样一个训练样本比如一张猫。</li>
+<li>随机采样时间步:$t \sim \text{Uniform}({1, \dots, T})$随机挑选一个扩散的时间步$t$,确保模型能在不同噪声水平都学会去噪。</li>
+<li>采样噪声：$\epsilon \sim \mathcal{N}(0, I)$从标准的高斯分布中采样一份噪声，用于后续得到到原始图片上。</li>
+<li>梯度下降更新参数：计算预测噪声和真实噪声$\epsilon$的均方误差。</li>
+</ul>
+<h2 id="_5">模型</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_8a58b68ea1592b115cbf874703a64174_1755769681.png"><img alt="" src="assets/doc/04-ai/算法模型/diffusion：如何从噪声中生成清晰图像/images/wp_editor_md_8a58b68ea1592b115cbf874703a64174_1755769681.png"/></a></p>
+<p>本章节简要说一下业界文生图模型，其结构可以总结为以上3个部分，文本编码器、生成式模型、解码器。</p>
+<ul>
+<li>文本编码器：将用户输入的文本提示通过预训练的文本编码器如CLIP Text Encoder将自然语言转化为向量表示。</li>
+<li>生成式模型：将编码的文本向量和噪声图像noisy latent作为输入，然后逐步迭代去噪。这里的模型如有diffusion、autoregressive等。输出是压缩到更低维的"潜在空间"。</li>
+<li>解码器：将生成式模型的输入Latten Representation通过解码器还原最终生成清晰图像。生成式模型一般输出的是压缩的低维潜在空间，这样可以降低每一步迭代的计算量，最终加一个解码器来将其还原。</li>
+</ul>
+<p>下面是stable diffusion、DALL-E、Imagen的模型结构图，核心组成都是上面3个部分，这里就不过多阐述了。</p>
+<h3 id="stable-diffusion">stable diffusion</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_2388e1d2c01df9fee8c75530f109c471_1755770397.png"><img alt="" src="assets/doc/04-ai/算法模型/diffusion：如何从噪声中生成清晰图像/images/wp_editor_md_2388e1d2c01df9fee8c75530f109c471_1755770397.png"/></a></p>
+<h3 id="dall-e">DALL-E</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_210d552f9a9b9a084c70d3b648c0fd8a_1755770485.png"><img alt="" src="assets/doc/04-ai/算法模型/diffusion：如何从噪声中生成清晰图像/images/wp_editor_md_210d552f9a9b9a084c70d3b648c0fd8a_1755770485.png"/></a></p>
+<h3 id="imagen">Imagen</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_88a5eac5c28f840cf280c81bc3f4ce04_1755770565.png"><img alt="" src="assets/doc/04-ai/算法模型/diffusion：如何从噪声中生成清晰图像/images/wp_editor_md_88a5eac5c28f840cf280c81bc3f4ce04_1755770565.png"/></a></p>
+<p>本文主要来自<a href="https://www.youtube.com/watch?v=67_M2qP5ssY&amp;list=PLJV_el3uVTsNi7PgekEUFsyVllAJXRsP-" title="李宏毅Diffusion Model原理解析">李宏毅Diffusion Model原理解析</a>的笔记。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="浅析pi0-vlm-与-flow-matching-的结合之道.html">← 浅析Pi0 ：VLM 与 Flow Matching 的结合之道</a>
+    <a class="next" href="视觉-token-如何注入语言模型-vlm拆解.html">视觉 Token 如何注入语言模型？VLM拆解 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

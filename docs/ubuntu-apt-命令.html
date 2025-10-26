@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ubuntu apt 命令 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">介绍</a><ul></ul></li><li><a href="#apt">常用的apt命令</a><ul></ul></li><li><a href="#apt_1">apt安装执行流程</a><ul></ul></li><li><a href="#_2">软件源</a><ul><li><a href="#_3">旧版</a></li><li><a href="#_4">新版</a></li></ul></li><li><a href="#add-apt-repository">add-apt-repository</a><ul><li><a href="#ppa">PPA</a></li><li><a href="#_5">官方仓库</a></li></ul></li><li><a href="#_6">总结</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>ubuntu apt 命令</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-12
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      其他
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">介绍</h2>
+<p>apt是ubuntu/debian的包管理工具，主要用于安装、更新、卸载和管理系统软件，他是对apt-get和apt-cache的简化整合，输出更直观。</p>
+<h2 id="apt">常用的apt命令</h2>
+<ul>
+<li>sudo apt update：从 /etc/apt/sources.list 和 /etc/apt/sources.list.d/ 指定的镜像源获取最新软件包列表。只更新索引信息，不会更新软件。</li>
+<li>sudo apt upgrade：升级所有已安装软件到新版本，但不会移除/替换已有包。</li>
+<li>sudo apt full-upgrade：更彻底，会移除或替换包以完成升级（系统大版本升级时常用）</li>
+<li>sudo apt install 包名：安装软件包</li>
+<li>sudo apt remove 包名：卸载软件包但保留配置文件。</li>
+<li>sudo apt purge 包名：卸载软件并删除配置文件。</li>
+<li>apt search 关键字：搜索关键字的软件包。</li>
+<li>apt show 包名：显示软件包的版本、依赖、来源等详细信息。</li>
+<li>sudo apt autoremove：自动卸载系统中不再需要的依赖包。</li>
+<li>sudo apt clean：清空 /var/cache/apt/archives/ 下的缓存 .deb 文件。</li>
+<li>sudo apt autoclean：只删除无效的缓存文件（已经在源里不存在的旧版本）。</li>
+</ul>
+<h2 id="apt_1">apt安装执行流程</h2>
+<p>以安装vim为例</p>
+<div class="codehilite"><pre><span></span><code><span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">vim</span>
+</code></pre></div>
+<p><strong>（1）解析请求</strong></p>
+<p>apt 会先确认你输入的命令（如 install），以及指定的软件包名称。它会调用 libapt-pkg 库 来处理包依赖关系和软件源信息。</p>
+<p><strong>（2）查询软件源信息</strong></p>
+<p>apt读取本地缓存文件，/var/lib/apt/lists/ 下的索引文件（来自 /etc/apt/sources.list 和 /etc/apt/sources.list.d/）。如果缓存过期或你执行了 apt update，apt 会先通过 HTTP/HTTPS 向镜像源服务器拉取最新的软件包索引。</p>
+<p><strong>（3）依赖解析</strong> apt 会分析你要安装的软件包需要哪些依赖（Dependencies）。依赖可能有必须依赖（必装），推荐依赖（默认安装），建议依赖（不自动安装，只提示）。apt通过SAT求解器选择最佳依赖组合。</p>
+<p><strong>（4）下载软件包</strong> apt 确定要安装的 .deb 包后，从配置的镜像源下载对应的文件。下载位置：<strong>/var/cache/apt/archives/</strong>。apt 内部通过 Acquire 系统（支持 HTTP、HTTPS、FTP 等协议）拉取数据，并验证 GPG 签名 确保包没有被篡改。</p>
+<p><strong>（5）安装与配置</strong> apt 把下载好的 .deb 包调用dpkg（Debian package manager） 处理。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">dpkg</span> <span class="o">-</span><span class="n">i</span> <span class="n">xxx</span><span class="o">.</span><span class="n">deb</span>
+</code></pre></div>
+<p>dpkg 负责解压 .deb，把文件放到系统目录里（如 /usr/bin、/etc/ 等），并运行包的安装脚本（preinst、postinst、prerm、postrm）。apt 会在这个过程中自动处理依赖包的安装顺序。</p>
+<p><strong>（6）触发系统更新</strong></p>
+<p>完成安装后，apt 可能会调用：ldconfig 更新共享库缓存、update-initramfs 更新内核启动镜像、systemctl daemon-reload 重载 systemd 服务。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_5eb37f53d4f69ab3c3452830acc58909_1757648173.png"><img alt="" src="assets/doc/11-其他/ubuntu-apt-命令/images/wp_editor_md_5eb37f53d4f69ab3c3452830acc58909_1757648173.png"/></a></p>
+<h2 id="_2">软件源</h2>
+<p>软件源是apt update/install时定义系统如何找到、解析和使用软件仓库的。</p>
+<h3 id="_3">旧版</h3>
+<p>软件源的配置在如下地址。</p>
+<div class="codehilite"><pre><span></span><code><span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">apt</span><span class="o">/</span><span class="n">sources</span><span class="o">.</span><span class="n">list</span>
+<span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">apt</span><span class="o">/</span><span class="n">sources</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">d</span><span class="o">/*.</span><span class="n">list</span>
+</code></pre></div>
+<p>一条软件源的格式大致如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">deb</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">mirrors</span><span class="o">.</span><span class="n">aliyun</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">ubuntu</span> <span class="n">jammy</span> <span class="n">main</span> <span class="n">restricted</span> <span class="n">universe</span> <span class="n">multiverse</span>
+</code></pre></div>
+<ul>
+<li>deb：二进制包仓库（还有 deb-src 表示源码包）。</li>
+<li>http://mirrors.aliyun.com/ubuntu：镜像源地址。</li>
+<li>jammy：发行版代号（Ubuntu 22.04 LTS = jammy）。</li>
+<li>main restricted universe multiverse：启用的组件。</li>
+</ul>
+<h3 id="_4">新版</h3>
+<p><strong>从 Ubuntu 22.04 LTS（部分更新后）和 23.04 起，apt 引入了一个新的配置格式</strong>，新格式（.sources YAML 格式）：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">Types</span><span class="p">:</span> <span class="n">deb</span>
+<span class="n">URIs</span><span class="p">:</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">archive</span><span class="o">.</span><span class="n">ubuntu</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">ubuntu</span>
+<span class="n">Suites</span><span class="p">:</span> <span class="n">jammy</span>
+<span class="n">Components</span><span class="p">:</span> <span class="n">main</span> <span class="n">restricted</span> <span class="n">universe</span> <span class="n">multiverse</span>
+</code></pre></div>
+<p>新格式的文件存放路径在</p>
+<div class="codehilite"><pre><span></span><code><span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">apt</span><span class="o">/</span><span class="n">sources</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">d</span><span class="o">/</span><span class="n">ubuntu</span><span class="o">.</span><span class="n">sources</span>
+</code></pre></div>
+<p>内容如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">Types</span><span class="p">:</span> <span class="n">deb</span>
+<span class="n">URIs</span><span class="p">:</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">cn</span><span class="o">.</span><span class="n">archive</span><span class="o">.</span><span class="n">ubuntu</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">ubuntu</span><span class="o">/</span>
+<span class="n">Suites</span><span class="p">:</span> <span class="n">oracular</span> <span class="n">oracular</span><span class="o">-</span><span class="n">updates</span> <span class="n">oracular</span><span class="o">-</span><span class="n">backports</span>
+<span class="n">Components</span><span class="p">:</span> <span class="n">main</span> <span class="n">restricted</span> <span class="n">universe</span> <span class="n">multiverse</span>
+<span class="n">Signed</span><span class="o">-</span><span class="n">By</span><span class="p">:</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">share</span><span class="o">/</span><span class="n">keyrings</span><span class="o">/</span><span class="n">ubuntu</span><span class="o">-</span><span class="n">archive</span><span class="o">-</span><span class="n">keyring</span><span class="o">.</span><span class="n">gpg</span>
+
+<span class="n">Types</span><span class="p">:</span> <span class="n">deb</span>
+<span class="n">URIs</span><span class="p">:</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">security</span><span class="o">.</span><span class="n">ubuntu</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">ubuntu</span><span class="o">/</span>
+<span class="n">Suites</span><span class="p">:</span> <span class="n">oracular</span><span class="o">-</span><span class="n">security</span>
+<span class="n">Components</span><span class="p">:</span> <span class="n">main</span> <span class="n">restricted</span> <span class="n">universe</span> <span class="n">multiverse</span>
+<span class="n">Signed</span><span class="o">-</span><span class="n">By</span><span class="p">:</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">share</span><span class="o">/</span><span class="n">keyrings</span><span class="o">/</span><span class="n">ubuntu</span><span class="o">-</span><span class="n">archive</span><span class="o">-</span><span class="n">keyring</span><span class="o">.</span><span class="n">gpg</span>
+</code></pre></div>
+<p>第一段为主源+更新+回溯、第二段为安全更新源。</p>
+<h2 id="add-apt-repository">add-apt-repository</h2>
+<p>add-apt-repository是用于添加/删除 APT 软件源（包括 PPA 和官方仓库组件）。这个命令由 software-properties-common 包提供。其目的简化对软件包源 /etc/apt/sources.list 和 /etc/apt/sources.list.d/x.list 文件的修改。</p>
+<p>要使用add-apt-repository命令，需要安装software-properties-common工具，该工具包含了add-apt-repository命令。</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>software-properties-common
+</code></pre></div>
+<p>add-apt-repository的语法为：</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>add-apt-repository<span class="w"> </span><span class="o">[</span>选项<span class="o">]</span><span class="w"> </span>&lt;repository&gt;
+</code></pre></div>
+<p>常见 repository类型： - PPA（个人/团队维护）：ppa:用户名/仓库名。 - 官方仓库组件：universe、multiverse、restricted - 完整仓库地址：deb http://url distro component</p>
+<h3 id="ppa">PPA</h3>
+<p>PPA (Personal Package Archive)是个人/团队维护的软件，作用是提供官方仓库里没有的软件，或者比官方更快更新的版本。命名规则：ppa:用户名/仓库名。如下：</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>add-apt-repository<span class="w"> </span>ppa:deadsnakes/ppa
+</code></pre></div>
+<ul>
+<li>deadsnakes → 维护者的用户名</li>
+<li>ppa → 这个维护者创建的一个仓库，里面放了多个 Python 新版本</li>
+<li>功能：能让你在 Ubuntu 上安装 Python 3.12、3.13 等官方仓库还没有的版本。</li>
+</ul>
+<p>PPA 就像是别人开的小摊位，卖的是他们自己编译打包的软件。你可以信任并从那买，而不必等官方超市上架。</p>
+<p>使用步骤：</p>
+<ul>
+<li>添加PPA:sudo add-apt-repository ppa:&lt;用户名&gt;/&lt;仓库名&gt;;sudo apt update</li>
+<li>安装软件：sudo apt install &lt;软件包名&gt;</li>
+<li>删除PPA：sudo add-apt-repository -r ppa:&lt;用户名&gt;/&lt;仓库名&gt;;sudo apt update</li>
+</ul>
+<p>示例 1：安装新版 Python，Ubuntu 自带的 Python 可能偏旧，如果想安装较新的 Python（比如 Python 3.12）</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>add-apt-repository<span class="w"> </span>ppa:deadsnakes/ppa
+sudo<span class="w"> </span>apt<span class="w"> </span>update
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>python3.12
+</code></pre></div>
+<p>示例 2：安装新版 FFmpeg，官方仓库里的 FFmpeg 版本可能很老，如果你需要更新：</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>add-apt-repository<span class="w"> </span>ppa:savoury1/ffmpeg4
+sudo<span class="w"> </span>apt<span class="w"> </span>update
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>ffmpeg
+</code></pre></div>
+<p>示例 3：移除 PPA 安装的软件并恢复官方版本，假如你安装了 PPA 版本的 VLC，后来想回退到 Ubuntu 官方版本：</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>add-apt-repository<span class="w"> </span>-r<span class="w"> </span>ppa:videolan/stable-daily
+sudo<span class="w"> </span>apt<span class="w"> </span>update
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>ppa-purge
+sudo<span class="w"> </span>ppa-purge<span class="w"> </span>ppa:videolan/stable-daily
+</code></pre></div>
+<h3 id="_5">官方仓库</h3>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>维护者</th>
+<th>软件许可</th>
+<th>举例</th>
+<th>默认启用？</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>main</strong></td>
+<td>Ubuntu 官方团队</td>
+<td>100% 开源、免费</td>
+<td>bash、apt、systemd</td>
+<td>✅ 默认启用</td>
+</tr>
+<tr>
+<td><strong>universe</strong></td>
+<td>社区志愿者维护</td>
+<td>开源，但官方不保证支持</td>
+<td>vim、ffmpeg</td>
+<td>❌ 默认关</td>
+</tr>
+<tr>
+<td><strong>restricted</strong></td>
+<td>官方维护，但包含闭源驱动</td>
+<td>通常是硬件驱动</td>
+<td>NVIDIA/AMD 驱动</td>
+<td>❌ 默认关</td>
+</tr>
+<tr>
+<td><strong>multiverse</strong></td>
+<td>可能受限（版权/专利）</td>
+<td>不完全自由，可能有法律限制</td>
+<td>MP3 解码器、某些编解码器</td>
+<td>❌ 默认关</td>
+</tr>
+</tbody>
+</table>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>add-apt-repository<span class="w"> </span>universe
+sudo<span class="w"> </span>add-apt-repository<span class="w"> </span>restricted
+sudo<span class="w"> </span>add-apt-repository<span class="w"> </span>multiverse
+sudo<span class="w"> </span>apt<span class="w"> </span>update
+</code></pre></div>
+<p>这几条命令分别启用：</p>
+<ul>
+<li>universe → 更多社区软件（开源，但官方不负责）</li>
+<li>restricted → 闭源驱动（主要是显卡、WiFi 驱动）</li>
+<li>multiverse → 可能有版权问题的软件（比如 DVD 解码器、某些编解码器）</li>
+</ul>
+<h2 id="_6">总结</h2>
+<ul>
+<li>apt update → 更新索引</li>
+<li>apt upgrade/full-upgrade → 升级系统</li>
+<li>apt install/remove/purge → 安装和卸载软件</li>
+<li>apt search/show → 查询软件</li>
+<li>apt autoremove/clean/autoclean → 清理</li>
+</ul></div>
+  <div class="post-nav">
+    <a class="prev" href="ros2安装-ubuntu-24-04-2上实践.html">← ROS2安装：ubuntu 24.04.2上实践</a>
+    <a class="next" href="isaac-sim-快速入门-三种工作流程示例.html">Isaac Sim 快速入门：三种工作流程示例 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

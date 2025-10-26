@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>机器人控制利器：MPC入门与实践解析 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">背景</a><ul></ul></li><li><a href="#_2">原理</a><ul><li><a href="#_3">系统模型</a></li><li><a href="#_4">预测未来</a></li><li><a href="#_5">目标函数</a></li><li><a href="#_6">约束条件</a></li></ul></li><li><a href="#_7">工作流程</a><ul></ul></li><li><a href="#_8">示例程序</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>机器人控制利器：MPC入门与实践解析</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-28
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">背景</h2>
+<p>MPC（Model Predictive Control）模型预测控制，是一种控制方法，广泛应用在机器人、无人驾驶、过程控制、能源系统等领域。它的核心思想用一句话来总结：利用系统模型预测未来，并通过优化选择当前最优的控制输入。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_9f3adb15d823b6851073bc3297a89506_1759047496.png"><img alt="" src="assets/doc/04-ai/算法模型/mpc/images/wp_editor_md_9f3adb15d823b6851073bc3297a89506_1759047496.png"/></a></p>
+<p>如上图是一个MPC应用框图，先来看看框图中的各个变量。</p>
+<ul>
+<li>r(t)：参考输入，系统希望达到的目标（设定值/reference signal），例如机器人要达到的位置、温度控制的目标值、车辆期望的速度等等。</li>
+<li>e：误差e(t) = y(t) – r(t)，用来计算实际的输出期望值的差距。</li>
+<li>μ(t)：控制输入，由MPC控制器计算出来，施加在系统上的控制量。</li>
+<li>y(t)：系统实际输出，比如位置、速度、温度等。</li>
+</ul>
+<p>系统的目标是由MPC控制器计算输出一个μ(t)控制量，然后作用到系统，让系统的输出能够达到期望值。其中有一个反馈回路，形成一个闭环系统，实际的输出y(t)会反馈给比较器，与目标值对比，当未达到目标时，系统自动修正直到达到目标。</p>
+<h2 id="_2">原理</h2>
+<h3 id="_3">系统模型</h3>
+<p>为了简单，我们先令系统的实际输出$y=x$，下面用数学建模来描述系统状态模型是</p>
+<p>$$ x_{k+1} = A x_k + B u_k $$</p>
+<ul>
+<li>参数$x_k$：系统在时刻$k$的状态，比如汽车的位置和速度[p,v]。</li>
+<li>参数$u_k$：系统在时刻$k$的控制输入，比如油门大小、方向盘角度、电机电压等。</li>
+<li>A：状态的转移矩阵，决定了系统状态的演化方式。</li>
+<li>B：输入矩阵，描述了控制输入如何影响状态的变换。</li>
+<li>参数$x_{k+1}$：系统在下一时刻$k+1$的状态。</li>
+</ul>
+<p>A和B是两个矩阵，A决定系统 在没有控制输入时，状态如何随时间演化。B决定控制输入$u_k$如何影响的状态。</p>
+<p>上面的模型是线性模型，本文以此来进行分析。但是在实际场景中根据实际问题进行建模，模型可能是非线性的如下，这里就过多解释。</p>
+<p>$$ x_{k+1} = f(x_k,u_k) $$</p>
+<h3 id="_4">预测未来</h3>
+<p>MPC原理就是从当前状态$x+k$出发，用模型递推，预测出未来的N步（如果看过之前关于ACT原理，其实MPC有很多类似之处）：</p>
+<p>$$ x_{k+1},x_{k+2},x_{k+3},......,x_{k+N} $$</p>
+<h3 id="_5">目标函数</h3>
+<p>工程中我们最主要的目标是要求出控制量$u_t$以便让系统最终调整到我们预期的状态。 那如何来设计这个系统了？ 前面我们建模了$k$时刻的状态$x_t$，那么这个<strong>状态+动作</strong>需要满足什么样的数学关系了？</p>
+<p>与深度学习类似，我们要对<strong>状态+动作</strong>的数学关系求一个最小值的表达式。看公式：</p>
+<p>$$ J = \sum_{i=0}^{N-1} \Big[ (x_{k+i} - x_{k+i}^{\text{ref}})^T Q (x_{k+i} - x_{k+i}^{\text{ref}}) + u_{k+i}^T R u_{k+i} \Big] $$</p>
+<p>上面的公式可以分为两部分，前面部分代表的是k时刻输出状态与目标状态误差值，后面部分是控制的动作。也就是说我们最核心的是要误差越小越好，同时控制的动作不要太大。误差小好理解，动作变化不要太大是因为要保证控制动作要平滑。两部分都是求平方$e^2$和$u^2$放大比例（跟深度学习中的损失差不多），同时各自有一个权重Q和R，这两个参数是权重参数可调，Q用来平衡快速到目标，R用来调节平衡动作要平稳。</p>
+<p>公式中$x$和$J$可以说是已知的，那么就可以求出$u$控制量了。</p>
+<p>对于求解$u$,需要根据实际的模型，如果模型是线性模型+二次目标函数这样就比较简单使用二次规划QP可以快速解析或数值求解。如果是非线性模型，那么就变成非线性规划NLP，需要迭代求解器（如SQP、IPOPT）。当然如果是简单还可以使用穷举控制序列$U$，直接算$J$取最小。</p>
+<h3 id="_6">约束条件</h3>
+<p>约束条件是在求解代价函数最小值过程中，显示的对控制量$u$、$x_k$做约束。这样的目的是比如对于车来说油门不能超过100%，速度不能超速，机械臂必能超过关节限位等。</p>
+<p>因此在求救$J$时，可以添加约束条件，如下：</p>
+<p>$$ u_{\min} \leq u_k \leq u_{\max};x_{\min} \leq x_k \leq x_{\max} $$</p>
+<p>第一个是 控制输入约束（油门、方向盘角度不能无限大）。第二个是 状态约束（位置、速度等不能超过物理限制）。</p>
+<h2 id="_7">工作流程</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_400c2c0d10f6e5ad1d0408fa24d9d581_1759052320.png"><img alt="" src="assets/doc/04-ai/算法模型/mpc/images/wp_editor_md_400c2c0d10f6e5ad1d0408fa24d9d581_1759052320.png"/></a></p>
+<p>MPC控制系统中，其工作流程最核心的滚动时域控制，其核心点是每次预测出N步，但是并不是一下就全部执行完N步，因为预测也是有偏差同时在执行过程中会有变化。而是每次预测N步，但是只取第一步进行执行，然后根据新的输出结果重新预测下一个N步。这个其实跟ACT的时间集成有点类似，也就是在每个时间刻都会预测N步，而MPC是取第一步执行，而ACT是取k时刻和此前时刻的加权平均。</p>
+<p>下面来看看具体的执行流程：</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_ddf9eb2e02df26c88b4b3507537940f5_1759053901.gif"><img alt="" src="assets/doc/04-ai/算法模型/mpc/images/wp_editor_md_ddf9eb2e02df26c88b4b3507537940f5_1759053901.gif"/></a></p>
+<ul>
+<li>当前时刻$K$：系统处于某个状态如蓝线上面的红点，控制器采集到当前状态作为优化的起点。</li>
+<li>预测未来N步：橙色窗口覆盖未来N步的时间区；红色虚线显示预测的未来轨迹，如果采用这一串控制动作$U=[u_k,u_{k+1}...]$系统怎么走。</li>
+<li>优化并得到最优控制序列：在预测窗口里，MPC通过解$J$（误差+控制代价）最小值得到结果一整串最优控制动作序列$U$。</li>
+<li>只执行一步：红色箭头指向当前窗口里的第一个控制输入$u_k$，下方蓝色阶梯控制曲线更新，系统真是状态推进到下一个时刻；上方状态曲线的红点更新到新的位置。</li>
+<li>丢弃其余动作：窗口里的控制动作$(u_{k+1},u_{k+2}...)$丢弃，因为下一时刻会重新优化得到新的控制动作。</li>
+<li>窗口前移，重复循环：橙色预测窗口右移一格$(k-&gt;k+1-&gt;k+2)$，控制器基于新状态重新预测、重新优化，再次执行第一步，丢弃其余周而复始直到达到目标。</li>
+</ul>
+<p>因此整个过程核心就是MPC的滚动时域机制：预测未来——&gt;优化整串动作——&gt;执行第一步——&gt;丢弃其余——&gt;窗口前移——&gt;重新计算。</p>
+<h2 id="_8">示例程序</h2>
+<p>下面是一个简单的示例加深对MPC的认识。场景是一个一维的小车：</p>
+<ul>
+<li>状态$x=[位置，速度]$，控制输入$u=加速度$。</li>
+<li>小车从0开始，目标位置在10米，并希望最后速度接近0.</li>
+<li>用MPC做控制，预测N步，计算代价，找到最优控制序列，但只执行第一个动作然后滚动。</li>
+</ul>
+<p>求解$u$这里直接使用的是穷举法。</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">matplotlib.animation</span> <span class="k">as</span> <span class="nn">animation</span>
+
+<span class="c1"># --- 系统模型 (离散时间) ---</span>
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">0.2</span>
+<span class="c1"># 状态空间模型: x_{k+1} = A x_k + B u_k</span>
+<span class="c1"># x = [位置, 速度]，u = 加速度</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="n">dt</span><span class="p">],</span>
+              <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]])</span>
+<span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.5</span><span class="o">*</span><span class="n">dt</span><span class="o">**</span><span class="mi">2</span><span class="p">],</span>
+              <span class="p">[</span><span class="n">dt</span><span class="p">]])</span>
+
+<span class="c1"># 初始状态: 位置=0, 速度=0</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+<span class="c1"># 目标状态: 位置=10, 速度=0 (停在10米处)</span>
+<span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+
+<span class="c1"># --- MPC 参数 ---</span>
+<span class="n">N</span> <span class="o">=</span> <span class="mi">5</span>                        <span class="c1"># 预测时域长度 (未来看5步)</span>
+<span class="n">U_candidates</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>    <span class="c1"># 控制输入候选集合 (加速度: -1=刹车, 0=不动, 1=加速)</span>
+
+<span class="k">def</span> <span class="nf">simulate</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">u_seq</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    给定初始状态 x0 和一段控制序列 u_seq，</span>
+<span class="sd">    用系统模型递推未来轨迹，并计算代价 J</span>
+<span class="sd">    """</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">cost</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">traj</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>  <span class="c1"># 保存预测轨迹 (用于可视化)</span>
+    <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">u_seq</span><span class="p">:</span>
+        <span class="c1"># 状态更新 (预测未来)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">A</span> <span class="o">@</span> <span class="n">x</span> <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">*</span><span class="n">u</span>
+        <span class="n">traj</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+        <span class="c1"># 代价函数 J = 误差项 + 控制代价</span>
+        <span class="n">err</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">target</span>
+        <span class="n">cost</span> <span class="o">+=</span> <span class="n">err</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mf">0.3</span><span class="o">*</span><span class="n">err</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mf">0.1</span><span class="o">*</span><span class="p">(</span><span class="n">u</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="c1"># 位置误差^2 + 速度误差^2(权重0.3) + 控制输入^2(权重0.1)</span>
+    <span class="k">return</span> <span class="n">cost</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">traj</span><span class="p">)</span>
+
+<span class="c1"># --- MPC 主循环 (滚动时域控制) ---</span>
+<span class="n">history_x</span> <span class="o">=</span> <span class="p">[]</span>     <span class="c1"># 真实执行的状态轨迹</span>
+<span class="n">history_u</span> <span class="o">=</span> <span class="p">[]</span>     <span class="c1"># 实际执行的控制输入 (只取最优序列的第一步)</span>
+<span class="n">pred_trajs</span> <span class="o">=</span> <span class="p">[]</span>    <span class="c1"># 每次优化得到的预测轨迹 (整串)</span>
+
+<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">60</span><span class="p">):</span>
+    <span class="n">best_cost</span> <span class="o">=</span> <span class="mf">1e9</span>
+    <span class="n">best_seq</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">best_traj</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># 穷举所有可能的控制序列 U = [u_k, u_{k+1}, ..., u_{k+N-1}]</span>
+    <span class="k">for</span> <span class="n">U</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">U_candidates</span><span class="p">]</span><span class="o">*</span><span class="n">N</span><span class="p">))</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">N</span><span class="p">):</span>
+        <span class="n">cost</span><span class="p">,</span> <span class="n">traj</span> <span class="o">=</span> <span class="n">simulate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">U</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cost</span> <span class="o">&lt;</span> <span class="n">best_cost</span><span class="p">:</span>
+            <span class="n">best_cost</span> <span class="o">=</span> <span class="n">cost</span>
+            <span class="n">best_seq</span> <span class="o">=</span> <span class="n">U</span>      <span class="c1"># 当前最优控制序列</span>
+            <span class="n">best_traj</span> <span class="o">=</span> <span class="n">traj</span>  <span class="c1"># 当前最优预测轨迹</span>
+
+    <span class="c1"># 保存数据 (真实轨迹、控制输入、预测轨迹)</span>
+    <span class="n">history_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+    <span class="n">history_u</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">best_seq</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># 只执行第一步 u_k*</span>
+    <span class="n">pred_trajs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">best_traj</span><span class="p">)</span>   <span class="c1"># 保存整条预测轨迹用于画红虚线</span>
+
+    <span class="c1"># 执行第一步 (滚动时域控制的核心：只执行u_k)</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">best_seq</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">A</span> <span class="o">@</span> <span class="n">x</span> <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">*</span><span class="n">u</span>
+
+    <span class="c1"># 收敛条件 (位置接近10, 速度≈0)</span>
+    <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">target</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mf">0.1</span> <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">target</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mf">0.1</span><span class="p">:</span>
+        <span class="n">history_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+        <span class="n">history_u</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>   <span class="c1"># 终端时控制输入设为0</span>
+        <span class="k">break</span>
+
+<span class="n">history_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">history_x</span><span class="p">)</span>
+
+<span class="c1"># --- 动态可视化 ---</span>
+<span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+
+<span class="c1"># 上图：位置随时间</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s2">"green"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Target position"</span><span class="p">)</span>
+<span class="p">(</span><span class="n">line_real</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">([],</span> <span class="p">[],</span> <span class="s2">"bo-"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Real trajectory"</span><span class="p">)</span>   <span class="c1"># 蓝点=真实轨迹</span>
+<span class="p">(</span><span class="n">line_pred</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">([],</span> <span class="p">[],</span> <span class="s2">"r--"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Predicted trajectory"</span><span class="p">)</span>  <span class="c1"># 红虚线=预测轨迹</span>
+<span class="p">(</span><span class="n">point_exec</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">([],</span> <span class="p">[],</span> <span class="s2">"ro"</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Execute point"</span><span class="p">)</span> <span class="c1"># 红点=执行点</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">history_x</span><span class="p">)</span><span class="o">+</span><span class="n">N</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">target</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Position"</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+
+<span class="c1"># 下图：控制输入</span>
+<span class="p">(</span><span class="n">line_u</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ax2</span><span class="o">.</span><span class="n">step</span><span class="p">([],</span> <span class="p">[],</span> <span class="n">where</span><span class="o">=</span><span class="s2">"post"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Control input u"</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">history_u</span><span class="p">))</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">U_candidates</span><span class="p">)</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">U_candidates</span><span class="p">)</span><span class="o">+</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Time step"</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"u"</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+
+<span class="c1"># --- 动画更新函数 ---</span>
+<span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
+    <span class="c1"># 蓝线：实际轨迹</span>
+    <span class="n">line_real</span><span class="o">.</span><span class="n">set_data</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">frame</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="n">history_x</span><span class="p">[:</span><span class="n">frame</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">])</span>
+    <span class="c1"># 红虚线：预测轨迹 (窗口内)</span>
+    <span class="n">pred</span> <span class="o">=</span> <span class="n">pred_trajs</span><span class="p">[</span><span class="n">frame</span><span class="p">]</span>
+    <span class="n">line_pred</span><span class="o">.</span><span class="n">set_data</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">frame</span><span class="o">+</span><span class="nb">len</span><span class="p">(</span><span class="n">pred</span><span class="p">)),</span> <span class="n">pred</span><span class="p">[:,</span><span class="mi">0</span><span class="p">])</span>
+    <span class="c1"># 红点：当前执行点</span>
+    <span class="n">point_exec</span><span class="o">.</span><span class="n">set_data</span><span class="p">([</span><span class="n">frame</span><span class="p">],</span> <span class="p">[</span><span class="n">history_x</span><span class="p">[</span><span class="n">frame</span><span class="p">,</span><span class="mi">0</span><span class="p">]])</span>
+    <span class="c1"># 阶梯：控制输入</span>
+    <span class="n">line_u</span><span class="o">.</span><span class="n">set_data</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">frame</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="n">history_u</span><span class="p">[:</span><span class="n">frame</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">line_real</span><span class="p">,</span> <span class="n">line_pred</span><span class="p">,</span> <span class="n">point_exec</span><span class="p">,</span> <span class="n">line_u</span>
+
+<span class="c1"># 动画循环：frames=len(pred_trajs)，表示每个MPC优化时刻</span>
+<span class="n">ani</span> <span class="o">=</span> <span class="n">animation</span><span class="o">.</span><span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">update</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">pred_trajs</span><span class="p">),</span>
+                              <span class="n">interval</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span> <span class="n">blit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_3ef71a996b10005ce1b14dad9c9638ce_1759054675.png"><img alt="" src="assets/doc/04-ai/算法模型/mpc/images/wp_editor_md_3ef71a996b10005ce1b14dad9c9638ce_1759054675.png"/></a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="机器人全身控制浅谈-理解-wbc-的原理.html">← 机器人全身控制浅谈：理解 WBC 的原理</a>
+    <a class="next" href="语音生成模型-cosyvoice入门实践.html">语音生成模型：CosyVoice入门实践 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

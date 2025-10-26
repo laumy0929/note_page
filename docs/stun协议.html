@@ -180,19 +180,19 @@
 <h4 id="stun_3">设备发送向STUN服务端发送请求</h4>
 <h5 id="binding-request">开发板发送binding request</h5>
 <p>这里是设备向stun.l.google.com：74.125.250.129:19302服务发送binding request请求。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_ab489a74a77e9b82ed1d9d7fa6aa9b2c.jpg"><img alt="" src="assets/doc/08-网络/stun协议/images/wp_editor_md_ab489a74a77e9b82ed1d9d7fa6aa9b2c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_ab489a74a77e9b82ed1d9d7fa6aa9b2c.jpg"><img alt="" src="assets/doc/09-网络/stun协议/images/wp_editor_md_ab489a74a77e9b82ed1d9d7fa6aa9b2c.jpg"/></a></p>
 <h5 id="binding-request_1">电脑发送binding request</h5>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_06efcf8e4abbfd6e9ee2e25e832782c9.jpg"><img alt="" src="assets/doc/08-网络/stun协议/images/wp_editor_md_06efcf8e4abbfd6e9ee2e25e832782c9.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_06efcf8e4abbfd6e9ee2e25e832782c9.jpg"><img alt="" src="assets/doc/09-网络/stun协议/images/wp_editor_md_06efcf8e4abbfd6e9ee2e25e832782c9.jpg"/></a></p>
 <p>设备的电脑一下发了3个binding request，其中一个是发送给google stun服务器的，但是另外两个实际上是发给设备A的本地IP和NAT墙的IP，可能是此前连接过，浏览器缓存了信息。</p>
 <h4 id="_7">服务端回复</h4>
 <h5 id="a">设备A收到回复</h5>
 <p>stun.l.google.com回复了binding success response。并表明了设备的公网IP为120.236.240.177，其端口为8139。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_abac79e966c195b9025bfe2393e04773.jpg"><img alt="" src="assets/doc/08-网络/stun协议/images/wp_editor_md_abac79e966c195b9025bfe2393e04773.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_abac79e966c195b9025bfe2393e04773.jpg"><img alt="" src="assets/doc/09-网络/stun协议/images/wp_editor_md_abac79e966c195b9025bfe2393e04773.jpg"/></a></p>
 <h5 id="b">电脑B收到回复</h5>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_f4a29ee31d223286727656e53d4580fe.jpg"><img alt="" src="assets/doc/08-网络/stun协议/images/wp_editor_md_f4a29ee31d223286727656e53d4580fe.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_f4a29ee31d223286727656e53d4580fe.jpg"><img alt="" src="assets/doc/09-网络/stun协议/images/wp_editor_md_f4a29ee31d223286727656e53d4580fe.jpg"/></a></p>
 <p>通过message transaction ID可以看到电脑收到了Google STUN回复的binding success response，告知其NAT地址为120.236.240.177，端口号是8140。因为连接的是同一个路由器，所以NAT是一样的。同时板子A设备192.168.51.127也对齐回复了binding success response，告知其地址为192.168.51.227:59777。</p>
 <h3 id="a_1">板子A请求检查</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_a46fc1700d926970a5daf3cd7024a542.jpg"><img alt="" src="assets/doc/08-网络/stun协议/images/wp_editor_md_a46fc1700d926970a5daf3cd7024a542.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_a46fc1700d926970a5daf3cd7024a542.jpg"><img alt="" src="assets/doc/09-网络/stun协议/images/wp_editor_md_a46fc1700d926970a5daf3cd7024a542.jpg"/></a></p>
 <p>板子A发送了一个binding request，对端回复了一个binding success response，则表示联通已建立。</p>
 <h2 id="turn">TURN协议</h2>
 <p>TURN协议是在STUN的基础上增加了中继功能，解决的是对称型NAT无法穿透的问题。如下图的结构体，需要注意的是，使用TURN作为中继转发，传输的设备一方式TURN Client，另一方是Peer A。即TURN Client需要与TURN Server建立TURN协议交互，而Peer A与TURN Server只需要做STUN协议交互。此前调试了两个通信设备，两端都是使用TURN协议发起连接，导致一端checking失败，最后将一端修改为STUN协议交互即可。</p>
@@ -308,7 +308,7 @@
 </ol></div>
   <div class="post-nav">
     <a class="prev" href="coturn安装.html">← coturn安装</a>
-    <a class="next" href="libpeer分析.html">libpeer分析 →</a>
+    <a class="next" href="乌龟图分析法.html">乌龟图分析法 →</a>
   </div>
 </article>
 

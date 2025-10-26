@@ -266,7 +266,7 @@
 <p>触发tasklet得到执行，也比较简单，上面以普通的tasklet为例。用户可调用tasklet_schedule，该函数将tasklet插入到链表中然后调用raise_softirq_irqoff触发软中断，最终触发了softirq，关于softirq的运行在上一章节中已经描述，最后softirq运行tasklet_action，在该函数中进行while遍历链表执行对应的tasklet回调函数。</p></div>
   <div class="post-nav">
     <a class="prev" href="workqueue.html">← workqueue</a>
-    <a class="next" href="wordpress使用笔记.html">wordpress使用笔记 →</a>
+    <a class="next" href="linux中断实现.html">Linux中断实现 →</a>
   </div>
 </article>
 

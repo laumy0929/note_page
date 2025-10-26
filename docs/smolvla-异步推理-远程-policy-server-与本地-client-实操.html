@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SmolVLA 异步推理：远程 Policy Server 与本地 Client 实操 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">概述</a><ul></ul></li><li><a href="#_2">环境准备</a><ul></ul></li><li><a href="#_3">服务器</a><ul></ul></li><li><a href="#_4">客户端</a><ul><li><a href="#ssh">建立SSH转发</a></li><li><a href="#_5">本地运行</a></li></ul></li><li><a href="#_6">常见问题</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>SmolVLA 异步推理：远程 Policy Server 与本地 Client 实操</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-08-28
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">概述</h2>
+<p>本文记录lerobot smolvla异步推理实践，将SmolVLA的策略server部署到AutoDL上，真机client在本地笔记本上运行。</p>
+<p>下面是代码的流程图：</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_bb33ac4dc20efc15f88512cb477053b2_1756952035.png"><img alt="" src="assets/doc/04-ai/lerobot/smolvla策略server与client分离部署实践/images/wp_editor_md_bb33ac4dc20efc15f88512cb477053b2_1756952035.png"/></a></p>
+<h2 id="_2">环境准备</h2>
+<p>先登录AutoDL事先搭建好lerobot的环境，这里就不再重复了，参考往期文章。lerobot环境搭建好后，需要先安装smolvla和gRPC。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 建议先升级打包工具</span>
+<span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">U</span> <span class="n">pip</span> <span class="n">setuptools</span> <span class="n">wheel</span>
+
+<span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">e</span> <span class="s2">".[smolvla]"</span>
+
+<span class="c1"># 安装 gRPC 及相关</span>
+<span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">pip</span> <span class="n">install</span> <span class="n">grpcio</span> <span class="n">grpcio</span><span class="o">-</span><span class="n">tools</span> <span class="n">protobuf</span>
+</code></pre></div>
+<h2 id="_3">服务器</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">python</span> <span class="n">src</span><span class="o">/</span><span class="n">lerobot</span><span class="o">/</span><span class="n">scripts</span><span class="o">/</span><span class="n">server</span><span class="o">/</span><span class="n">policy_server</span><span class="o">.</span><span class="n">py</span> 
+  <span class="o">--</span><span class="n">host</span><span class="o">=</span><span class="mf">127.0.0.1</span> 
+  <span class="o">--</span><span class="n">port</span><span class="o">=</span><span class="mi">8080</span> 
+  <span class="o">--</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span> 
+  <span class="o">--</span><span class="n">inference_latency</span><span class="o">=</span><span class="mf">0.033</span> 
+  <span class="o">--</span><span class="n">obs_queue_timeout</span><span class="o">=</span><span class="mi">2</span>
+</code></pre></div>
+<p>启动成功后的日志如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">python</span> <span class="n">src</span><span class="o">/</span><span class="n">lerobot</span><span class="o">/</span><span class="n">scripts</span><span class="o">/</span><span class="n">server</span><span class="o">/</span><span class="n">policy_server</span><span class="o">.</span><span class="n">py</span>   <span class="o">--</span><span class="n">host</span><span class="o">=</span><span class="mf">127.0.0.1</span>   <span class="o">--</span><span class="n">port</span><span class="o">=</span><span class="mi">8080</span>   <span class="o">--</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span>   <span class="o">--</span><span class="n">inference_latency</span><span class="o">=</span><span class="mi">0</span>   <span class="o">--</span><span class="n">obs_queue_timeout</span><span class="o">=</span><span class="mi">2</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">33</span><span class="p">:</span><span class="mi">07</span> <span class="n">y_server</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">384</span> <span class="p">{</span><span class="s1">'fps'</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+ <span class="s1">'host'</span><span class="p">:</span> <span class="s1">'127.0.0.1'</span><span class="p">,</span>
+ <span class="s1">'inference_latency'</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+ <span class="s1">'obs_queue_timeout'</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span>
+ <span class="s1">'port'</span><span class="p">:</span> <span class="mi">8080</span><span class="p">}</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">33</span><span class="p">:</span><span class="mi">07</span> <span class="n">y_server</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">394</span> <span class="n">PolicyServer</span> <span class="n">started</span> <span class="n">on</span> <span class="mf">127.0.0.1</span><span class="p">:</span><span class="mi">8080</span>
+
+<span class="n">被客户端连接后的日志</span><span class="err">：</span>
+
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">42</span> <span class="n">y_server</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">104</span> <span class="n">Client</span> <span class="n">ipv4</span><span class="p">:</span><span class="mf">127.0.0.1</span><span class="p">:</span><span class="mi">45038</span> <span class="n">connected</span> <span class="ow">and</span> <span class="n">ready</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">42</span> <span class="n">y_server</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">130</span> <span class="n">Receiving</span> <span class="n">policy</span> <span class="n">instructions</span> <span class="kn">from</span> <span class="nn">ipv4</span><span class="p">:</span><span class="mf">127.0.0.1</span><span class="p">:</span><span class="mi">45038</span> <span class="o">|</span> <span class="n">Policy</span> <span class="nb">type</span><span class="p">:</span> <span class="n">smolvla</span> <span class="o">|</span> <span class="n">Pretrained</span> <span class="n">name</span> <span class="ow">or</span> <span class="n">path</span><span class="p">:</span> <span class="n">outputs</span><span class="o">/</span><span class="n">smolvla_weigh_08181710</span><span class="o">/</span><span class="n">pretrained_model</span> <span class="o">|</span> <span class="n">Actions</span> <span class="n">per</span> <span class="n">chunk</span><span class="p">:</span> <span class="mi">50</span> <span class="o">|</span> <span class="n">Device</span><span class="p">:</span> <span class="n">cuda</span>
+<span class="n">Loading</span>  <span class="n">HuggingFaceTB</span><span class="o">/</span><span class="n">SmolVLM2</span><span class="o">-</span><span class="mi">500</span><span class="n">M</span><span class="o">-</span><span class="n">Video</span><span class="o">-</span><span class="n">Instruct</span> <span class="n">weights</span> <span class="o">...</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">54</span> <span class="n">odeling</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">1004</span> <span class="n">We</span> <span class="n">will</span> <span class="n">use</span> <span class="mi">90</span><span class="o">%</span> <span class="n">of</span> <span class="n">the</span> <span class="n">memory</span> <span class="n">on</span> <span class="n">device</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">storing</span> <span class="n">the</span> <span class="n">model</span><span class="p">,</span> <span class="ow">and</span> <span class="mi">10</span><span class="o">%</span> <span class="k">for</span> <span class="n">the</span> <span class="n">buffer</span> <span class="n">to</span> <span class="n">avoid</span> <span class="n">OOM</span><span class="o">.</span> <span class="n">You</span> <span class="n">can</span> <span class="nb">set</span> <span class="err">`</span><span class="n">max_memory</span><span class="err">`</span> <span class="ow">in</span> <span class="n">to</span> <span class="n">a</span> <span class="n">higher</span> <span class="n">value</span> <span class="n">to</span> <span class="n">use</span> <span class="n">more</span> <span class="n">memory</span> <span class="p">(</span><span class="n">at</span> <span class="n">your</span> <span class="n">own</span> <span class="n">risk</span><span class="p">)</span><span class="o">.</span>
+<span class="n">Reducing</span> <span class="n">the</span> <span class="n">number</span> <span class="n">of</span> <span class="n">VLM</span> <span class="n">layers</span> <span class="n">to</span> <span class="mi">16</span> <span class="o">...</span>
+<span class="n">Loading</span> <span class="n">weights</span> <span class="kn">from</span> <span class="nn">local</span> <span class="n">directory</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">14</span> <span class="n">y_server</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">150</span> <span class="n">Time</span> <span class="n">taken</span> <span class="n">to</span> <span class="n">put</span> <span class="n">policy</span> <span class="n">on</span> <span class="n">cuda</span><span class="p">:</span> <span class="mf">32.3950</span> <span class="n">seconds</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">14</span> <span class="n">ort</span><span class="o">/</span><span class="n">utils</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">74</span> <span class="o">&lt;</span><span class="n">Logger</span> <span class="n">policy_server</span> <span class="p">(</span><span class="n">NOTSET</span><span class="p">)</span><span class="o">&gt;</span> <span class="n">Starting</span> <span class="n">receiver</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">14</span> <span class="n">y_server</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">175</span> <span class="n">Received</span> <span class="n">observation</span> <span class="c1">#0 | Avg FPS: 3.45 | Target: 30.00 | One-way latency: -9.22ms</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">14</span> <span class="n">y_server</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">205</span> <span class="n">Running</span> <span class="n">inference</span> <span class="k">for</span> <span class="n">observation</span> <span class="c1">#0 (must_go: True)</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">ort</span><span class="o">/</span><span class="n">utils</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">74</span> <span class="o">&lt;</span><span class="n">Logger</span> <span class="n">policy_server</span> <span class="p">(</span><span class="n">NOTSET</span><span class="p">)</span><span class="o">&gt;</span> <span class="n">Starting</span> <span class="n">receiver</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">y_server</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">175</span> <span class="n">Received</span> <span class="n">observation</span> <span class="c1">#0 | Avg FPS: 3.45 | Target: 30.00 | One-way latency: -9.58ms</span>
+</code></pre></div>
+<p>服务器仅本地监听(12.0.0.1)，这样不暴露公网，客户端通过SSH隧道安全转发。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">nohup</span> <span class="n">python</span> <span class="n">src</span><span class="o">/</span><span class="n">lerobot</span><span class="o">/</span><span class="n">scripts</span><span class="o">/</span><span class="n">server</span><span class="o">/</span><span class="n">policy_server</span><span class="o">.</span><span class="n">py</span> 
+  <span class="o">--</span><span class="n">host</span><span class="o">=</span><span class="mf">127.0.0.1</span> <span class="o">--</span><span class="n">port</span><span class="o">=</span><span class="mi">8080</span> <span class="o">--</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span> <span class="o">--</span><span class="n">inference_latency</span><span class="o">=</span><span class="mf">0.033</span> <span class="o">--</span><span class="n">obs_queue_timeout</span><span class="o">=</span><span class="mi">2</span> 
+  <span class="o">&gt;/</span><span class="n">tmp</span><span class="o">/</span><span class="n">policy_server</span><span class="o">.</span><span class="n">log</span> <span class="mi">2</span><span class="o">&gt;&amp;</span><span class="mi">1</span> <span class="o">&amp;</span>
+</code></pre></div>
+<p>也可以选择后台运行。</p>
+<h2 id="_4">客户端</h2>
+<h3 id="ssh">建立SSH转发</h3>
+<p>在本地客户端线建立SSH本地端口转发（隧道）</p>
+<div class="codehilite"><pre><span></span><code><span class="n">ssh</span> <span class="o">-</span><span class="n">p</span> <span class="o">&lt;</span><span class="n">服务器ssh的port</span><span class="o">&gt;</span> <span class="o">-</span><span class="n">fN</span> <span class="o">-</span><span class="n">L</span> <span class="mi">8080</span><span class="p">:</span><span class="mf">127.0.0.1</span><span class="p">:</span><span class="mi">8080</span> <span class="o">&lt;</span><span class="n">用户名</span><span class="nd">@服务器ssh的ip或域名</span><span class="o">&gt;</span>
+
+<span class="n">如</span><span class="err">：</span><span class="n">ssh</span> <span class="o">-</span><span class="n">p</span> <span class="mi">20567</span> <span class="o">-</span><span class="n">fN</span> <span class="o">-</span><span class="n">L</span> <span class="mi">8080</span><span class="p">:</span><span class="mf">127.0.0.1</span><span class="p">:</span><span class="mi">8080</span> <span class="n">root</span><span class="nd">@connect</span><span class="o">.</span><span class="n">xx</span><span class="o">.</span><span class="n">xxx</span><span class="o">.</span><span class="n">com</span>
+
+<span class="n">如果不想后台运行</span><span class="err">，</span><span class="n">运行在前台</span><span class="err">（</span><span class="n">Crtl</span><span class="o">+</span><span class="n">C结束</span><span class="err">）</span>
+<span class="n">ssh</span> <span class="o">-</span><span class="n">p</span> <span class="mi">20567</span> <span class="o">-</span><span class="n">N</span> <span class="o">-</span><span class="n">L</span> <span class="mi">8080</span><span class="p">:</span><span class="mf">127.0.0.1</span><span class="p">:</span><span class="mi">8080</span> <span class="n">root</span><span class="nd">@connect</span><span class="o">.</span><span class="n">xx</span><span class="o">.</span><span class="n">xxx</span><span class="o">.</span><span class="n">com</span>
+</code></pre></div>
+<h3 id="_5">本地运行</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">python</span> <span class="n">src</span><span class="o">/</span><span class="n">lerobot</span><span class="o">/</span><span class="n">scripts</span><span class="o">/</span><span class="n">server</span><span class="o">/</span><span class="n">robot_client</span><span class="o">.</span><span class="n">py</span> \
+  <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">type</span><span class="o">=</span><span class="n">so101_follower</span> <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">port</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">ttyACM0</span> <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">id</span><span class="o">=</span><span class="n">R12252801</span> \
+  <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">cameras</span><span class="o">=</span><span class="s2">"{ handeye: {type: opencv, index_or_path: 6, width: 640, height: 480, fps: 30}, fixed: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}}"</span> \
+  <span class="o">--</span><span class="n">policy_type</span><span class="o">=</span><span class="n">smolvla</span> \
+  <span class="o">--</span><span class="n">pretrained_name_or_path</span><span class="o">=</span><span class="n">outputs</span><span class="o">/</span><span class="n">smolvla_weigh_08181710</span><span class="o">/</span><span class="n">pretrained_model</span> \
+  <span class="o">--</span><span class="n">policy_device</span><span class="o">=</span><span class="n">cuda</span> \
+  <span class="o">--</span><span class="n">actions_per_chunk</span><span class="o">=</span><span class="mi">50</span> \
+  <span class="o">--</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span> \
+  <span class="o">--</span><span class="n">server_address</span><span class="o">=</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8080</span> \
+  <span class="o">--</span><span class="n">chunk_size_threshold</span><span class="o">=</span><span class="mf">0.8</span> \
+  <span class="o">--</span><span class="n">debug_visualize_queue_size</span><span class="o">=</span><span class="kc">True</span>
+</code></pre></div>
+<p>其他参数</p>
+<p>--debug_visualize_queue_size=True: 执行结束后可视化队列情况。 需要安装 pip install matplotlib。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_acd9d57dedbda7335db09af347edf982_1756888127.png"><img alt="" src="assets/doc/04-ai/lerobot/smolvla策略server与client分离部署实践/images/wp_editor_md_acd9d57dedbda7335db09af347edf982_1756888127.png"/></a></p>
+<p>--aggregate_fn_name=conservative:当新动作到达时，如果队列中已经存在相同时间步的动作，系统会使用聚合函数来合并它们。如果为latest_only（默认），只用最新动作，这样可能会抖动剧烈。 --pretrained_name_or_path 会在“服务器上”加载。需要确保服务器上outputs/smolvla_weigh_08181710路径有权重文件。</p>
+<p>连接执行的日志如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">python</span> <span class="n">src</span><span class="o">/</span><span class="n">lerobot</span><span class="o">/</span><span class="n">scripts</span><span class="o">/</span><span class="n">server</span><span class="o">/</span><span class="n">robot_client</span><span class="o">.</span><span class="n">py</span>   <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">type</span><span class="o">=</span><span class="n">so101_follower</span> <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">port</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">ttyACM0</span> <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">id</span><span class="o">=</span><span class="n">R12252801</span>   <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">cameras</span><span class="o">=</span><span class="s2">"{ handeye: {type: opencv, index_or_path: 6, width: 320, height: 240, fps: 25}, fixed: {type: opencv, index_or_path: 0, width: 320, height: 240, fps: 25}}"</span>   <span class="o">--</span><span class="n">policy_type</span><span class="o">=</span><span class="n">smolvla</span>   <span class="o">--</span><span class="n">pretrained_name_or_path</span><span class="o">=</span><span class="n">outputs</span><span class="o">/</span><span class="n">smolvla_weigh_08181710</span><span class="o">/</span><span class="n">pretrained_model</span>   <span class="o">--</span><span class="n">policy_device</span><span class="o">=</span><span class="n">cuda</span>   <span class="o">--</span><span class="n">actions_per_chunk</span><span class="o">=</span><span class="mi">50</span> <span class="o">--</span><span class="n">chunk_size_threshold</span><span class="o">=</span><span class="mf">0.8</span>  <span class="o">--</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span>   <span class="o">--</span><span class="n">server_address</span><span class="o">=</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8080</span> <span class="o">--</span><span class="n">aggregate_fn_name</span><span class="o">=</span><span class="n">average</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">38</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">478</span> <span class="p">{</span><span class="s1">'actions_per_chunk'</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
+ <span class="s1">'aggregate_fn_name'</span><span class="p">:</span> <span class="s1">'average'</span><span class="p">,</span>
+ <span class="s1">'chunk_size_threshold'</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>
+ <span class="s1">'debug_visualize_queue_size'</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+ <span class="s1">'fps'</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+ <span class="s1">'policy_device'</span><span class="p">:</span> <span class="s1">'cuda'</span><span class="p">,</span>
+ <span class="s1">'policy_type'</span><span class="p">:</span> <span class="s1">'smolvla'</span><span class="p">,</span>
+ <span class="s1">'pretrained_name_or_path'</span><span class="p">:</span> <span class="s1">'outputs/smolvla_weigh_08181710/pretrained_model'</span><span class="p">,</span>
+ <span class="s1">'robot'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'calibration_dir'</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+           <span class="s1">'cameras'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'fixed'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'color_mode'</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">ColorMode</span><span class="o">.</span><span class="n">RGB</span><span class="p">:</span> <span class="s1">'rgb'</span><span class="o">&gt;</span><span class="p">,</span>
+                                 <span class="s1">'fps'</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span>
+                                 <span class="s1">'height'</span><span class="p">:</span> <span class="mi">240</span><span class="p">,</span>
+                                 <span class="s1">'index_or_path'</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                                 <span class="s1">'rotation'</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">Cv2Rotation</span><span class="o">.</span><span class="n">NO_ROTATION</span><span class="p">:</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span>
+                                 <span class="s1">'warmup_s'</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                                 <span class="s1">'width'</span><span class="p">:</span> <span class="mi">320</span><span class="p">},</span>
+                       <span class="s1">'handeye'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'color_mode'</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">ColorMode</span><span class="o">.</span><span class="n">RGB</span><span class="p">:</span> <span class="s1">'rgb'</span><span class="o">&gt;</span><span class="p">,</span>
+                                   <span class="s1">'fps'</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span>
+                                   <span class="s1">'height'</span><span class="p">:</span> <span class="mi">240</span><span class="p">,</span>
+                                   <span class="s1">'index_or_path'</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+                                   <span class="s1">'rotation'</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">Cv2Rotation</span><span class="o">.</span><span class="n">NO_ROTATION</span><span class="p">:</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span>
+                                   <span class="s1">'warmup_s'</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                                   <span class="s1">'width'</span><span class="p">:</span> <span class="mi">320</span><span class="p">}},</span>
+           <span class="s1">'disable_torque_on_disconnect'</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+           <span class="s1">'id'</span><span class="p">:</span> <span class="s1">'R12252801'</span><span class="p">,</span>
+           <span class="s1">'max_relative_target'</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+           <span class="s1">'port'</span><span class="p">:</span> <span class="s1">'/dev/ttyACM0'</span><span class="p">,</span>
+           <span class="s1">'use_degrees'</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+ <span class="s1">'server_address'</span><span class="p">:</span> <span class="s1">'localhost:8080'</span><span class="p">,</span>
+ <span class="s1">'task'</span><span class="p">:</span> <span class="s1">''</span><span class="p">,</span>
+ <span class="s1">'verify_robot_cameras'</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">40</span> <span class="n">a_opencv</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">179</span> <span class="n">OpenCVCamera</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span> <span class="n">connected</span><span class="o">.</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">41</span> <span class="n">a_opencv</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">179</span> <span class="n">OpenCVCamera</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="n">connected</span><span class="o">.</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">41</span> <span class="n">follower</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">104</span> <span class="n">R12252801</span> <span class="n">SO101Follower</span> <span class="n">connected</span><span class="o">.</span>
+<span class="n">WARNING</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">42</span> <span class="n">ils</span><span class="o">/</span><span class="n">utils</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">54</span> <span class="n">No</span> <span class="n">accelerated</span> <span class="n">backend</span> <span class="n">detected</span><span class="o">.</span> <span class="n">Using</span> <span class="n">default</span> <span class="n">cpu</span><span class="p">,</span> <span class="n">this</span> <span class="n">will</span> <span class="n">be</span> <span class="n">slow</span><span class="o">.</span>
+<span class="n">WARNING</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">42</span> <span class="o">/</span><span class="n">policies</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">80</span> <span class="n">Device</span> <span class="s1">'cuda'</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">available</span><span class="o">.</span> <span class="n">Switching</span> <span class="n">to</span> <span class="s1">'cpu'</span><span class="o">.</span>
+<span class="n">WARNING</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">42</span> <span class="n">ils</span><span class="o">/</span><span class="n">utils</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">54</span> <span class="n">No</span> <span class="n">accelerated</span> <span class="n">backend</span> <span class="n">detected</span><span class="o">.</span> <span class="n">Using</span> <span class="n">default</span> <span class="n">cpu</span><span class="p">,</span> <span class="n">this</span> <span class="n">will</span> <span class="n">be</span> <span class="n">slow</span><span class="o">.</span>
+<span class="n">WARNING</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">42</span> <span class="o">/</span><span class="n">policies</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">80</span> <span class="n">Device</span> <span class="s1">'cuda'</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">available</span><span class="o">.</span> <span class="n">Switching</span> <span class="n">to</span> <span class="s1">'cpu'</span><span class="o">.</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">42</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">121</span> <span class="n">Initializing</span> <span class="n">client</span> <span class="n">to</span> <span class="n">connect</span> <span class="n">to</span> <span class="n">server</span> <span class="n">at</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8080</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">42</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">140</span> <span class="n">Robot</span> <span class="n">connected</span> <span class="ow">and</span> <span class="n">ready</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">40</span><span class="p">:</span><span class="mi">42</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">163</span> <span class="n">Sending</span> <span class="n">policy</span> <span class="n">instructions</span> <span class="n">to</span> <span class="n">policy</span> <span class="n">server</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">14</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">486</span> <span class="n">Starting</span> <span class="n">action</span> <span class="n">receiver</span> <span class="n">thread</span><span class="o">...</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">14</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">454</span> <span class="n">Control</span> <span class="n">loop</span> <span class="n">thread</span> <span class="n">starting</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">14</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">280</span> <span class="n">Action</span> <span class="n">receiving</span> <span class="n">thread</span> <span class="n">starting</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">216</span> <span class="n">Sent</span> <span class="n">observation</span> <span class="c1">#0 | </span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">469</span> <span class="n">Control</span> <span class="n">loop</span> <span class="p">(</span><span class="n">ms</span><span class="p">):</span> <span class="mf">288.72</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">216</span> <span class="n">Sent</span> <span class="n">observation</span> <span class="c1">#0 | </span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">469</span> <span class="n">Control</span> <span class="n">loop</span> <span class="p">(</span><span class="n">ms</span><span class="p">):</span> <span class="mf">132.22</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">216</span> <span class="n">Sent</span> <span class="n">observation</span> <span class="c1">#0 | </span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">469</span> <span class="n">Control</span> <span class="n">loop</span> <span class="p">(</span><span class="n">ms</span><span class="p">):</span> <span class="mf">127.84</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">216</span> <span class="n">Sent</span> <span class="n">observation</span> <span class="c1">#0 | </span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">469</span> <span class="n">Control</span> <span class="n">loop</span> <span class="p">(</span><span class="n">ms</span><span class="p">):</span> <span class="mf">123.95</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">216</span> <span class="n">Sent</span> <span class="n">observation</span> <span class="c1">#0 | </span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">469</span> <span class="n">Control</span> <span class="n">loop</span> <span class="p">(</span><span class="n">ms</span><span class="p">):</span> <span class="mf">140.21</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">469</span> <span class="n">Control</span> <span class="n">loop</span> <span class="p">(</span><span class="n">ms</span><span class="p">):</span> <span class="mf">0.54</span>
+<span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">28</span> <span class="mi">10</span><span class="p">:</span><span class="mi">41</span><span class="p">:</span><span class="mi">15</span> <span class="n">t_client</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">469</span> <span class="n">Control</span> <span class="n">loop</span> <span class="p">(</span><span class="n">ms</span><span class="p">):</span> <span class="mf">0.42</span>
+</code></pre></div>
+<p>如果使用ACT策略，对于ACT来说chunk_size_threshold不要设置太大，实测发现不然一个chunk到下一个chunk抖动比较严重</p>
+<div class="codehilite"><pre><span></span><code><span class="n">python</span> <span class="n">src</span><span class="o">/</span><span class="n">lerobot</span><span class="o">/</span><span class="n">scripts</span><span class="o">/</span><span class="n">server</span><span class="o">/</span><span class="n">robot_client</span><span class="o">.</span><span class="n">py</span> \
+  <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">type</span><span class="o">=</span><span class="n">so101_follower</span> \
+  <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">port</span><span class="o">=/</span><span class="n">dev</span><span class="o">/</span><span class="n">ttyACM0</span> \
+  <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">id</span><span class="o">=</span><span class="n">R12252801</span> \
+  <span class="o">--</span><span class="n">robot</span><span class="o">.</span><span class="n">cameras</span><span class="o">=</span><span class="s2">"{ handeye: {type: opencv, index_or_path: 6, width: 640, height: 480, fps: 30}, fixed: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}}"</span> \
+  <span class="o">--</span><span class="n">policy_type</span><span class="o">=</span><span class="n">act</span> \
+  <span class="o">--</span><span class="n">pretrained_name_or_path</span><span class="o">=</span><span class="n">outputs</span><span class="o">/</span><span class="n">act_weigh_07271539</span><span class="o">/</span><span class="n">pretrained_model</span> \
+  <span class="o">--</span><span class="n">policy_device</span><span class="o">=</span><span class="n">cuda</span> \
+  <span class="o">--</span><span class="n">actions_per_chunk</span><span class="o">=</span><span class="mi">100</span> \
+  <span class="o">--</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span> \
+  <span class="o">--</span><span class="n">server_address</span><span class="o">=</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8080</span> \
+  <span class="o">--</span><span class="n">chunk_size_threshold</span><span class="o">=</span><span class="mf">0.1</span>
+</code></pre></div>
+<p>以上就是用SSH隧道的方式实现异步推理的过程。</p>
+<p>参考：<a href="https://hugging-face.cn/docs/lerobot/async">https://hugging-face.cn/docs/lerobot/async</a></p>
+<h2 id="_6">常见问题</h2>
+<p><strong>（0）服务器监控日志分析</strong> <a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_b75dc8dedf39195b700bc485ef5d2d88_1756880289.png"><img alt="" src="assets/doc/04-ai/lerobot/smolvla策略server与client分离部署实践/images/wp_editor_md_b75dc8dedf39195b700bc485ef5d2d88_1756880289.png"/></a></p>
+<ul>
+<li>Received observation #136：服务器接收到第136个观察数据</li>
+<li>Avg FPS: 11.52：实际观测数据帧率，根据客户端每秒采样时间计算，跟服务端没有关系。</li>
+<li>Target:目标设置的观测数据帧率，如15帧/s。</li>
+<li>One-way latency: 客户端到服务器的单向网络延迟为1.71ms。</li>
+<li>inference time: 模型推理耗时时长为1667ms。</li>
+<li>action chunk #136：生成了第136个动作块。</li>
+<li>Total time: 推理+序列化总处理时长。</li>
+</ul>
+<p><strong>（1）服务端实际的观测帧率低</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">INFO</span> <span class="mi">2025</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">29</span> <span class="mi">09</span><span class="p">:</span><span class="mi">47</span><span class="p">:</span><span class="mi">05</span> <span class="n">y_server</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">175</span> <span class="n">Received</span> <span class="n">observation</span> <span class="c1">#573 | Avg FPS: 1.20 | Target: 30.00 | One-way latency: 35.78ms</span>
+</code></pre></div>
+<p>可以看到上面的收到的观测帧率平均只有1.2，看看服务端计算FPS的逻辑。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 每次接收观测时调用</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">total_obs_count</span> <span class="o">+=</span> <span class="mi">1</span>  <span class="c1"># 包括所有接收的观测（包括被过滤的）</span>
+<span class="n">total_duration</span> <span class="o">=</span> <span class="n">current_timestamp</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_timestamp</span>
+<span class="n">avg_fps</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">total_obs_count</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">total_duration</span>
+</code></pre></div>
+<p>影响服务端的接受观测帧帧率的有客户端观测发送频率低，服务端观测被过滤，推理时间长间接影响</p>
+<p>关于客户端观测数据的发送限制如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 只有当队列大小/动作块大小 &lt;= 阈值时才发送观测</span>
+<span class="k">if</span> <span class="n">queue_size</span> <span class="o">/</span> <span class="n">action_chunk_size</span> <span class="o">&lt;=</span> <span class="n">chunk_size_threshold</span><span class="p">:</span>
+    <span class="n">send_observation</span><span class="p">()</span>
+</code></pre></div>
+<p>可以看到只有满足上面的小于动作阈值才会发送，所以要加大发送的帧率需要改大阈值chunk_size_threshold，减少actions_per_chunk，减少queue_size。</p>
+<p>对于ACT策略的FPS 低可能不是问题，这是观察发送频率，不是控制频率，因为ACT 策略就是低频观察，高频执行，主要看机器是不是以30FPS动作执行就好。smolvla也是同样的。因此有时候不要过于误解这个观测帧率，太高的观测帧率也不一定是好事。</p>
+<p><strong>（2）观测数据被过滤</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">y_server</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">191</span> <span class="n">Observation</span> <span class="c1">#510 has been filtered out</span>
+</code></pre></div>
+<p>服务端会根据这次和上次的关节角度计算欧拉来判断相似性，默认的阈值参数是1，可以改小一点，对相似性的判断严苛一下。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">observations_similar</span><span class="p">(</span>
+    <span class="n">obs1</span><span class="p">:</span> <span class="n">TimedObservation</span><span class="p">,</span> <span class="n">obs2</span><span class="p">:</span> <span class="n">TimedObservation</span><span class="p">,</span> <span class="n">lerobot_features</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">],</span> <span class="n">atol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+
+    <span class="o">......</span>
+    <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">obs1_state</span> <span class="o">-</span> <span class="n">obs2_state</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">atol</span><span class="p">)</span>
+</code></pre></div>
+<p>如上修改atol的值，可以改小为如0.5。</p>
+<p>总结一下：</p>
+<p>对于分布式推理不要过于去纠结实际的观测帧率，而是应该看控制的实际帧率，只要控制动作的帧率（如下的延时，大概就是30fps）是满足的就是可以的，也就是说<strong>动作队列中动作不要去获取的时候是空</strong>。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_3bab26c56077e2d4de46ea01581308bb_1756886124.png"><img alt="" src="assets/doc/04-ai/lerobot/smolvla策略server与client分离部署实践/images/wp_editor_md_3bab26c56077e2d4de46ea01581308bb_1756886124.png"/></a></p>
+<p>对于参数优化重点看服务端的推理延时和客户端的队列管理。</p>
+<p>服务端是可以设置推理延时的</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 推理延迟控制</span>
+<span class="o">--</span><span class="n">inference_latency</span><span class="o">=</span><span class="mf">0.033</span>  <span class="c1"># 模型推理延迟（秒）</span>
+
+<span class="c1"># 观察队列管理</span>
+<span class="o">--</span><span class="n">obs_queue_timeout</span><span class="o">=</span><span class="mi">2</span>      <span class="c1"># 获取观测队列超时时间（秒）</span>
+</code></pre></div>
+<p>客户端动作管理</p>
+<div class="codehilite"><pre><span></span><code><span class="o">--</span><span class="n">actions_per_chunk</span><span class="o">=</span><span class="mi">100</span>    <span class="c1"># 一个动作块的序列大小，越大推理负载就重</span>
+<span class="o">--</span><span class="n">chunk_size_threshold</span><span class="o">=</span><span class="mf">0.5</span> <span class="c1"># 队列阈值，越大缓存的动作序列越多，越小实时性越好。</span>
+<span class="o">--</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span>                  <span class="c1"># 控制频率</span>
+</code></pre></div>
+<p>如果要低延时那么就需要把fps提高，也就是服务端的推理时间设置小，客户端的chunk、threshold要小，fps要高。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="jetson-nano平台随记.html">← Jetson nano平台随记</a>
+    <a class="next" href="lerobot-smolvla-从训练到推理链路剖析.html">LeRobot SmolVLA：从训练到推理链路剖析 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

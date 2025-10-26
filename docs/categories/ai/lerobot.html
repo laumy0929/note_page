@@ -48,8 +48,8 @@
           <div class="author">laumy</div>
           <div class="bio">为学日益，为道日损</div>
           <div class="stats">
-            <div><div class="num">161</div><div class="label">文章数</div></div>
-            <div><div class="num">10</div><div class="label">分类</div></div>
+            <div><div class="num">199</div><div class="label">文章数</div></div>
+            <div><div class="num">11</div><div class="label">分类</div></div>
           </div>
         </div>
                     
@@ -130,7 +130,7 @@
                 <li class="category-item has-subcategories">
                   <a href="../../categories/ai.html" class="category-main">
                     <span class="category-name">ai</span>
-                    <span class="subcategory-count">(42篇)</span>
+                    <span class="subcategory-count">(67篇)</span>
                   </a>
                   
                   <ul class="subcategory-list">
@@ -138,21 +138,21 @@
                     <li class="subcategory-item">
                       <a href="../../categories/ai/ai应用.html">
                         <span class="subcategory-name">ai应用</span>
-                        <span class="subcategory-count">(13篇)</span>
+                        <span class="subcategory-count">(23篇)</span>
                       </a>
                     </li>
                     
                     <li class="subcategory-item">
-                      <a href="../../categories/ai/算法.html">
-                        <span class="subcategory-name">算法</span>
-                        <span class="subcategory-count">(5篇)</span>
+                      <a href="../../categories/ai/算法模型.html">
+                        <span class="subcategory-name">算法模型</span>
+                        <span class="subcategory-count">(17篇)</span>
                       </a>
                     </li>
                     
                     <li class="subcategory-item">
                       <a href="../../categories/ai/lerobot.html">
                         <span class="subcategory-name">lerobot</span>
-                        <span class="subcategory-count">(10篇)</span>
+                        <span class="subcategory-count">(13篇)</span>
                       </a>
                     </li>
                     
@@ -171,6 +171,14 @@
                     </li>
                     
                   </ul>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/ros系统.html" class="category-main">
+                    <span class="category-name">ros系统</span>
+                    <span class="subcategory-count">(8篇)</span>
+                  </a>
                   
                 </li>
                 
@@ -217,7 +225,7 @@
                 <li class="category-item">
                   <a href="../../categories/其他.html" class="category-main">
                     <span class="category-name">其他</span>
-                    <span class="subcategory-count">(18篇)</span>
+                    <span class="subcategory-count">(23篇)</span>
                   </a>
                   
                 </li>
@@ -239,7 +247,67 @@
       <div class="latest-post-content">
         
         <div class="post-image">
-          <img src="../../assets/thumbs/IMG_4633_1.jpeg" alt="lerobot ACT实现分析" />
+          <img src="../../assets/thumbs/wp_editor_md_bb33ac4dc20efc15f88512cb477053b2_1756952035.png" alt="SmolVLA 异步推理：远程 Policy Server 与本地 Client 实操" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../smolvla-异步推理-远程-policy-server-与本地-client-实操.html">SmolVLA 异步推理：远程 Policy Server 与本地 Client 实操</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-28
+            </span>
+          </div>
+          <p class="summary">概述 本文记录lerobot smolvla异步推理实践，将SmolVLA的策略server部署到AutoDL上，真机client在本地笔记本上运行。 下面是代码的流程图： 环境准备 先登录AutoDL事先搭建好lerobot的环境，这里就不再重复了，参考往期文章。lerobot</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_606a482e93c99ec2564559998534915e_1756272535.png" alt="LeRobot SmolVLA：从训练到推理链路剖析" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../lerobot-smolvla-从训练到推理链路剖析.html">LeRobot SmolVLA：从训练到推理链路剖析</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-25
+            </span>
+          </div>
+          <p class="summary">框架 本文主要对lerobot SmolVLA策略代码进行分析，下面是策略实现关键部分框图。 SmolVLAPolicay类封装向上提供策略的调用。SmolVLAConfig是对SmolVLA策略的配置，用于配置输出动作序列长度、观测图像输入后到模型的缩放尺寸以及微调策略等等。S</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/IMG_4509-scaled.jpg" alt="lerobot之smolvla体验" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../lerobot之smolvla体验.html">lerobot之smolvla体验</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-18
+            </span>
+          </div>
+          <p class="summary">环境安装 pip install -e &#34;.[smolvla]&#34; 在原来lerobot的环境基础上。 启动训练 本文主要是记录复现lerobot smolvla策略的效果，为了快速看到效果，这里不进行采集数据了，直接用此前ACT采集的数据，将数据打包放到autodl云服务器上进行</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/IMG_4509-scaled.jpg" alt="lerobot ACT实现分析" />
         </div>
         
         <div class="post-text">
@@ -279,26 +347,6 @@
       <div class="latest-post-content">
         
         <div class="post-image">
-          <img src="../../assets/thumbs/IMG_2390.png" alt="lerobot策略优化器" />
-        </div>
-        
-        <div class="post-text">
-          <h2 class="post-title"><a href="../../lerobot策略优化器.html">lerobot策略优化器</a></h2>
-          <div class="meta">
-            <span class="meta-item">
-              <i class="icon">🕒</i>
-              2025-08-02
-            </span>
-          </div>
-          <p class="summary">torch.optim简介 在学校lerobot的策略优化器前，我们先再复习一下什么是优化器。 什么优化器 优化器官方解释就是在深度学习中让损失函数通过梯度下降思想逐步调整参数以达到最小损失。 简单理解优化器的就是更新计算参数的，根据损失函数的梯度方向调整模型权重和偏置值，公式为</p>
-        </div>
-      </div>
-    </article>
-    
-    <article class="post-item">
-      <div class="latest-post-content">
-        
-        <div class="post-image">
           <img src="../../assets/thumbs/IMG_4633_1.jpeg" alt="lerobot学习率调度器" />
         </div>
         
@@ -311,6 +359,26 @@
             </span>
           </div>
           <p class="summary">学习率调度器简介 是什么 学习率调度器（Learning Rate Scheduler）是深度学习训练中动态调整优化器学习率的工具（注意是在优化器的基础上动态调整学习率），通过优化收敛过程提升模型性能。 学习率（η）控制梯度更新步长，参数更新量 = -η × 梯度。过大步长导致震</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/IMG_4509-scaled.jpg" alt="lerobot策略优化器" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../lerobot策略优化器.html">lerobot策略优化器</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-02
+            </span>
+          </div>
+          <p class="summary">torch.optim简介 在学校lerobot的策略优化器前，我们先再复习一下什么是优化器。 什么优化器 优化器官方解释就是在深度学习中让损失函数通过梯度下降思想逐步调整参数以达到最小损失。 简单理解优化器的就是更新计算参数的，根据损失函数的梯度方向调整模型权重和偏置值，公式为</p>
         </div>
       </div>
     </article>
@@ -379,7 +447,7 @@
       <div class="latest-post-content">
         
         <div class="post-image">
-          <img src="../../assets/thumbs/IMG_2390.png" alt="lerobot设备标定" />
+          <img src="../../assets/thumbs/IMG_4509-scaled.jpg" alt="lerobot设备标定" />
         </div>
         
         <div class="post-text">

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NVIDIA Jetson平台简介：机器人和边缘AI - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">简介</a><ul></ul></li><li><a href="#_2">硬件</a><ul></ul></li><li><a href="#_3">软件</a><ul><li><a href="#jetpack-sdk">JetPack SDK</a></li><li><a href="#metropolis">Metropolis</a></li><li><a href="#isaac">Isaac</a></li><li><a href="#holoscan-sdk">Holoscan SDK</a></li><li><a href="#jetson-ai-lab">Jetson AI Lab</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>NVIDIA Jetson平台简介：机器人和边缘AI</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-04
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">简介</h2>
+<p>NVIDIA Jetson平台提供用于开发和部署AI赋能机器人、无人机、IVA（Intelligent Video Analytics，智能视频）应用和自主机器的工具。在边缘生成式AI、NVIDIA Metropolis和Isaac平台支持下，Jetson提供可拓展得软件、现代AI堆栈、灵活的微服务和API、生成就绪型ROS软件包以及特定于应用程序的AI工作流。</p>
+<p>Jetson 硬件Roadmap，分为商业方向和工业方向。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_4293ff8b4de35e4a17550c31648daf56_1756973304.jpg"><img alt="" src="assets/doc/04-ai/ai应用/nvidia-jetson：机器人和边缘ai/images/wp_editor_md_4293ff8b4de35e4a17550c31648daf56_1756973304.jpg"/></a></p>
+<p>上图是商业硬件roadmap，主要分为orin（欧林）和thor（雷神）两个系列。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_daea81ef2d6bbb161162bd91dac322a1_1756973502.jpg"><img alt="" src="assets/doc/04-ai/ai应用/nvidia-jetson：机器人和边缘ai/images/wp_editor_md_daea81ef2d6bbb161162bd91dac322a1_1756973502.jpg"/></a></p>
+<p>而工业方向roadmap主要是entry、mainstream、perfromance三个方向。</p>
+<p>在软件方面，jetson提供JetPack软件包，截止目前最新的发布版本是JetPack 7.0，主要是基于ubuntu 24.04,集成了CUDA 13.0以及holoscan sensor bride支持。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_5d7f65f8deaf0670e944653e8965fe2e_1756973600.jpg"><img alt="" src="assets/doc/04-ai/ai应用/nvidia-jetson：机器人和边缘ai/images/wp_editor_md_5d7f65f8deaf0670e944653e8965fe2e_1756973600.jpg"/></a></p>
+<h2 id="_2">硬件</h2>
+<p>NVIDIA Jetson 模组可提供适合各种性能水平和价位的加速计算功能，从而能够满足各种自主应用的需求。从制造业到建筑业，从医疗健康到物流行业，Jetson 平台都能提供出色的性能、卓越的能效和无比轻松的开发体验。下面是jetson系列提供的模组规格简要对比。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_88b520c37e8637b954f669d553b750d7_1756974346.png"><img alt="" src="assets/doc/04-ai/ai应用/nvidia-jetson：机器人和边缘ai/images/wp_editor_md_88b520c37e8637b954f669d553b750d7_1756974346.png"/></a></p>
+<p>上面是NVIDIAjetson系列的模组从最小0.5TFLOPS算力到最大2070 TOPS算力的平台矩阵。</p>
+<ul>
+<li>Nano：<strong>四核A57@1.43G CPU+128核Maxwell架构GPU+4GB LPDDR内存</strong>，可提供472 FGLOP的AI算力；并行运行多个神经网络并同时处理多个高分辨率传感器，其功耗仅需5~10W；应用在网络硬盘录像机（NVR）、家用机器人以及具备全面分析功能的智能网关上面。</li>
+<li>TX2：<strong>双核NVIDIA Denver™@1.95G+四核Arm® Cortex®-A57@1.92G CPU+256核 Pascal GPU+4GB/8GB LPDDR内存，可提供1.3TFLOPS的AI算力</strong>；计算性能翻倍，功耗仅7.5W。可应用在工厂机器人、商用无人机、便携式医疗设备和企业协作设备中。</li>
+<li>Xavier NX：<strong>6核NVIDIA Carmel ARM®v8.2 64 位 CPU + 48 个 Tensor Core 的 384 核 NVIDIA Volta™ GPU+8/16GB LPDDR4x内存；可提供14TOPS+功耗10W~21TOPS+功耗20W的AI算力</strong>；应用在 适用于无人机、便携式医疗设备、小型商业机器人、智能摄像头、高分辨率传感器、自动光学检测、智能工厂和其他 IoT 嵌入式系统等高性能 AI 系统。</li>
+<li>AGX Xavier：<strong>8 核 NVIDIA Carmel Armv8.2 64 位 CPU+512 个 NVIDIA CUDA Core 和 64 个 Tensor Core Volta 架构GPU+32/64GB内存，提供32TOPS的AI算力</strong>，功耗在10W~40W；非常适用于配送和物流机器人、工厂系统和大型工业UAV等自主机器。</li>
+<li>Orin Nano、NX、AGX：<strong>6\~12核 Arm® Cortex® A78AE v8.2@1.7G\~2.2G +（32\~64）x (1024\~2048)核Ampere 架构 GPU+4G\~64G LPDDR5内存；功耗满足7\~60W，提供算力34 TOPS\~275 TOPS的AI算力</strong>；Orin系列是包含7个相同架构的模组其性能是上一代AI推理的8倍并支持高速接口；强大的软件堆栈包含预训练的 AI 模型、参考 AI 工作流和垂直应用框架，可加速生成性 AI 的端到端开发，以及边缘 AI 和机器人应用。 <a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_e4b3ef42b0519b618a0fe48299d014ce_1756976122.png"><img alt="" src="assets/doc/04-ai/ai应用/nvidia-jetson：机器人和边缘ai/images/wp_editor_md_e4b3ef42b0519b618a0fe48299d014ce_1756976122.png"/></a></li>
+<li>Thor：<strong>12\~14核 Arm® Neoverse®-V3AE 64 位 CPU@2.6G+(64\~96)X(1536\~2560)核Blackwell 架构 GPU+128G LPDDR5X内存，提供1200~2070TFLOPS（FP4）算力</strong>；功耗在40~75W，与AGX Orin相比，Jetson Thor 系列模组的 AI 计算性能提高至 7.5 倍以上，能效提高至 3.5 倍。应用在人形机器人、空间智能、多传感器处理、生成式AI等多个场景。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_04d90800ede7dfd33b15989f1afd50d6_1756976928.png"><img alt="" src="assets/doc/04-ai/ai应用/nvidia-jetson：机器人和边缘ai/images/wp_editor_md_04d90800ede7dfd33b15989f1afd50d6_1756976928.png"/></a></p>
+<h2 id="_3">软件</h2>
+<p>NVIDIA Jetson软件是永远边缘构建、部署和扩展人形机器人及生成式AI应用的旗舰平台。它支持全系列Jetson模块，为从原型开发到量产提供统一且可扩展的基础。NVIDIA JetPack SDK赋能实时传感处理、多摄像头追踪，以及如操作和导航等先进机器人功能，集成于强大的AI生态之中。开发者可借助诸如NVIDIA Holoscan（传感器流式处理）和Metropolis VSS（视频分析）等集成框架。通过NVIDIA Isaac机器人工作流程，包括想NVIDIA GROOT N1等基础生成式AI模型，Jetson软件为机器人实现快速、精准、变革性的AI赋能和规模化部署提供支持。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_3ebb5cd02922194f1d7c582ba9cf24a5_1756978264.png"><img alt="" src="assets/doc/04-ai/ai应用/nvidia-jetson：机器人和边缘ai/images/wp_editor_md_3ebb5cd02922194f1d7c582ba9cf24a5_1756978264.png"/></a></p>
+<ul>
+<li>JetPack SDK：是一套完整的软件套件，用于NVIDIA Jetson平台上开发和部署AI驱动的边缘应用。</li>
+<li>Holoscan传感器桥接器：将边缘传感器连接到AI工作流，以实现实时、高性能的传感器数据处理。</li>
+<li>Jetson AI Lab：由NVIDIA工具和社区项目提供支持，激发机器人和生成式AI领域的创新和动手探索。</li>
+<li>NVIDIA Isaac：提供NVIDIA CUDA加速库、框架和AI模型，用一个构建自主机器人，包括ARM、机械臂和人形机器人。</li>
+<li>NVIDIA Metropolis：为智慧城市、工业和零售业开发和部署视觉AI应用，并在边缘进行实时视频分析。</li>
+</ul>
+<h3 id="jetpack-sdk">JetPack SDK</h3>
+<p>JetPack是NVIDIA Jetson平台官方软件套件，涵盖丰富的工具和库，可用于大招AI赋能边缘应用。目前最新的版本是JetPack7，采用Linux kernel 6.8及ubuntu 24.04 LTS，模块化云原生架构，结合最新的NVIDIA计算堆栈，无缝衔接NVIDIA AI工作流。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_f5cc888a65554f6f0d5cce11ea338000_1757033600.png"><img alt="" src="assets/doc/04-ai/ai应用/nvidia-jetson：机器人和边缘ai/images/wp_editor_md_f5cc888a65554f6f0d5cce11ea338000_1757033600.png"/></a></p>
+<p>JetPack组件由AI计算堆栈、AI框架、Linux组件几个部分组成。</p>
+<ul>
+<li>AI计算堆栈：由CUDA、cuDNN、TensorRT组成；用于提供硬件GPU的加速底层接口；CUDA提供NVIDIA GPU 上编写和运行通用计算程序的能力；cuDNN在CUDA之上的深度神经网络算子库，提供高度优化的深度学习核心算子（卷积、池化、激活函数、RNN/LSTM、注意力等）。Pytorch/TensorFlow调用cuDNN中的Conv2d、RNN等。TensorRT推理优化器，只负责推理不负责训练，把训练好的模型转换成高效的 GPU 可执行引擎底层依赖CUDA/cuDNN。与pytorch、TensorFlow不同其即是训练+推理框架。但相对pytorch、TensorFlow的推理，TensorRT性能效率更高。</li>
+<li>AI框架：由pytorch、vLLM、SGLang、Triton推理服务器等部分组成。vLLM是便捷、快速的大型语言模型推理与服务库，SGLang 是专为大语言模型及视觉语言模型打造的高效推理框架。</li>
+<li>Linux组件：主要是基础系统组件，基于ubuntu系统构建，提供刷机、安全、OTA、图形库（OpenGL、Vulkan、EGL等）、多媒体API、计算机视觉库（OpenCV、VisionWorks）等。</li>
+<li>其他组件：Jetson平台服务、云原生设计、Nsight开发工具组成；平台服务提供预构建和可定制的云原生软件服务；云原生设计师提供容器化开发、kubernetes和微服务；<strong>Nsight提供强大的分析、调试、性能分析功能，在AI、图形和计算工作负载中优化GPU加速应用</strong>。</li>
+</ul>
+<p>在JetPack SDK上各种应用SDK，如提供NVIDIA DeepStream SDK、NVIDIA Isaac ROS、NVIDIA Holoscan SDK。</p>
+<h3 id="metropolis">Metropolis</h3>
+<p>VIDIA Metropolis 是一个视觉 AI 应用平台和合作伙伴生态系统，可简化从边缘到云端的视觉 AI 智能体的开发、部署和可扩展性。可以做自动化视觉检查、智能交通系统、工业自动化、智能零售商店等等。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_e38e366afb36677b4c18d5c221104cc7_1757040348.png"><img alt="" src="assets/doc/04-ai/ai应用/nvidia-jetson：机器人和边缘ai/images/wp_editor_md_e38e366afb36677b4c18d5c221104cc7_1757040348.png"/></a></p>
+<ul>
+<li>模型：可访问各种先进的AI模型，构建视觉AI应用，支持VLM等；提供TAO工具套件。对模型训练、适应和优化上手简单，不需要专业的AI知识或大型训练数据集，使用自己的数据微调即可完成。</li>
+<li>工具：提供AI智能体Blueprints，借助大模型构建智能体，分析、解释和处理大量视频数据，以提供关键见解，帮助各行各业优化流程、提高安全性并降低成本。提供NVIDIA NIM一套易于使用的推理微服务，NIM 支持各种 AI 模型 (包括基础模型、LLM、VLM 等) ，可确保使用行业标准 API 在本地或云端进行无缝、可扩展的 AI 推理。提供DeepStream SDK，是基于 GStreamer 的完整流分析工具包。</li>
+<li>数据：Omniverse集成 OpenUSDNVIDIA RTX™ 渲染技术，以及 物理 AI 集成到现有软件工具和仿真工作流中进行开发和测试 。NVIDIA Cosmos™ 是一个先进的生成式AI平台世界基础模型( WFM) 、高级标记器、护栏以及加速数据处理和管护流程，旨在加速物理 AI系统。NVIDIA Isaac SIM开发者在物理精准的虚拟环境中生成合成图像和视频数据，以训练自定义视觉AI模型。</li>
+</ul>
+<h3 id="isaac">Isaac</h3>
+<p>NVIDIA Isaac AI机器人开发平台有NVIDIA CUDA加速库、应用框架和AI模型组成，可加速自主移动机器人、手臂和操作器以及人形机器人等。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_49b1bc73839ac95eb922c0eb40148689_1757042445.png"><img alt="" src="assets/doc/04-ai/ai应用/nvidia-jetson：机器人和边缘ai/images/wp_editor_md_49b1bc73839ac95eb922c0eb40148689_1757042445.png"/></a></p>
+<p>NVIDIA Robotis提供了全栈、加速库和优化的AI模型，能够高效开发、训练、仿真、部署机器人系统。</p>
+<ul>
+<li>Isaac ROS：机器人操作系统，是基于开源ROS2构建，包含了NVIDIA CUDA加速计算包的集合，便于简化和加速高级AI机器人应用开发。</li>
+<li>Isaac Manipulator：基于Isaac ROS构建，支持开发AI驱动的机械臂，这些机械臂可以无缝感知和理解环境并与环境进行交互。</li>
+<li>Isaac Perceptor：基于Isaac ROS构建，支持开发先进的自主移动机器人，能够在仓库货工厂等非结构化环境中进行感知和定位。</li>
+<li>Isaac GR00T：用于通用机器人基础模型和数据流水线，以加速人形机器人的开发。</li>
+</ul>
+<p>还提供了基于物理的虚拟环境中设计、仿真、测试和训练的框架。NVIDIA Isaac Sim和NVIDIA Isaac Lab。</p>
+<ul>
+<li>NVIDIA Isaac Sim：是一款基于 NVIDIA Omniverse 构建的开源参考应用，使开发者能够在基于物理的虚拟环境中模拟和测试 AI 驱动的机器人开发解决方案。</li>
+<li>NVIDIA Isaac Lab：Isaac Lab 基于 NVIDIA Isaac Sim™ 开发，使用 NVIDIA®PhysX® 以及基于物理性质的 NVIDIA RTX™ 渲染提供高保真物理仿真。</li>
+</ul>
+<h3 id="holoscan-sdk">Holoscan SDK</h3>
+<p>NVIDIA Holoscan 将传感器数据传输到 GPU 进行实时推理，从而加速边缘 AI 开发。</p>
+<ul>
+<li>Holoscan 传感器桥接器：可在高吞吐量传感器数据与 GPU 之间提供关键链接，从而无缝集成异构传感器数据。它可标准化并管理从各种传感器接口 (如摄像头输入、超声波或内窥镜视频) 中的数据提取，确保以低延迟、同步和可靠的方式传输数据，从而实现实时 AI 处理。</li>
+<li>NVIDIA IGX ORIN：是一个结合了企业级硬件、软件和支持的工业级平台，可在生产就绪型硬件上进行部署。虽然 Holoscan SDK 可在您的目标设备上灵活部署，但 IGX 使公司能够专注于应用开发，并更快地实现 AI 的优势。</li>
+</ul>
+<h3 id="jetson-ai-lab">Jetson AI Lab</h3>
+<p>Jetson AI Lab 由 NVIDIA 工具和社区项目提供支持，其提供了各种大模型的快速部署示例，如大语言模型LLM/SLM、视觉语言大模型VLM、Web UI等等。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_2c678f2fb9662e3e514e644a463638b0_1757043889.png"><img alt="" src="assets/doc/04-ai/ai应用/nvidia-jetson：机器人和边缘ai/images/wp_editor_md_2c678f2fb9662e3e514e644a463638b0_1757043889.png"/></a></p>
+<p>如上图，如果要运行一个模型，就可以通过如上图示例直接获取到运行命令，还可以调整参数。更详细的教程参考：<a href="https://www.jetson-ai-lab.com/tutorial-intro.html">https://www.jetson-ai-lab.com/tutorial-intro.html</a></p>
+<p>参考：<a href="https://www.nvidia.cn/autonomous-machines/">https://www.nvidia.cn/autonomous-machines/</a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="ubuntu英伟达显卡驱动安装.html">← ubuntu英伟达显卡驱动安装</a>
+    <a class="next" href="jetson-nano平台随记.html">Jetson nano平台随记 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

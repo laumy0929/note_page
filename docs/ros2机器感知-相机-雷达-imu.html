@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ROS2机器感知：相机、雷达、IMU - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">相机</a><ul><li><a href="#_2">可视化</a></li><li><a href="#_3">参数</a></li><li><a href="#_4">三维相机</a></li></ul></li><li><a href="#_5">雷达</a><ul><li><a href="#_6">消息格式</a></li><li><a href="#_7">开箱示例</a></li></ul></li><li><a href="#imu">IMU</a><ul><li><a href="#_8">消息格式</a></li><li><a href="#_9">开箱示例</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>ROS2机器感知：相机、雷达、IMU</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-18
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ros系统
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">相机</h2>
+<p>相机安装</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>ros-jazzy-usb-cam
+</code></pre></div>
+<h3 id="_2">可视化</h3>
+<div class="codehilite"><pre><span></span><code>run<span class="w"> </span>usb_cam<span class="w"> </span>usb_cam_node_exe<span class="w"> </span>--ros-args<span class="w"> </span>-p<span class="w"> </span>video_device:<span class="o">=</span>/dev/video2
+
+ros2<span class="w"> </span>run<span class="w"> </span>rqt_image_vew<span class="w"> </span>rqt_image_view
+</code></pre></div>
+<p>上面的-p指定具体的摄像头，可以用v4l2-ctl --list-devices列出。</p>
+<h3 id="_3">参数</h3>
+<p>查看当前相机的发布话题</p>
+<div class="codehilite"><pre><span></span><code>laumy@ThinkBook-14-G7-IAH:~/dev_ws$<span class="w"> </span>ros2<span class="w"> </span>topic<span class="w"> </span>info<span class="w"> </span>-v<span class="w"> </span>/image_raw
+Type:<span class="w"> </span>sensor_msgs/msg/Image
+
+Publisher<span class="w"> </span>count:<span class="w"> </span><span class="m">1</span>
+
+Node<span class="w"> </span>name:<span class="w"> </span>usb_cam
+Node<span class="w"> </span>namespace:<span class="w"> </span>/
+Topic<span class="w"> </span>type:<span class="w"> </span>sensor_msgs/msg/Image
+Topic<span class="w"> </span><span class="nb">type</span><span class="w"> </span>hash:<span class="w"> </span>RIHS01_d31d41a9a4c4bc8eae9be757b0beed306564f7526c88ea6a4588fb9582527d47
+Endpoint<span class="w"> </span>type:<span class="w"> </span>PUBLISHER
+GID:<span class="w"> </span><span class="m">01</span>.0f.e7.13.47.a9.02.80.00.00.00.00.00.00.18.03
+QoS<span class="w"> </span>profile:
+<span class="w">  </span>Reliability:<span class="w"> </span>RELIABLE
+<span class="w">  </span>History<span class="w"> </span><span class="o">(</span>Depth<span class="o">)</span>:<span class="w"> </span>UNKNOWN
+<span class="w">  </span>Durability:<span class="w"> </span>VOLATILE
+<span class="w">  </span>Lifespan:<span class="w"> </span>Infinite
+<span class="w">  </span>Deadline:<span class="w"> </span>Infinite
+<span class="w">  </span>Liveliness:<span class="w"> </span>AUTOMATIC
+<span class="w">  </span>Liveliness<span class="w"> </span>lease<span class="w"> </span>duration:<span class="w"> </span>Infinite
+
+Subscription<span class="w"> </span>count:<span class="w"> </span><span class="m">1</span>
+
+Node<span class="w"> </span>name:<span class="w"> </span>rqt_gui_cpp_node_43605
+Node<span class="w"> </span>namespace:<span class="w"> </span>/
+Topic<span class="w"> </span>type:<span class="w"> </span>sensor_msgs/msg/Image
+Topic<span class="w"> </span><span class="nb">type</span><span class="w"> </span>hash:<span class="w"> </span>RIHS01_d31d41a9a4c4bc8eae9be757b0beed306564f7526c88ea6a4588fb9582527d47
+Endpoint<span class="w"> </span>type:<span class="w"> </span>SUBSCRIPTION
+GID:<span class="w"> </span><span class="m">01</span>.0f.e7.13.55.aa.5f.b0.00.00.00.00.00.00.14.04
+QoS<span class="w"> </span>profile:
+<span class="w">  </span>Reliability:<span class="w"> </span>BEST_EFFORT
+<span class="w">  </span>History<span class="w"> </span><span class="o">(</span>Depth<span class="o">)</span>:<span class="w"> </span>UNKNOWN
+<span class="w">  </span>Durability:<span class="w"> </span>VOLATILE
+<span class="w">  </span>Lifespan:<span class="w"> </span>Infinite
+<span class="w">  </span>Deadline:<span class="w"> </span>Infinite
+<span class="w">  </span>Liveliness:<span class="w"> </span>AUTOMATIC
+<span class="w">  </span>Liveliness<span class="w"> </span>lease<span class="w"> </span>duration:<span class="w"> </span>Infinite
+</code></pre></div>
+<p>查看话题下的消息类型</p>
+<div class="codehilite"><pre><span></span><code>laumy@ThinkBook-14-G7-IAH:~/dev_ws$<span class="w"> </span>ros2<span class="w"> </span>interface<span class="w"> </span>show<span class="w"> </span>sensor_msgs/msg/Image<span class="w"> </span>
+<span class="c1"># This message contains an uncompressed image</span>
+<span class="c1"># (0, 0) is at top-left corner of image</span>
+
+std_msgs/Header<span class="w"> </span>header<span class="w"> </span><span class="c1"># Header timestamp should be acquisition time of image</span>
+<span class="w">    </span>builtin_interfaces/Time<span class="w"> </span>stamp
+<span class="w">        </span>int32<span class="w"> </span>sec
+<span class="w">        </span>uint32<span class="w"> </span>nanosec
+<span class="w">    </span>string<span class="w"> </span>frame_id
+<span class="w">                             </span><span class="c1"># Header frame_id should be optical frame of camera</span>
+<span class="w">                             </span><span class="c1"># origin of frame should be optical center of cameara</span>
+<span class="w">                             </span><span class="c1"># +x should point to the right in the image</span>
+<span class="w">                             </span><span class="c1"># +y should point down in the image</span>
+<span class="w">                             </span><span class="c1"># +z should point into to plane of the image</span>
+<span class="w">                             </span><span class="c1"># If the frame_id here and the frame_id of the CameraInfo</span>
+<span class="w">                             </span><span class="c1"># message associated with the image conflict</span>
+<span class="w">                             </span><span class="c1"># the behavior is undefined</span>
+
+uint32<span class="w"> </span>height<span class="w">                </span><span class="c1"># image height, that is, number of rows</span>
+uint32<span class="w"> </span>width<span class="w">                 </span><span class="c1"># image width, that is, number of columns</span>
+
+<span class="c1"># The legal values for encoding are in file include/sensor_msgs/image_encodings.hpp</span>
+<span class="c1"># If you want to standardize a new string format, join</span>
+<span class="c1"># ros-users@lists.ros.org and send an email proposing a new encoding.</span>
+
+string<span class="w"> </span>encoding<span class="w">       </span><span class="c1"># Encoding of pixels -- channel meaning, ordering, size</span>
+<span class="w">                      </span><span class="c1"># taken from the list of strings in include/sensor_msgs/image_encodings.hpp</span>
+
+uint8<span class="w"> </span>is_bigendian<span class="w">    </span><span class="c1"># is this data bigendian?</span>
+uint32<span class="w"> </span>step<span class="w">           </span><span class="c1"># Full row length in bytes</span>
+uint8<span class="o">[]</span><span class="w"> </span>data<span class="w">          </span><span class="c1"># actual matrix data, size is (step * rows)</span>
+</code></pre></div>
+<h3 id="_4">三维相机</h3>
+<p>略</p>
+<h2 id="_5">雷达</h2>
+<p>常见的雷达类型，单线激光雷达、多线激光雷达。</p>
+<h3 id="_6">消息格式</h3>
+<p>可用下面命令查看雷达的消息类型</p>
+<div class="codehilite"><pre><span></span><code>ros2<span class="w"> </span>interface<span class="w"> </span>show<span class="w"> </span>sensor_msgs/msg/LaserScan<span class="w"> </span>
+</code></pre></div>
+<p>打印如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Single scan from a planar laser range-finder</span>
+<span class="c1">#</span>
+<span class="c1"># If you have another ranging device with different behavior (e.g. a sonar</span>
+<span class="c1"># array), please find or create a different message, since applications</span>
+<span class="c1"># will make fairly laser-specific assumptions about this data</span>
+
+std_msgs/Header<span class="w"> </span>header<span class="w"> </span><span class="c1"># timestamp in the header is the acquisition time of</span>
+<span class="w">    </span>builtin_interfaces/Time<span class="w"> </span>stamp
+<span class="w">        </span>int32<span class="w"> </span>sec
+<span class="w">        </span>uint32<span class="w"> </span>nanosec
+<span class="w">    </span>string<span class="w"> </span>frame_id
+<span class="w">                             </span><span class="c1"># the first ray in the scan.</span>
+<span class="w">                             </span><span class="c1">#</span>
+<span class="w">                             </span><span class="c1"># in frame frame_id, angles are measured around</span>
+<span class="w">                             </span><span class="c1"># the positive Z axis (counterclockwise, if Z is up)</span>
+<span class="w">                             </span><span class="c1"># with zero angle being forward along the x axis</span>
+
+float32<span class="w"> </span>angle_min<span class="w">            </span><span class="c1"># start angle of the scan [rad]</span>
+float32<span class="w"> </span>angle_max<span class="w">            </span><span class="c1"># end angle of the scan [rad]</span>
+float32<span class="w"> </span>angle_increment<span class="w">      </span><span class="c1"># angular distance between measurements [rad]</span>
+
+float32<span class="w"> </span>time_increment<span class="w">       </span><span class="c1"># time between measurements [seconds] - if your scanner</span>
+<span class="w">                             </span><span class="c1"># is moving, this will be used in interpolating position</span>
+<span class="w">                             </span><span class="c1"># of 3d points</span>
+float32<span class="w"> </span>scan_time<span class="w">            </span><span class="c1"># time between scans [seconds]</span>
+
+float32<span class="w"> </span>range_min<span class="w">            </span><span class="c1"># minimum range value [m]</span>
+float32<span class="w"> </span>range_max<span class="w">            </span><span class="c1"># maximum range value [m]</span>
+
+float32<span class="o">[]</span><span class="w"> </span>ranges<span class="w">             </span><span class="c1"># range data [m]</span>
+<span class="w">                             </span><span class="c1"># (Note: values &lt; range_min or &gt; range_max should be discarded)</span>
+float32<span class="o">[]</span><span class="w"> </span>intensities<span class="w">        </span><span class="c1"># intensity data [device-specific units].  If your</span>
+<span class="w">                             </span><span class="c1"># device does not provide intensities, please leave</span>
+<span class="w">                             </span><span class="c1"># the array empty.</span>
+</code></pre></div>
+<h3 id="_7">开箱示例</h3>
+<p>开箱即用的示例</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">#安装</span>
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>ros-jazzy-turtlebot3*<span class="w"> </span>-y
+
+<span class="c1">#启动Gazebo仿真</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">TURTLEBOT3_MODEL</span><span class="o">=</span>burger
+ros2<span class="w"> </span>launch<span class="w"> </span>turtlebot3_gazebo<span class="w"> </span>turtlebot3_world.launch.py
+
+<span class="c1">#打开RViz2</span>
+ros2<span class="w"> </span>launch<span class="w"> </span>turtlebot3_bringup<span class="w"> </span>rviz2.launch.py
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_ed9fe2f6a2d74b365fa23860a20aee1e_1758187117.png"><img alt="" src="assets/doc/05-ros系统/ros2机器感知：相机、雷达、imu/images/wp_editor_md_ed9fe2f6a2d74b365fa23860a20aee1e_1758187117.png"/></a></p>
+<p>如果要让车动起来的话</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">TURTLEBOT3_MODEL</span><span class="o">=</span>burger
+ros2<span class="w"> </span>run<span class="w"> </span>turtlebot3_teleop<span class="w"> </span>teleop_keyboard
+</code></pre></div>
+<p>键盘的 W A S D 控制机器人移动，RViz2 里 /scan 会随着车动而更新。</p>
+<h2 id="imu">IMU</h2>
+<p>在 ROS2 里，IMU 指的是 惯性测量单元（Inertial Measurement Unit），是一类传感器的统称。它在机器人系统中非常常见，比如无人车、无人机、移动机器人几乎都需要 IMU。</p>
+<p>IMU包含加速度计、陀螺仪、磁力计（可选）。</p>
+<h3 id="_8">消息格式</h3>
+<p>IMU的数据格式如下：</p>
+<div class="codehilite"><pre><span></span><code>laumy@ThinkBook-14-G7-IAH:~/dev_ws$<span class="w"> </span>ros2<span class="w"> </span>interface<span class="w"> </span>show<span class="w"> </span>sensor_msgs/msg/Imu<span class="w"> </span>
+<span class="c1"># This is a message to hold data from an IMU (Inertial Measurement Unit)</span>
+<span class="c1">#</span>
+<span class="c1"># Accelerations should be in m/s^2 (not in g's), and rotational velocity should be in rad/sec</span>
+<span class="c1">#</span>
+<span class="c1"># If the covariance of the measurement is known, it should be filled in (if all you know is the</span>
+<span class="c1"># variance of each measurement, e.g. from the datasheet, just put those along the diagonal)</span>
+<span class="c1"># A covariance matrix of all zeros will be interpreted as "covariance unknown", and to use the</span>
+<span class="c1"># data a covariance will have to be assumed or gotten from some other source</span>
+<span class="c1">#</span>
+<span class="c1"># If you have no estimate for one of the data elements (e.g. your IMU doesn't produce an</span>
+<span class="c1"># orientation estimate), please set element 0 of the associated covariance matrix to -1</span>
+<span class="c1"># If you are interpreting this message, please check for a value of -1 in the first element of each</span>
+<span class="c1"># covariance matrix, and disregard the associated estimate.</span>
+
+std_msgs/Header<span class="w"> </span>header
+<span class="w">    </span>builtin_interfaces/Time<span class="w"> </span>stamp
+<span class="w">        </span>int32<span class="w"> </span>sec
+<span class="w">        </span>uint32<span class="w"> </span>nanosec
+<span class="w">    </span>string<span class="w"> </span>frame_id
+
+geometry_msgs/Quaternion<span class="w"> </span>orientation<span class="w"> </span><span class="c1">#姿态，x,y,z的角度，用 四元数 表示姿态（避免欧拉角万向节锁）。一般看这个就行了。</span>
+<span class="w">    </span>float64<span class="w"> </span>x<span class="w"> </span><span class="m">0</span>
+<span class="w">    </span>float64<span class="w"> </span>y<span class="w"> </span><span class="m">0</span>
+<span class="w">    </span>float64<span class="w"> </span>z<span class="w"> </span><span class="m">0</span>
+<span class="w">    </span>float64<span class="w"> </span>w<span class="w"> </span><span class="m">1</span>
+float64<span class="o">[</span><span class="m">9</span><span class="o">]</span><span class="w"> </span>orientation_covariance<span class="w"> </span><span class="c1"># Row major about x, y, z axes</span>
+
+geometry_msgs/Vector3<span class="w"> </span>angular_velocity<span class="w"> </span><span class="c1">#角速度，绕 x/y/z 轴的角速度</span>
+<span class="w">    </span>float64<span class="w"> </span>x
+<span class="w">    </span>float64<span class="w"> </span>y
+<span class="w">    </span>float64<span class="w"> </span>z
+float64<span class="o">[</span><span class="m">9</span><span class="o">]</span><span class="w"> </span>angular_velocity_covariance<span class="w"> </span><span class="c1"># Row major about x, y, z axes</span>
+
+geometry_msgs/Vector3<span class="w"> </span>linear_acceleration<span class="w"> </span><span class="c1">#线性加速度，三个分量：沿 x/y/z 轴的加速度</span>
+<span class="w">    </span>float64<span class="w"> </span>x
+<span class="w">    </span>float64<span class="w"> </span>y
+<span class="w">    </span>float64<span class="w"> </span>z
+float64<span class="o">[</span><span class="m">9</span><span class="o">]</span><span class="w"> </span>linear_acceleration_covariance<span class="w"> </span><span class="c1"># Row major x, y z</span>
+</code></pre></div>
+<h3 id="_9">开箱示例</h3>
+<p>下面是一个开箱即用的示例。Gazebo 里已经有 IMU 传感器插件，可以直接加载。运行下面命令：</p>
+<div class="codehilite"><pre><span></span><code>ros2<span class="w"> </span>launch<span class="w"> </span>ros_gz_sim_demos<span class="w"> </span>imu.launch.py
+</code></pre></div>
+<p>如果要用rviz2来显示的话，需要安装imu插件</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>ros-jazzy-rviz-imu-plugin
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_b600093068cde0dc20281c8510ac2ca5_1758189077.png"><img alt="" src="assets/doc/05-ros系统/ros2机器感知：相机、雷达、imu/images/wp_editor_md_b600093068cde0dc20281c8510ac2ca5_1758189077.png"/></a></p>
+<p>可以在仿真器中选择工具Translate（十字箭头图标）、Rotate（圆弧箭头图标）调整位置和角度，可以看到右边RViz中的也会跟着变化。</p>
+<p>也可以使用下面命令来实时打印</p>
+<div class="codehilite"><pre><span></span><code>ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>/imu
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="ros2-建图与导航-slam-toolbox-nav2实践.html">← ROS2 建图与导航：Slam_toolbox、Nav2实践</a>
+    <a class="next" href="ros2常用开发工具-launch-tf-gazebo-rosbag-rqt.html">ROS2常用开发工具：launch、TF、Gazebo、rosbag、rqt →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

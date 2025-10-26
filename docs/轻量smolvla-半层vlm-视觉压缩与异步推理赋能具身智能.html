@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>轻量SmolVLA：半层VLM、视觉压缩与异步推理赋能具身智能 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">概述</a><ul></ul></li><li><a href="#_2">原理</a><ul><li><a href="#_3">结构</a></li><li><a href="#_4">训练</a></li><li><a href="#_5">推理</a></li></ul></li><li><a href="#_6">数据</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>轻量SmolVLA：半层VLM、视觉压缩与异步推理赋能具身智能</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-08-23
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">概述</h2>
+<p>SmolVLA 是一套轻量级<strong>视觉-语言-行动</strong>（VLA）策略：前端用小型 VLM（视觉 SigLIP + 语言 SmolLM2）做感知与理解；后端用一个“动作专家”专门预测一段连续的低层控制。它与Pi0相比，参数规模少了将近10倍只有约0.45B（450M）。它的目标是在低算力下也能稳定执行多任务机器人控制，并保持接近甚至超过更大模型的效果。</p>
+<p>SmolVLA 通过冻结 VLM、只训练动作专家（Action Expert），再配上四件“硬核小技巧”——<strong>取 VLM 的前半层、把每帧视觉 token 压到 64、以及Self-Attn—&gt;Cross-Attn交替方式、异步推理</strong>；在大幅降算力与时延的同时，保持/逼近甚至超过更大模型的性能；注意力计算交替方式让动作专家既能不断获取外部视觉/语言指导，又能在内部序列里建立自己的时序与物理一致性，从而在算力可控的前提下提升稳定性和表现；提供异步执行，把“算下一段动作”和“执行当前动作”并行起来，显著减少空窗时间。</p>
+<h2 id="_2">原理</h2>
+<h3 id="_3">结构</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_8063fb41f525cf17c2469eaf6acaf17b_1755924424.png"><img alt="" src="assets/doc/04-ai/算法模型/smolvla/images/wp_editor_md_8063fb41f525cf17c2469eaf6acaf17b_1755924424.png"/></a></p>
+<p>其模型结构主要有前端的VLM+后端的动作专家Action Expert组成，结构组成与Pi基本一致但实现方式有很大差异不同。先总结一下组件，稍后我们在稍作展开补充。</p>
+<ul>
+<li>输入：文本指令token+视觉token（多摄像头采集的图像）+机器的状态（关节角、传感器）。</li>
+<li>VLM（感知端）：采用SmolVLM-2，VLM共有L层，但是只N=⌊L/2⌋层隐藏表示喂给动作专家。</li>
+<li>Action Expert（控制端）：一个Flow Matching Transformer，以以Cross → Causal Self → Cross 的“三明治”层为基本单元，按块预测n步动作序列。</li>
+<li>输出：一次预测长度为n的动作块，对应机器的控制指令。</li>
+</ul>
+<p>SmolVLA与Pi0有很多相似之处，不过其背后有<strong>四个关键设计</strong>，分别是<strong>Layer Skipping（层跳过）、Visual tokens reduction（视觉token压缩）、动作专家交替Self-Attn与Cross-Attn、异步推理</strong>。本小节先围绕前面3部分进行解析，异步推理于后续章节展开。</p>
+<p><strong>（1）Layer Skipping</strong></p>
+<p>层跳过就是把感知端的VLM（视觉+语言）的解码器中间层拿来当条件特征，而不是等它把整个层都计算完再输出；具体的做法就是只去$N=L/2$层的隐藏层表示送给动作专家，VLM权重冻结不训练。之所以要这样做经验规律表示（论文中作者提到）深层 LLM 层更偏“词级生成/长链路语义”，而中层已经集中了“指令 + 视觉”的对齐语义，对控制足够；继续往后让语言头生成 token 既耗算，又不是控制必须。前半层就停下，少算一半的自注意 + MLP，显存开销也随之下降。</p>
+<p>大概得实现是把“文本指令 token、图像 token、状态 token”拼接，送入解码器；在第$N$层获取特征信息H然后用一个线性投影到Action expert所需的维度$d_a$作为$K/V$。如果在长时、极强推理型任务（需要深层语言生成）时可以适当调大N。</p>
+<p><strong>（2）视觉token压缩</strong></p>
+<p>在transformer里面，“token”就是序列里的一个位置。对图像来说，我们把一张图拆成很多小块（patch）或网格上的特征点，每个块/点用一个向量表示，这个向量就是视觉 token（不明白的可以看看<a href="https://www.laumy.tech/2640.html/%e8%a7%a3%e6%9e%90-vit%ef%bc%9atransformer-%e5%9c%a8%e8%a7%86%e8%a7%89%e9%a2%86%e5%9f%9f%e5%a6%82%e4%bd%95%e8%90%bd%e5%9c%b0/" title="ViT原理解析介绍">ViT原理解析介绍</a>）。视觉token压缩具体的做法是保整图、不裁块，把空间上密的token折叠到通道里，从而让token数变少。</p>
+<p>设 ViT patch 后得到的特征图大小为 $\frac{H}{p} \times \frac{W}{p} \times d$，选一个下采样因子 $r$ (整数)，做 space-to-depth：</p>
+<p>$$ \underbrace{\frac{H}{p} \times \frac{W}{p}}<em _92_text_更稀疏的网格="\text{更稀疏的网格">{\text{原网格}} \xrightarrow{\div r} \underbrace{\frac{H}{pr} \times \frac{W}{pr}}</em>}}, \quad \underbrace{d<em _92_text_更厚的通道="\text{更厚的通道">{\text{通道}} \xrightarrow{\times r^2} \underbrace{d \cdot r^2}</em> $$}</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_a0f55c08eaa911a584c11e10f43464b0_1755929786.png"><img alt="" src="assets/doc/04-ai/算法模型/smolvla/images/wp_editor_md_a0f55c08eaa911a584c11e10f43464b0_1755929786.png"/></a></p>
+<p><strong>计算示例</strong>：</p>
+<ul>
+<li>输入尺寸：$512 \times 512$ 图像</li>
+<li>Patch大小 $p=16$ ⇒ $32 \times 32$ token网格</li>
+<li>选$r=4$ ⇒ $\frac{32}{4} \times \frac{32}{4} = 8 \times 8$ 网格</li>
+<li>Token数：$8 \times 8 = 64$（减少$4^2=16$倍）</li>
+<li>通道维度：$d=3 \rightarrow d=3 \times 16=48$</li>
+</ul>
+<p>可以看到如果是按照ViT的默认方式patch数量为32x32=1024，每个patch的维度为3x16x16=768，然后如果输入编码的$d_mode=512$那么经过线性投影变成矩阵(1024,512)，即1024个token数量，每个token维度是512；而如果进行压缩后patch数量为8x8=64，每个patch的维度为48x16x16=12288，经过线性投影后变成(64,512)即64个token，每个维度是512。这里也可以看到原来是768降为到512，压缩的是从12288降维到512，降得比较猛，效果真的没有衰减吗？</p>
+<p>总结一下smolvla在视觉token上进行了压缩，使用space-to-depth，对于512X512的图每帧token从1024降低到了64帧，如ViT的patch操作后得到的特征图维度为$\mathbb{R}^{\frac{H}{p} \times \frac{W}{p} \times d}$，选择下采样因子 $r$（整数）进行space-to-depth操作：</p>
+<p>$$ \mathbb{R}^{\frac{H}{p}\times\frac{W}{p}\times d} \xrightarrow{\text{S2D}_{r}} \mathbb{R}^{\frac{H}{pr}\times\frac{W}{pr}\times(d\cdot r^{2})} $$</p>
+<p>这样token数减少$r^{2}$倍，把细节挪到通道数去。</p>
+<p><strong>（3）动作专家交替Self-Attn与Cross-Attn</strong></p>
+<p>在动作专家中使用了交叉注意力机制，具体的排布可以配置。VLM的每一层与右边的Expert是一一对齐的，当然也可以配置Expert模型只有VLM层数的一半，每两层VLM才有一层Expert，那么其中VLM对齐层将为NONE，下图以VLM和Expert都为4层来示例交替注意力的实现。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_00eb7b828349a9a31852f9e10206cabc_1756273871.png"><img alt="" src="assets/doc/04-ai/算法模型/smolvla/images/wp_editor_md_00eb7b828349a9a31852f9e10206cabc_1756273871.png"/></a></p>
+<ul>
+<li><strong>Self-Attn（管自己，守时序）</strong>：只允许第 i 步看 ≤i 的历史步（因果掩码），在动作序列内部传播动力学与约束，做轨迹的时间一致性与平滑。这一步相当于“内化刚才读到的证据”并让各步动作彼此协调。在计算注意力时，会将VLM的QKV与Expert的QKV进行拼接起来一起送入transformer计算，但通过掩码保证 VLM 的Q只看自己（不去读 Expert），而 Expert 的 Q 可以访问 VLM 的 K/V（即“读”VLM 语义），这样既提供了计算效率也提升了Expert的语义丰富性。</li>
+<li><strong>Cross-Attn（看环境，取证）</strong>：看环境取证，让每个动作 token 先从条件特征里“读”一遍（条件=VLM中间层输出，含文本指令+多路视觉+状态）。这样动作表示一开始就被场景锚定，知道当下该关注哪里/哪件物体。具体是交叉注意力计算Q来自Expert Action自己，而K/V 来自 VLM 对应层的输出缓存。</li>
+</ul>
+<h3 id="_4">训练</h3>
+<p>目标让动作专家 在观测条件 $o_t$ 下输出$v_\theta$<strong>速度场</strong>，把“噪声动作”沿路径推向<strong>真实动作块</strong> $A_t$。这里跟Pi0和Flow Matching是一样大同小异，就简要说明一下。</p>
+<ul>
+<li>观测条件：$o_t=H^{(N)}\in\mathbb{R}^{T\times d_o}\ \xrightarrow{\text{proj}}\ O_N\in\mathbb{R}^{T\times d_a}$（VLM 冻结；$O_N$ 作为 Cross-Attn 的 K/V）。</li>
+<li>真实动作块：$A_t\in\mathbb{R}^{n\times d_{\text{act}}}$（建议标准化/白化）。</li>
+<li>噪声：$\varepsilon\sim\mathcal N(0,I)$（同形）。</li>
+<li>路径时间：$\tau\sim\mathrm{Beta}(\alpha,\beta)$。这里与Pi0不同。</li>
+</ul>
+<p>路径与目标速度场：</p>
+<p>$$ A_t^{\tau}=\tau A_t+(1-\tau)\varepsilon,\left(A_t^{\tau}\mid A_t\right)=\varepsilon-A_t $$</p>
+<p>计算损失函数：</p>
+<p>$$ \mathcal{L}^{\tau}(\theta) = \mathbb{E}<em t="">{p\left(\mathbf{A}</em>} \mid \mathbf{o<em t="">{t}\right), q\left(\mathbf{A}</em>}^{\tau} \mid \mathbf{A<em _92_theta="\theta">{t}\right)} \left[ \left|| \mathbf{v}</em>}\left(\mathbf{A<em t="">{t}^{\tau}, \mathbf{o}</em>}\right) - \mathbf{u}\left(\mathbf{A<em t="">{t}^{\tau} \mid \mathbf{A}</em> \right] $$}\right) \right||^{2</p>
+<blockquote>
+<p>这里 $||\cdot||^{2}$ 表示欧氏范数平方；实现即逐元素 <strong>MSE</strong>。 为提升推理效率，动作专家隐藏宽度取 $d_a=0.75\times d$（$d$ 为 VLM 的隐藏宽度）。</p>
+</blockquote>
+<p>以下是一个简单的示例，可看看过程理解一下。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 条件：取 VLM 第 N 层隐藏（冻结）</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">H</span> <span class="o">=</span> <span class="n">vlm_hidden_at_layer_N</span><span class="p">(</span><span class="n">obs_tokens</span><span class="p">)</span>      <span class="c1"># [T, d_o]</span>
+<span class="n">KV</span> <span class="o">=</span> <span class="n">proj</span><span class="p">(</span><span class="n">H</span><span class="p">)</span>                                   <span class="c1"># [T, d_a] 供 Cross-Attn 作 K/V（可缓存）</span>
+
+<span class="c1"># 构造路径与目标速度</span>
+<span class="n">A</span>   <span class="o">=</span> <span class="n">sample_action_chunk</span><span class="p">()</span>                    <span class="c1"># [n, d_act] (已标准化)</span>
+<span class="n">eps</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>                      <span class="c1"># [n, d_act]</span>
+<span class="n">tau</span> <span class="o">=</span> <span class="n">Beta</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">(())</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+<span class="n">A_tau</span> <span class="o">=</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">A</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">tau</span><span class="p">)</span> <span class="o">*</span> <span class="n">eps</span>
+<span class="n">u</span>     <span class="o">=</span> <span class="n">eps</span> <span class="o">-</span> <span class="n">A</span>
+
+<span class="c1"># 前向与损失</span>
+<span class="n">pred</span>  <span class="o">=</span> <span class="n">v_theta</span><span class="p">(</span><span class="n">A_tau</span><span class="p">,</span> <span class="n">KV</span><span class="p">)</span>                     <span class="c1"># 与 u 同形</span>
+<span class="n">loss</span>  <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>                    <span class="c1"># 对应 ||·||^2</span>
+
+<span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">();</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">();</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="_5">推理</h3>
+<p>在SmolVLA提到了异步推理，先来看看同步推理。</p>
+<ol>
+<li>取最新观测 → 得到 $O_N$；</li>
+<li>以噪声初始化，做 $K\approx10$ 步显式积分（Euler/Heun）得到一个动作块 $[a_t,\dots,a_{t+n-1}]$；</li>
+<li>执行动作块 → 重复。</li>
+</ol>
+<p><strong>同步（sync）推理</strong>一次性生成长度为 $n$ 的动作队列（chunk）$A_t=\big[a_t,\dots,a_{t+n-1}\big]$，执行完再用新观测预测下一段。执行与推理串行，会产生“空窗”（执行停下等待推理）。而<strong>异步（async）推理</strong>是解耦“动作执行”和“动作预测”。机器人端持续消费现有队列；当队列余额低于阈值就异步把当前观测发给策略端预测“下一段”，回来后与旧队列重叠拼接。这样执行与推理并行，显著降低总时延，同时仍保持接近的成功率。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_475e9622b806476cbafae299b8423c99_1755935955.png"><img alt="" src="assets/doc/04-ai/算法模型/smolvla/images/wp_editor_md_475e9622b806476cbafae299b8423c99_1755935955.png"/></a></p>
+<p>异步推理在架构上可以分为两个部分：</p>
+<ul>
+<li>RobotClient（机器人端）：以控制周期 $\Delta t$ 持续下发队列头部动作；本地维护动作队列 $A_t$ 与触发逻辑；可做相似度过滤（见下节）。</li>
+<li>PolicyServer（策略端）：接收观测 $o_t$，运行策略 $\pi$ 预测新队列 $\tilde A_{t+1}$ 后返回；可放在更强的远端算力（GPU/工作站/云）。</li>
+</ul>
+<p>看看<strong>论文中给出的算法实现</strong>：</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_33042be5a58b901b0c7bdbf156d1b0bc_1755937173.png"><img alt="" src="assets/doc/04-ai/算法模型/smolvla/images/wp_editor_md_33042be5a58b901b0c7bdbf156d1b0bc_1755937173.png"/></a></p>
+<p>设时域 $T$、段长 $n$、触发阈值 $g\in[0,1]$。</p>
+<ul>
+<li>初始化：采集 $o_0$，发送到策略端，得到首段 $A_0\leftarrow\pi(o_0)$。</li>
+<li>主循环 对 $t=0\dots T$：取出并执行一步 $a_t\leftarrow\text{PopFront}(A_t)$；若 队列余额占比 $\dfrac{|A_t|}{n}&lt;g$，采集新观测 $o_{t+1}$；若 NeedsProcessing$(o_{t+1})$ 为真（见“相似度过滤”），则异步触发：①发送 $o_{t+1}$ 到策略端，得到新段 $\tilde A_{t+1}\leftarrow\pi(o_{t+1})$（异步返回）；②用重叠拼接函数 $f(\cdot)$ 合并：$A_{t+1}\leftarrow f(A_t,\tilde A_{t+1})$；若本轮异步推理尚未结束：$A_{t+1}\leftarrow A_t$（继续消费旧队列）。</li>
+</ul>
+<p>论文中的 NeedsProcessing 用于避免重复观测触发；$f$ 表示对重叠步的拼接（线性渐入/平滑器等，见下重叠拼接（Overlap &amp; Merge））。</p>
+<p><strong>关键触发量，队列余额阈值 $g$</strong>：</p>
+<ul>
+<li>触发条件：当 $\dfrac{|A_t|}{n}&lt;g$ 时触发一次异步预测。</li>
+<li>直觉：$g$ 越大，越提前触发，越不容易见底；但也会更频繁地调用策略端（算力/网络开销更高）。</li>
+<li>论文的三个代表场景：$g=0$（顺序极限）：耗尽队列才发起新预测 → 一定出现空窗等待；$g=0.7$（典型异步）：每段大约消耗 $1-g=0.3$ 的比例就触发，计算摊在执行过程中，队列不见底；$g=1$（计算密集极限）：步步都发观测 → 几乎“满队列”，反应最快但计算最贵（等同每个 tick 都前向一次）。</li>
+</ul>
+<p>对于<strong>相似性过滤</strong>做法：主要动机是观测几乎不变时没必要反复调用服务器 → 降低抖动与无效请求。<strong>具体做法</strong>（论文）是用关节空间距离作为近似（例如欧式距离），若两次观测间距离 $&lt;\varepsilon$（阈值，$\varepsilon\in\mathbb{R}^+$）则丢弃本次请求。<strong>兜底做法</strong>是若队列真的耗尽，则无论相似度如何都要处理最近的观测，以防停摆。</p>
+<p><strong>重叠拼接（Overlap &amp; Merge）</strong>：核心思想通过重叠区域平滑过渡避免硬切抖动，数学上实现是设旧队列尾部与新队列头部重叠 $w$ 步，对第 $k=0,\dots,w-1$ 步做线性渐入融合：</p>
+<p>$$ a_{t+k}^{\text{merge}} = \alpha_k \tilde{a}<em t_k="t+k">{t+1+k} + (1-\alpha_k) a</em> $$}, \quad \alpha_k = \frac{k+1}{w</p>
+<p>也可用余弦窗、Slerp 或在位姿/速度层加滤波器；关键是重叠 + 平滑避免硬切抖动。</p>
+<p><strong>总结一下对于异步并发处理有优势，但是需要处理其中的细节</strong>主要是：</p>
+<ul>
+<li>维护<strong>动作队列</strong>。前台执行当前队列，后台异步预测下一段；在重叠窗口内<strong>平滑拼接</strong>新旧段。</li>
+<li>
+<p><strong>避免队列见底的解析下界</strong>，设控制周期为 $\Delta t$，则避免队列耗尽的充分条件为</p>
+<p>$$ g\ \ge\ \frac{\mathbb E[\ell_S]/\Delta t}{n} $$</p>
+</li>
+</ul>
+<p>其中 $\ell_S$ 为一次（本地/远端）推理延迟，$\Delta t$ 控制周期，$n$ 为动作块长度。从触发到返回的时间内（平均 $\mathbb{E}[\ell_S]$ 秒）你还要有足够的剩余动作可执行（约 $\mathbb{E}[\ell_S]/\Delta t$ 个），所以触发点的剩余比例至少为这部分占 $n$ 的比值。论文配合给出真实控制频率示例（如 $30$ FPS $\to \Delta t=33,$ms），并分析了不同 $g$ 对队列曲线的影响（下图）。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_44cf55997f06ccf4494e390eccbc4322_1755937813.png"><img alt="" src="assets/doc/04-ai/算法模型/smolvla/images/wp_editor_md_44cf55997f06ccf4494e390eccbc4322_1755937813.png"/></a></p>
+<h2 id="_6">数据</h2>
+<p>论文中提到的复现配置如下：</p>
+<ul>
+<li><strong>模型与输入</strong>：冻结 VLM，仅训动作专家；取 <strong>前半层 $N=\lfloor L/2\rfloor$</strong> 的 $H^{(N)}$ → 投影成 $O_N$。图像 512×512；<strong>64 视觉 token/帧</strong>；状态→1 token；bfloat16。</li>
+<li><strong>动作块与解算</strong>： 每段 <strong>$n=50$</strong>；推理 <strong>10 步</strong> Flow-Matching 积分。</li>
+<li><strong>优化</strong>：训练 <strong>200k step</strong>；global batch <strong>256</strong>；AdamW（$\beta_1=0.9,\ \beta_2=0.95$）；余弦退火学习率 $1\times10^{-4}\to2.5\times10^{-6}$。</li>
+<li><strong>参数量</strong>： 总计 <strong>≈450M</strong>；动作专家 <strong>≈100M</strong>；若 VLM 有 32 层，取前 <strong>16 层</strong>。</li>
+</ul>
+<p>论文中提到需要关注的信息：</p>
+<ul>
+<li><strong>模拟（LIBERO/Meta-World）</strong>：中等规模（~0.45B）已对标/超过若干更大基线；放大到 ~2.25B 继续提升。</li>
+<li><strong>真实机器人（SO100/101）</strong>：多任务平均成功率 <strong>≈78%</strong>，优于 π0 与 ACT。</li>
+<li><strong>异步 vs 同步</strong>：成功率相近，但异步<strong>平均完成时间缩短 ~30%</strong>，固定窗口内完成次数显著更多。</li>
+</ul>
+<p>论文中提到的落地经验：</p>
+<ul>
+<li><strong>形状与缓存</strong>：把 $H^{(N)}(T\times d_o)$ 投到 $d_a$ 后当 <strong>K/V</strong>；两次 Cross <strong>复用 KV 缓存</strong>。</li>
+<li><strong>因果掩码</strong>：Self-Attn 必须用因果掩码（第 $i$ 步不可看未来）。</li>
+<li><strong>视觉压缩</strong>：优先用 <strong>space-to-depth</strong> 固定 <strong>64/帧</strong>；任务特别细腻时用 $r=2$（256 token）或多尺度/ROI 方案。</li>
+<li><strong>起步超参</strong>：$n=50$、积分步数 10、$N=\lfloor L/2\rfloor$、$d_a=0.75d$。</li>
+<li><strong>异步阈值</strong>：按 $g\ge\frac{\ell_S/\Delta t}{n}$ 设定，取<strong>略高于下界</strong>更稳；配合相似度过滤与重叠拼接。</li>
+<li><strong>动作归一化</strong>：对不同量纲（角/位移/速度）做标准化，训练更稳、积分不发散。</li>
+<li><strong>交替注意力有效</strong>：<strong>Cross + 因果 Self</strong> 明显优于单一注意力；“用前半层”普遍优于“直接换小 VLM”。</li>
+</ul>
+<p>参考：<a href="https://arxiv.org/abs/2506.01844" title="https://arxiv.org/abs/2506.01844">https://arxiv.org/abs/2506.01844</a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="从数学角度理解flow-matching中的线性插值.html">← 从数学角度理解flow matching中的线性插值</a>
+    <a class="next" href="flow-matching-让生成模型-流动-起来.html">Flow Matching：让生成模型“流动”起来 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

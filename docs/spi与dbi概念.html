@@ -71,28 +71,28 @@
   <div class="post-content"><h1 id="spi">SPI</h1>
 <h2 id="spi_1">标准SPI</h2>
 <p>标准SPI接口，4根线CS、CLK、MISO、MOSI。4根线都是单线传输，主机通过MOSI发送数据，设备通过MISO发送数据给主机。标准的SPI可以支持全双工（发和收同时）、半双工（某个时刻发或收）、单双工（单方向传输，主机要么只能发送，要么只能接收）。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_f1f109bf8df1c879e03a9d6fc735b013.jpg"><img alt="" src="assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_f1f109bf8df1c879e03a9d6fc735b013.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_f1f109bf8df1c879e03a9d6fc735b013.jpg"><img alt="" src="assets/doc/06-外设/spi与dbi概念/images/wp_editor_md_f1f109bf8df1c879e03a9d6fc735b013.jpg"/></a></p>
 <h2 id="dual-spi">Dual SPI</h2>
 <p>双线SPI，顾名思义就是数据传输使用2根数据线。与标准SPI的线数一样4根线CS、CLK、MISO、MOSI，差别就是MISO，MOSI在某个时刻可以同时用来做数据收或发，因此该模式一般是半双工模式。对于Dual SPI类型接口外接的设备，通常是flash设备，根据传输的命令、地址是否使用2线又区分为DOUT和DIO模式。</p>
 <h3 id="dout">DOUT模式</h3>
 <p>命令+地址阶段按照常规SPI传输1线传输，数据阶段变成2线（MOSI,MISO在读数据或写数据时使用两个线）。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_74a6376496f6cd8b99ba43b956c2d1ca.jpg"><img alt="" src="assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_74a6376496f6cd8b99ba43b956c2d1ca.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_74a6376496f6cd8b99ba43b956c2d1ca.jpg"><img alt="" src="assets/doc/06-外设/spi与dbi概念/images/wp_editor_md_74a6376496f6cd8b99ba43b956c2d1ca.jpg"/></a></p>
 <h3 id="dio">DIO模式</h3>
 <p>命令阶段是常规SPI的1线传输，地址和数据阶段是双线传输。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_a5d23c89182ff2dec72e88ba583071dc.jpg"><img alt="" src="assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_a5d23c89182ff2dec72e88ba583071dc.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_a5d23c89182ff2dec72e88ba583071dc.jpg"><img alt="" src="assets/doc/06-外设/spi与dbi概念/images/wp_editor_md_a5d23c89182ff2dec72e88ba583071dc.jpg"/></a></p>
 <h2 id="quad-spi">Quad SPI</h2>
 <p>CS，CLK，MOSI，MISO，WP，HOLD一共6根线，其中MOSI，MISO，WP，HOLD为数据线。根据命令、地址是否使用4线还是标准SPI一共分为3中模式，分别是QOUT，QIO，QPI。</p>
 <h3 id="qout">QOUT</h3>
 <p>命令+地址阶段按照常规SPI传输1线传输，数据阶段变成4线（MOSI,MISO，WP,HOLD在读数据或写数据时使用4线）。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_57703332949a3ceaf11b19609f726347.jpg"><img alt="" src="assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_57703332949a3ceaf11b19609f726347.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_57703332949a3ceaf11b19609f726347.jpg"><img alt="" src="assets/doc/06-外设/spi与dbi概念/images/wp_editor_md_57703332949a3ceaf11b19609f726347.jpg"/></a></p>
 <h3 id="qio">QIO</h3>
 <p>只在命令阶段是常规SPI的1线传输，地址和数据阶段是4线传输。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_3286871530492eea6f42af80d5e2e92f.jpg"><img alt="" src="assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_3286871530492eea6f42af80d5e2e92f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_3286871530492eea6f42af80d5e2e92f.jpg"><img alt="" src="assets/doc/06-外设/spi与dbi概念/images/wp_editor_md_3286871530492eea6f42af80d5e2e92f.jpg"/></a></p>
 <h3 id="qpi">QPI</h3>
 <p>命令，地址，数据都是8线传输。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_c998580484ec04af8091dd47e3dfed3b.jpg"><img alt="" src="assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_c998580484ec04af8091dd47e3dfed3b.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_c998580484ec04af8091dd47e3dfed3b.jpg"><img alt="" src="assets/doc/06-外设/spi与dbi概念/images/wp_editor_md_c998580484ec04af8091dd47e3dfed3b.jpg"/></a></p>
 <h2 id="_1">小结</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_5bde44598b7a9196629b6aea1d1f775a.jpg"><img alt="" src="assets/doc/05-外设/spi与dbi概念/images/wp_editor_md_5bde44598b7a9196629b6aea1d1f775a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/01/wp_editor_md_5bde44598b7a9196629b6aea1d1f775a.jpg"><img alt="" src="assets/doc/06-外设/spi与dbi概念/images/wp_editor_md_5bde44598b7a9196629b6aea1d1f775a.jpg"/></a></p>
 <h1 id="dbi">DBI</h1>
 <h2 id="3-line">3-Line模式</h2>
 <p>CSX（CS），SCL（CLK），SDA（MOSI或MISO），SDI（MOSI或MISO，可选）。前面CSX,SCL,SDA是必须的，所以称为3线模式。3线模式有区分为2中，interface I和interface II。</p>

@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>分类：其他 / windows访问linux搭建的samba服务 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="../../assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="../../">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="../../">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card profile">
+          <img class="avatar" src="../../assets/avatar.jpg" alt="avatar" />
+          <div class="author">laumy</div>
+          <div class="bio">为学日益，为道日损</div>
+          <div class="stats">
+            <div><div class="num">199</div><div class="label">文章数</div></div>
+            <div><div class="num">11</div><div class="label">分类</div></div>
+          </div>
+        </div>
+                    
+            <div class="card">
+              <div class="card-title">分类专栏</div>
+              <ul class="category-list">
+                
+                <li class="category-item has-subcategories">
+                  <a href="../../categories/linux.html" class="category-main">
+                    <span class="category-name">linux</span>
+                    <span class="subcategory-count">(48篇)</span>
+                  </a>
+                  
+                  <ul class="subcategory-list">
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/linux/性能工具.html">
+                        <span class="subcategory-name">性能工具</span>
+                        <span class="subcategory-count">(6篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/linux/设备驱动.html">
+                        <span class="subcategory-name">设备驱动</span>
+                        <span class="subcategory-count">(5篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/linux/内存管理.html">
+                        <span class="subcategory-name">内存管理</span>
+                        <span class="subcategory-count">(10篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/linux/文件系统.html">
+                        <span class="subcategory-name">文件系统</span>
+                        <span class="subcategory-count">(12篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/linux/进程调度.html">
+                        <span class="subcategory-name">进程调度</span>
+                        <span class="subcategory-count">(9篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/linux/中断管理.html">
+                        <span class="subcategory-name">中断管理</span>
+                        <span class="subcategory-count">(6篇)</span>
+                      </a>
+                    </li>
+                    
+                  </ul>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/risc-v.html" class="category-main">
+                    <span class="category-name">risc-v</span>
+                    <span class="subcategory-count">(25篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/rtos.html" class="category-main">
+                    <span class="category-name">rtos</span>
+                    <span class="subcategory-count">(4篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item has-subcategories">
+                  <a href="../../categories/ai.html" class="category-main">
+                    <span class="category-name">ai</span>
+                    <span class="subcategory-count">(67篇)</span>
+                  </a>
+                  
+                  <ul class="subcategory-list">
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/ai/ai应用.html">
+                        <span class="subcategory-name">ai应用</span>
+                        <span class="subcategory-count">(23篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/ai/算法模型.html">
+                        <span class="subcategory-name">算法模型</span>
+                        <span class="subcategory-count">(17篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/ai/lerobot.html">
+                        <span class="subcategory-name">lerobot</span>
+                        <span class="subcategory-count">(13篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/ai/深度学习.html">
+                        <span class="subcategory-name">深度学习</span>
+                        <span class="subcategory-count">(11篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/ai/opencv.html">
+                        <span class="subcategory-name">opencv</span>
+                        <span class="subcategory-count">(3篇)</span>
+                      </a>
+                    </li>
+                    
+                  </ul>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/ros系统.html" class="category-main">
+                    <span class="category-name">ros系统</span>
+                    <span class="subcategory-count">(8篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/外设.html" class="category-main">
+                    <span class="category-name">外设</span>
+                    <span class="subcategory-count">(2篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/语言.html" class="category-main">
+                    <span class="category-name">语言</span>
+                    <span class="subcategory-count">(4篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/调试.html" class="category-main">
+                    <span class="category-name">调试</span>
+                    <span class="subcategory-count">(7篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/网络.html" class="category-main">
+                    <span class="category-name">网络</span>
+                    <span class="subcategory-count">(5篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/阅读.html" class="category-main">
+                    <span class="category-name">阅读</span>
+                    <span class="subcategory-count">(6篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/其他.html" class="category-main">
+                    <span class="category-name">其他</span>
+                    <span class="subcategory-count">(23篇)</span>
+                  </a>
+                  
+                </li>
+                
+              </ul>
+            </div>
+            
+        
+      </aside>
+
+      <section class="content">
+        
+<div class="card">
+  <div class="card-title">分类：其他 / windows访问linux搭建的samba服务</div>
+  <div class="post-list">
+    
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_5438472a848cc53bdd5430a3d737e1cc_1758613394.png" alt="windows访问Linux搭建的samba服务" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../windows访问linux搭建的samba服务.html">windows访问Linux搭建的samba服务</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-09-23
+            </span>
+          </div>
+          <p class="summary">Linux 服务 安装 Samba 是Linux上实现SMB/CIFS 协议的服务，可以让 Windows、Linux、macOS 之间互相访问文件夹。 安装samba sudo apt update sudo apt install samba -y 配置 （1）配置文件 su</p>
+        </div>
+      </div>
+    </article>
+    
+    
+  </div>
+ </div>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="../../assets/site.js"></script>
+  </body>
+  </html>
+

@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ROS2实践：创建一个包和节点 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">准备</a><ul></ul></li><li><a href="#python">python的方式</a><ul><li><a href="#_2">创建一个包</a></li><li><a href="#_3">创建节点程序</a></li><li><a href="#_4">设置程序入口</a></li><li><a href="#_5">编译</a></li><li><a href="#_6">执行</a></li></ul></li><li><a href="#cpp">CPP方式</a><ul><li><a href="#_7">创建一个包</a></li><li><a href="#_8">创建节点程序</a></li><li><a href="#_9">设置编译选项</a></li><li><a href="#_10">编译执行</a></li></ul></li><li><a href="#_11">常用命令</a><ul><li><a href="#_12">创建包</a></li><li><a href="#_13">运行</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>ROS2实践：创建一个包和节点</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-15
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ros系统
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">准备</h2>
+<p>在ROS2中什么是包，什么是节点？</p>
+<ul>
+<li>包（Package） 是 ROS 2 的基本构建单元，包含了代码、资源、配置和依赖，组织着机器人的各个功能模块。这个packge可以理解为openwrt的package，主要用于怎么构建、编译代码，存放程序的配置等等。</li>
+<li>节点（Node） 是 ROS 2 中执行的具体单元，它是一个程序，可以完成传感器读取、控制计算、数据处理等任务，并通过话题、服务或动作与其他节点进行通信。可以理解为openwrt中package中实际的程序，一个节点是一个进程。</li>
+</ul>
+<p>一个包中可以有多个节点，节点与包是包含的关系。</p>
+<p>安装前面的文章安装好ROS2的开发环境。</p>
+<p>安装colcon编译工具、rosdep工具。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">python3</span><span class="o">-</span><span class="n">colcon</span><span class="o">-</span><span class="n">ros</span>
+</code></pre></div>
+<p>创建一个工作空间</p>
+<div class="codehilite"><pre><span></span><code><span class="n">mkdir</span> <span class="o">-</span><span class="n">p</span> <span class="o">~/</span><span class="n">dev_ws</span><span class="o">/</span><span class="n">src</span>
+</code></pre></div>
+<h2 id="python">python的方式</h2>
+<h3 id="_2">创建一个包</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">cd</span> <span class="o">~/</span><span class="n">dev_ws</span><span class="o">/</span><span class="n">src</span><span class="o">/</span>
+<span class="n">ros2</span> <span class="n">pkg</span> <span class="n">create</span> <span class="o">--</span><span class="n">build</span><span class="o">-</span><span class="nb">type</span> <span class="n">ament_cmake</span> <span class="n">learning_pkg_python</span>
+</code></pre></div>
+<p>创建完成后，会产生如下文件</p>
+<div class="codehilite"><pre><span></span><code><span class="o">.</span>
+<span class="err">├──</span> <span class="n">learning_pkg_python</span>
+<span class="err">│</span>   <span class="err">├──</span> <span class="n">learning_pkg_python</span>
+<span class="err">│</span>   <span class="err">│</span>   <span class="err">└──</span> <span class="fm">__init__</span><span class="o">.</span><span class="n">py</span>
+<span class="err">│</span>   <span class="err">├──</span> <span class="n">package</span><span class="o">.</span><span class="n">xml</span>
+<span class="err">│</span>   <span class="err">├──</span> <span class="n">resource</span>
+<span class="err">│</span>   <span class="err">│</span>   <span class="err">└──</span> <span class="n">learning_pkg_python</span>
+<span class="err">│</span>   <span class="err">├──</span> <span class="n">setup</span><span class="o">.</span><span class="n">cfg</span>
+<span class="err">│</span>   <span class="err">├──</span> <span class="n">setup</span><span class="o">.</span><span class="n">py</span>
+<span class="err">│</span>   <span class="err">└──</span> <span class="n">test</span>
+<span class="err">│</span>       <span class="err">├──</span> <span class="n">test_copyright</span><span class="o">.</span><span class="n">py</span>
+<span class="err">│</span>       <span class="err">├──</span> <span class="n">test_flake8</span><span class="o">.</span><span class="n">py</span>
+<span class="err">│</span>       <span class="err">└──</span> <span class="n">test_pep257</span><span class="o">.</span><span class="n">py</span>
+</code></pre></div>
+<h3 id="_3">创建节点程序</h3>
+<p>在~/dev_ws/src/learning_pkg_python/learning_pkg_python目录下创建一个node_helloworld_class.py文件，实现代码如下：</p>
+<div class="codehilite"><pre><span></span><code><span class="ch">#! /usr/bin/env python3</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+
+<span class="kn">import</span> <span class="nn">rclpy</span>
+<span class="kn">from</span> <span class="nn">rclpy.node</span> <span class="kn">import</span> <span class="n">Node</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="k">class</span> <span class="nc">HelloworldNode</span><span class="p">(</span><span class="n">Node</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">while</span> <span class="n">rclpy</span><span class="o">.</span><span class="n">ok</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">get_logger</span><span class="p">()</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Hello World"</span><span class="p">)</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">rclpy</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="n">args</span><span class="p">)</span>
+    <span class="n">node</span> <span class="o">=</span> <span class="n">HelloworldNode</span><span class="p">(</span><span class="s2">"node_helloworld_class"</span><span class="p">)</span>
+    <span class="n">rclpy</span><span class="o">.</span><span class="n">spin</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="n">node</span><span class="o">.</span><span class="n">destroy_node</span><span class="p">()</span>
+    <span class="n">rclpy</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+</code></pre></div>
+<p>注意node_helloworld_class.py文件要和默认的<strong>init</strong>.py在一个目录下，保持同级。</p>
+<h3 id="_4">设置程序入口</h3>
+<div class="codehilite"><pre><span></span><code>    <span class="n">entry_points</span><span class="o">=</span><span class="p">{</span>
+        <span class="s1">'console_scripts'</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s1">'node_helloworld_class = learning_pkg_python.node_helloworld_class:main'</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">},</span>
+</code></pre></div>
+<p>设置python的程序入口，让ROS2系统知道python程序的入口。</p>
+<ul>
+<li>console_scripts:：这告诉Python包管理器（如pip）要创建哪些命令行可执行脚本。</li>
+<li>node_helloworld_class：这是终端中ros2 run后面直接运行的命令名称。</li>
+<li>learning_pkg_python.node_helloworld_class:main：这是Python模块的路径（包名.模块名）</li>
+</ul>
+<h3 id="_5">编译</h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>~/dev_ws/
+colcon<span class="w"> </span>build
+</code></pre></div>
+<p>编译的时候，要切换到工程的根目录下进行编译。因为编译会在当前的根目录下生成build、install、log，而工程下会有很多包，因此建议都切换到工程的根目录下进行编译。</p>
+<h3 id="_6">执行</h3>
+<div class="codehilite"><pre><span></span><code>ros2<span class="w"> </span>run<span class="w"> </span>learning_pkg_python<span class="w"> </span>node_helloworld_class
+</code></pre></div>
+<h2 id="cpp">CPP方式</h2>
+<h3 id="_7">创建一个包</h3>
+<p>执行创建包的命令</p>
+<div class="codehilite"><pre><span></span><code>ros2<span class="w"> </span>pkg<span class="w"> </span>create<span class="w"> </span>--build-type<span class="w"> </span>ament_cmake<span class="w"> </span>learning_pkg_cpp
+</code></pre></div>
+<p>下面是生成的包的目录结构</p>
+<div class="codehilite"><pre><span></span><code>.
+├──<span class="w"> </span>learning_pkg_cpp
+│<span class="w">   </span>├──<span class="w"> </span>CMakeLists.txt
+│<span class="w">   </span>├──<span class="w"> </span>include
+│<span class="w">   </span>│<span class="w">   </span>└──<span class="w"> </span>learning_pkg_cpp
+│<span class="w">   </span>├──<span class="w"> </span>package.xml
+│<span class="w">   </span>└──<span class="w"> </span>src
+</code></pre></div>
+<h3 id="_8">创建节点程序</h3>
+<p>在learning_pkg_cpp/src目录下创建一个node_helloworld_class.cpp文件，编写代码。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">#include "rclcpp/rclcpp.hpp"</span>
+<span class="c1">#include "std_msgs/msg/string.hpp"</span>
+
+class<span class="w"> </span>HelloWorldClass<span class="w"> </span>:<span class="w"> </span>public<span class="w"> </span>rclcpp::Node
+<span class="o">{</span>
+<span class="w">    </span>public:
+<span class="w">        </span>HelloWorldClass<span class="o">()</span>:Node<span class="o">(</span><span class="s2">"hello_world_class"</span><span class="o">)</span>
+<span class="w">        </span><span class="o">{</span>
+<span class="w">            </span><span class="k">while</span><span class="o">(</span>rclcpp::ok<span class="o">())</span><span class="w"> </span><span class="o">{</span>
+<span class="w">                </span>RCLCPP_INFO<span class="o">(</span>this-&gt;get_logger<span class="o">()</span>,<span class="w"> </span><span class="s2">"Hello World"</span><span class="o">)</span><span class="p">;</span>
+<span class="w">                </span>sleep<span class="o">(</span><span class="m">1</span><span class="o">)</span><span class="p">;</span>
+<span class="w">            </span><span class="o">}</span>
+<span class="w">        </span><span class="o">}</span>
+<span class="o">}</span><span class="p">;</span>
+
+int<span class="w"> </span>main<span class="o">(</span>int<span class="w"> </span>argc,<span class="w"> </span>char<span class="w"> </span>*argv<span class="o">[])</span>
+<span class="o">{</span>
+<span class="w">    </span>rclcpp::init<span class="o">(</span>argc,<span class="w"> </span>argv<span class="o">)</span><span class="p">;</span>
+
+<span class="w">    </span>rclcpp::spin<span class="o">(</span>std::make_shared&lt;HelloWorldClass&gt;<span class="o">())</span><span class="p">;</span>
+
+<span class="w">    </span>rclcpp::shutdown<span class="o">()</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="m">0</span><span class="p">;</span>
+<span class="o">}</span>
+</code></pre></div>
+<h3 id="_9">设置编译选项</h3>
+<p>python是不用编译的，但是C++程序需要编译因此需要更新CmakeLists.txt。在文件中添加一下内容。</p>
+<div class="codehilite"><pre><span></span><code>find_package<span class="o">(</span>rclcpp<span class="w"> </span>REQUIRED<span class="o">)</span>
+<span class="c1"># 查找依赖的功能包rclcpp，提供ROS2 C++的基础接口</span>
+
+add_executable<span class="o">(</span>node_helloworld_class<span class="w"> </span>src/node_helloworld_class.cpp<span class="o">)</span>
+<span class="c1"># 添加一个可执行文件名称为node_helloworld_class，源码路径为src/node_helloworld_class.cpp</span>
+
+ament_target_dependencies<span class="o">(</span>node_helloworld_class<span class="w"> </span>rclcpp<span class="o">)</span>
+<span class="c1">#编译时链接rclcpp的依赖库</span>
+
+install<span class="o">(</span>TARGETS
+<span class="w">  </span>node_helloworld_class
+<span class="w">  </span>DESTINATION<span class="w"> </span>lib/<span class="si">${</span><span class="nv">PROJECT_NAME</span><span class="si">}</span>
+<span class="o">)</span>
+<span class="c1">#将可执行文件拷贝到install目录下。</span>
+</code></pre></div>
+<h3 id="_10">编译执行</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 编译</span>
+<span class="nb">cd</span><span class="w"> </span>~/dev_ws/
+colcon<span class="w"> </span>build
+
+<span class="c1"># 运行</span>
+<span class="nb">source</span><span class="w"> </span>install/setup.bash
+<span class="c1">#先执行一下环境变量，可以补全新的命令。</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_44d53a97e000912ce0214079647d9645_1757931470.png"><img alt="" src="assets/doc/05-ros系统/ros2：创建一个包和节点/images/wp_editor_md_44d53a97e000912ce0214079647d9645_1757931470.png"/></a></p>
+<h2 id="_11">常用命令</h2>
+<h3 id="_12">创建包</h3>
+<p>创建一个功能包的命令</p>
+<div class="codehilite"><pre><span></span><code>ros2<span class="w"> </span>pkg<span class="w"> </span>create<span class="w"> </span>--build-type<span class="w"> </span>&lt;build-type&gt;<span class="w"> </span>&lt;packge_name&gt;
+</code></pre></div>
+<ul>
+<li>pkg：调用功能包相关功能的子命令。</li>
+<li>create：创建功能包的子命令。</li>
+<li>build-type：表示新创建的功能包是C++还是Python，如果使用C++或者C，这里是"ament_cmake"；如果使用python，这里就是"ament_python"。</li>
+<li>packege_name：新建功能包的名字。</li>
+</ul>
+<p>示例</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>~/dev_ws/src
+ros2<span class="w"> </span>pkg<span class="w"> </span>create<span class="w"> </span>--build-type<span class="w"> </span>ament_cmake<span class="w"> </span>learning_pkg_cpp
+ros2<span class="w"> </span>pkg<span class="w"> </span>create<span class="w"> </span>--build-type<span class="w"> </span>ament_python<span class="w"> </span>learning_pkg_python
+</code></pre></div>
+<p>注意执行上面命令时，就会在当前目录下进行创建包，因此为了工程目录的结构，要切换到指定的目录进行创建。</p>
+<h3 id="_13">运行</h3>
+<div class="codehilite"><pre><span></span><code>ros2<span class="w"> </span>run<span class="w"> </span>&lt;package_name&gt;<span class="w"> </span>&lt;executable_name&gt;<span class="w"> </span><span class="o">[</span>arguments<span class="o">]</span>
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="ubuntu系统异常-无法进入登录桌面.html">← ubuntu系统异常：无法进入登录桌面</a>
+    <a class="next" href="ros2安装-ubuntu-24-04-2上实践.html">ROS2安装：ubuntu 24.04.2上实践 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

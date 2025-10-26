@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>分类：ai / 算法模型 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="../../assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="../../">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="../../">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card profile">
+          <img class="avatar" src="../../assets/avatar.jpg" alt="avatar" />
+          <div class="author">laumy</div>
+          <div class="bio">为学日益，为道日损</div>
+          <div class="stats">
+            <div><div class="num">199</div><div class="label">文章数</div></div>
+            <div><div class="num">11</div><div class="label">分类</div></div>
+          </div>
+        </div>
+                    
+            <div class="card">
+              <div class="card-title">分类专栏</div>
+              <ul class="category-list">
+                
+                <li class="category-item has-subcategories">
+                  <a href="../../categories/linux.html" class="category-main">
+                    <span class="category-name">linux</span>
+                    <span class="subcategory-count">(48篇)</span>
+                  </a>
+                  
+                  <ul class="subcategory-list">
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/linux/性能工具.html">
+                        <span class="subcategory-name">性能工具</span>
+                        <span class="subcategory-count">(6篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/linux/设备驱动.html">
+                        <span class="subcategory-name">设备驱动</span>
+                        <span class="subcategory-count">(5篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/linux/内存管理.html">
+                        <span class="subcategory-name">内存管理</span>
+                        <span class="subcategory-count">(10篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/linux/文件系统.html">
+                        <span class="subcategory-name">文件系统</span>
+                        <span class="subcategory-count">(12篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/linux/进程调度.html">
+                        <span class="subcategory-name">进程调度</span>
+                        <span class="subcategory-count">(9篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/linux/中断管理.html">
+                        <span class="subcategory-name">中断管理</span>
+                        <span class="subcategory-count">(6篇)</span>
+                      </a>
+                    </li>
+                    
+                  </ul>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/risc-v.html" class="category-main">
+                    <span class="category-name">risc-v</span>
+                    <span class="subcategory-count">(25篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/rtos.html" class="category-main">
+                    <span class="category-name">rtos</span>
+                    <span class="subcategory-count">(4篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item has-subcategories">
+                  <a href="../../categories/ai.html" class="category-main">
+                    <span class="category-name">ai</span>
+                    <span class="subcategory-count">(67篇)</span>
+                  </a>
+                  
+                  <ul class="subcategory-list">
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/ai/ai应用.html">
+                        <span class="subcategory-name">ai应用</span>
+                        <span class="subcategory-count">(23篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/ai/算法模型.html">
+                        <span class="subcategory-name">算法模型</span>
+                        <span class="subcategory-count">(17篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/ai/lerobot.html">
+                        <span class="subcategory-name">lerobot</span>
+                        <span class="subcategory-count">(13篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/ai/深度学习.html">
+                        <span class="subcategory-name">深度学习</span>
+                        <span class="subcategory-count">(11篇)</span>
+                      </a>
+                    </li>
+                    
+                    <li class="subcategory-item">
+                      <a href="../../categories/ai/opencv.html">
+                        <span class="subcategory-name">opencv</span>
+                        <span class="subcategory-count">(3篇)</span>
+                      </a>
+                    </li>
+                    
+                  </ul>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/ros系统.html" class="category-main">
+                    <span class="category-name">ros系统</span>
+                    <span class="subcategory-count">(8篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/外设.html" class="category-main">
+                    <span class="category-name">外设</span>
+                    <span class="subcategory-count">(2篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/语言.html" class="category-main">
+                    <span class="category-name">语言</span>
+                    <span class="subcategory-count">(4篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/调试.html" class="category-main">
+                    <span class="category-name">调试</span>
+                    <span class="subcategory-count">(7篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/网络.html" class="category-main">
+                    <span class="category-name">网络</span>
+                    <span class="subcategory-count">(5篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/阅读.html" class="category-main">
+                    <span class="category-name">阅读</span>
+                    <span class="subcategory-count">(6篇)</span>
+                  </a>
+                  
+                </li>
+                
+                <li class="category-item">
+                  <a href="../../categories/其他.html" class="category-main">
+                    <span class="category-name">其他</span>
+                    <span class="subcategory-count">(23篇)</span>
+                  </a>
+                  
+                </li>
+                
+              </ul>
+            </div>
+            
+        
+      </aside>
+
+      <section class="content">
+        
+<div class="card">
+  <div class="card-title">分类：ai / 算法模型</div>
+  <div class="post-list">
+    
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_7384c9d9bb31ffe2cd955638ecdea2ea_1760751287.png" alt="为什么AlphaGo能自学围棋？强化学习基本概念" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../为什么alphago能自学围棋-强化学习基本概念.html">为什么AlphaGo能自学围棋？强化学习基本概念</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-10-18
+            </span>
+          </div>
+          <p class="summary">强化学习简介 什么是强化学习 以直升机控制飞行的程序来举例。 自动驾驶的直升机配备了机载计算机、GPS、加速度计、陀螺仪和磁罗盘，我们可以实时确定的知道直升机的位置。如何使用强化学习来让直升机飞行了？ 在强化学习中，将直升机的位置、方向和速度等称为状态s，因此我们的目标或任务就是</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_9c627c65e696506119c68763ef55a836_1759129986.png" alt="机器人全身控制浅谈：理解 WBC 的原理" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../机器人全身控制浅谈-理解-wbc-的原理.html">机器人全身控制浅谈：理解 WBC 的原理</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-09-29
+            </span>
+          </div>
+          <p class="summary">概念 WBC（Whole-Body Control，全身控制）是什么？机器人是由“各关节”组成的，其不是“各关节各玩各的”而是一个耦合的整体。在某个时刻可能要做很多事情，比如保持平衡（重心别出圈）、手/脚要动作到目标位置、躯干姿态不能乱、关节不能超限、脚下不能打滑。这些都是一系列</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_9f3adb15d823b6851073bc3297a89506_1759047496.png" alt="机器人控制利器：MPC入门与实践解析" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../机器人控制利器-mpc入门与实践解析.html">机器人控制利器：MPC入门与实践解析</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-09-28
+            </span>
+          </div>
+          <p class="summary">背景 MPC（Model Predictive Control）模型预测控制，是一种控制方法，广泛应用在机器人、无人驾驶、过程控制、能源系统等领域。它的核心思想用一句话来总结：利用系统模型预测未来，并通过优化选择当前最优的控制输入。 如上图是一个MPC应用框图，先来看看框图中的各</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_529d0a37acbc728c6c22f921aeb83078_1756005092.gif" alt="从数学角度理解flow matching中的线性插值" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../从数学角度理解flow-matching中的线性插值.html">从数学角度理解flow matching中的线性插值</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-24
+            </span>
+          </div>
+          <p class="summary">什么是插值 插值的核心问题是：在已知两个点的情况下，如何找到它们之间的中间点。 举个人走路的例子，起点在家门口(A点)，终点在公司(B点)，总的路程为1000米，假设人是匀速移动，如果走到一半(t=0.5)，那么人就在家和公司的正中间，如果走到四分之一(t=0.25)，那么离家2</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_8063fb41f525cf17c2469eaf6acaf17b_1755924424.png" alt="轻量SmolVLA：半层VLM、视觉压缩与异步推理赋能具身智能" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../轻量smolvla-半层vlm-视觉压缩与异步推理赋能具身智能.html">轻量SmolVLA：半层VLM、视觉压缩与异步推理赋能具身智能</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-23
+            </span>
+          </div>
+          <p class="summary">概述 SmolVLA 是一套轻量级视觉-语言-行动（VLA）策略：前端用小型 VLM（视觉 SigLIP + 语言 SmolLM2）做感知与理解；后端用一个“动作专家”专门预测一段连续的低层控制。它与Pi0相比，参数规模少了将近10倍只有约0.45B（450M）。它的目标是在低算</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_3fb75ea4a45a7ab5c6d38bfd4d17f2ea_1755833389.png" alt="Flow Matching：让生成模型“流动”起来" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../flow-matching-让生成模型-流动-起来.html">Flow Matching：让生成模型“流动”起来</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-22
+            </span>
+          </div>
+          <p class="summary">背景 上一篇文章分析了diffusion扩散模型。diffusion扩散模型做法是加噪声、再一步步去噪，训练过程复杂，还需要 carefully 设计噪声调度。 Flow Matching提出了更直接的方式：与其通过一大堆离散的“加噪/去噪”步骤，不如直接学习一个连续的流动 (f</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_af0b023cd12d9ba9f55e19a618e15384_1755859779.png" alt="浅析Pi0 ：VLM 与 Flow Matching 的结合之道" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../浅析pi0-vlm-与-flow-matching-的结合之道.html">浅析Pi0 ：VLM 与 Flow Matching 的结合之道</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-22
+            </span>
+          </div>
+          <p class="summary">概述 传统机器人策略模型往往局限在单一任务或平台，难以跨场景泛化。与此同时，大规模 视觉-语言模型（VLM） 已展现出卓越的语义理解与任务指令解析能力。如果能将 VLM 的语义理解能力 与 Flow Matching 的连续动作建模能力 结合，有望构建具备泛化与实时性的机器人通用</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_a3dec8d301d71cf3eb6473149ef4f0e1_1755764049.png" alt="Diffusion：如何从噪声中生成清晰图像" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../diffusion-如何从噪声中生成清晰图像.html">Diffusion：如何从噪声中生成清晰图像</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-21
+            </span>
+          </div>
+          <p class="summary">概述 图像生成是当下研究的热点，diffusion是一种人工智能领域图像生成的基础模型，当下Stable diffusion、DALL·E、MidJourney文生图模型的基座都使用了diffusion。 diffusion扩散模型属于生成式模型，生成图像不是正向从0到1构成图像</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_32f06f0940366f8db273a8cfc9d0dd7e_1755658135.png" alt="视觉 Token 如何注入语言模型？VLM拆解" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../视觉-token-如何注入语言模型-vlm拆解.html">视觉 Token 如何注入语言模型？VLM拆解</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-20
+            </span>
+          </div>
+          <p class="summary">VLM与LLM 如果说我们有一张图片、一个图表想让大模型来帮忙理解那应该要怎么实现了？ 标准的LLM语言大模型只能处理文本序列，是不能够读取图像的，如果没有办法将视觉的数据转换为LLM能够理解的形式，那么LLM是无法处理的。需要注意的是我们这里说的LLM并不是transforme</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_13bd80ed2e3e2dbf44ee6c79eab0b8cb_1755592221.png" alt="解读ViT：Transformer 在视觉领域如何落地" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../解读vit-transformer-在视觉领域如何落地.html">解读ViT：Transformer 在视觉领域如何落地</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-19
+            </span>
+          </div>
+          <p class="summary">背景 计算机视觉领域，一直都是卷积天下。传统的卷积神经网络(CNN)依赖于卷积核提取局部特征，效果很好，但是也有一些不足，如需要人工设计卷积结构包括卷积核大小和层数，另外就是难以捕捉全局的依赖关系。 transformer最早更多的是应用在NLP领域的架构，用注意力机制来捕捉长距</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_520233b55d11c3774c5bfa49cbaf041f.jpg" alt="再论transformer原理" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../再论transformer原理.html">再论transformer原理</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-07
+            </span>
+          </div>
+          <p class="summary">概述 框架 以翻译作为例子，从宏观角度理解大模型，可以把大模型视为一个黑匣子，它可以输入一种语言然后输出另外一种翻译语言，如下图所示。 如果将模型稍微展开一下，模型分为encoders和decoders两部分。为什么要分为编码器和解码器了？主要是从以下动机考量。 条件生成需求：在</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_520233b55d11c3774c5bfa49cbaf041f.jpg" alt="Transformer 原理解析：从注意力机制到自回归生成" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../transformer-原理解析-从注意力机制到自回归生成.html">Transformer 原理解析：从注意力机制到自回归生成</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-07
+            </span>
+          </div>
+          <p class="summary">概述 框架 以翻译作为例子，从宏观角度理解大模型，可以把大模型视为一个黑匣子，它可以输入一种语言然后输出另外一种翻译语言，如下图所示。 如果将模型稍微展开一下，模型分为encoders和decoders两部分。为什么要分为编码器和解码器了？主要是从以下动机考量。 条件生成需求：在</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_d952b61aa30ccd3ad3870e5e43ddf3d9.jpg" alt="具身智能ACT算法" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../具身智能act算法.html">具身智能ACT算法</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-08-03
+            </span>
+          </div>
+          <p class="summary">基本原理 简单总结一下什么是ACT算法。传统的机器算法过程是观测关节位置J1经过模型预测动作A2然后执行，观测到J2预测数A3，观测到J3遇到A4依次类推，这样就有一个问题，假设预测出的A2跟实际相比偏差就比较大那么对应的观测到的J2就偏离比较大。如果要连续预测K步，就要连续采集</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_bbf1ba7eca0ef38d8529b14969f6ea17.jpg" alt="自注意力机制" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../自注意力机制.html">自注意力机制</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-06-13
+            </span>
+          </div>
+          <p class="summary">运作原理 自注意力机制要解决的是让机器根据输入序列能根据上下文来理解。举个例子，输入句子为&#34;我有一个苹果手机&#34;，对于机器来说这里的&#34;苹果&#34;应该是指水果还是手机品牌了？所以要解决这个问题，就需要在上下文中去理解，那怎么在上下文中去理解了？那就是由句子中的其他词对于施加权重，让&#34;苹果</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_aa5713ab06deff5343b019c303b81e3f.jpg" alt="transformer" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../transformer.html">transformer</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-06-13
+            </span>
+          </div>
+          <p class="summary">模型结构 transform使用了自注意力机制，由编码器和解码器组成。 编码器 transformer的编码器输入一排向量，输出另外一排同样长度的向量。transformer的编码中加入了残差连接和层归一化，其中N X表示重复N此。首先在输入的地方需要加上位置编码，经过自注意力处</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_031903d790eb2478fee62ecd88bbb4e2.jpg" alt="YOLOv2和YOLOv3" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../yolov2和yolov3.html">YOLOv2和YOLOv3</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-06-04
+            </span>
+          </div>
+          <p class="summary">YOLOv2 回顾一下YOLOv1有哪些缺陷？ 边界框训练时回归不稳定，导致定位误差大。 每个网格只能预测两个边界框且只能识别一类目标。 小目标检测效果差。 针对以上的问题，YOLOv2进行了改进，下面从检测机制优化、网络结构优化、训练策略优化3个维度进行。 检测机制优化 锚框（</p>
+        </div>
+      </div>
+    </article>
+    
+    <article class="post-item">
+      <div class="latest-post-content">
+        
+        <div class="post-image">
+          <img src="../../assets/thumbs/wp_editor_md_88d89ee6a71c02e0c8dd12a3a181126a.jpg" alt="YOLOv1目标检测原理" />
+        </div>
+        
+        <div class="post-text">
+          <h2 class="post-title"><a href="../../yolov1目标检测原理.html">YOLOv1目标检测原理</a></h2>
+          <div class="meta">
+            <span class="meta-item">
+              <i class="icon">🕒</i>
+              2025-06-03
+            </span>
+          </div>
+          <p class="summary">介绍 YOLO在目标视觉检测应用广泛，You Only Look Once的简称。作者期望YOLO能像人一样只需要看一眼就能够立即识别其中的物体、位置及交互关系。能够达到快速、实时检测的效果。 YOLO检测系统可以简要分为3个步骤： Resize image：调整输入图像的大小为</p>
+        </div>
+      </div>
+    </article>
+    
+    
+  </div>
+ </div>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="../../assets/site.js"></script>
+  </body>
+  </html>
+

@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>什么是ROS：机器人操作系统快览随记 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#ros">ROS的秘诀</a><ul></ul></li><li><a href="#_1">环境搭建</a><ul><li><a href="#vscode">vscode</a></li><li><a href="#terminator">terminator</a></li></ul></li><li><a href="#_2">程序</a><ul></ul></li><li><a href="#_3">订阅与发布</a><ul><li><a href="#_4">发布者</a></li><li><a href="#_5">订阅者</a></li></ul></li><li><a href="#launch">launch</a><ul></ul></li><li><a href="#python">python方式</a><ul></ul></li><li><a href="#_6">机器的运动控制</a><ul><li><a href="#rviz">RViz</a></li><li><a href="#_7">激光雷达</a></li><li><a href="#imu">IMU</a></li></ul></li><li><a href="#ros_1">ROS消息包</a><ul></ul></li><li><a href="#slam">SLAM</a><ul></ul></li><li><a href="#tf">TF</a><ul></ul></li><li><a href="#_8">导航</a><ul><li><a href="#_9">规划器</a></li><li><a href="#_10">定位算法</a></li><li><a href="#_11">代价地图</a></li><li><a href="#_12">恢复行为</a></li><li><a href="#_13">局部规划器</a></li><li><a href="#action">ACTION</a></li></ul></li><li><a href="#ros_2">ROS相机</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>什么是ROS：机器人操作系统快览随记</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-08
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ros系统
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="ros">ROS的秘诀</h2>
+<p><strong>梳理出有什么节点，每个节点的输入和输出是什么？</strong></p>
+<h2 id="_1">环境搭建</h2>
+<p>catkin</p>
+<h3 id="vscode">vscode</h3>
+<p>ROS插件、bracket pair colorizer 2</p>
+<h3 id="terminator">terminator</h3>
+<p>sudo apt install terminator</p>
+<p>CRTL+ALT+T启动</p>
+<p>CRTL+SHIFT+E左右分屏 CRTL+SHIFT+O上下分屏 CRTL+SHIFT+W关闭窗口</p>
+<h2 id="_2">程序</h2>
+<p>基础单元node</p>
+<p>节点的容器packege，以packege安装节点，packege里面有多个节点。节点不能脱离packege存在。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_4b69a0b2dc4c1e8cdedc78ab4e943005_1757057738.png"><img alt="" src="assets/doc/05-ros系统/ros：机器人操作系统随记/images/wp_editor_md_4b69a0b2dc4c1e8cdedc78ab4e943005_1757057738.png"/></a></p>
+<p>编写节点步骤</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_962cbf7c9586c6e875134c2e02b88039_1757058497.png"><img alt="" src="assets/doc/05-ros系统/ros：机器人操作系统随记/images/wp_editor_md_962cbf7c9586c6e875134c2e02b88039_1757058497.png"/></a></p>
+<h2 id="_3">订阅与发布</h2>
+<p>多个节点直接的信息交互</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_10e269e3eafb70462f91243284d37687_1757059699.png"><img alt="" src="assets/doc/05-ros系统/ros：机器人操作系统随记/images/wp_editor_md_10e269e3eafb70462f91243284d37687_1757059699.png"/></a></p>
+<p>跟MQTT机制类似。</p>
+<p>消息类型，bool、byte、float.......可上官网查看https://index.ros.org</p>
+<h3 id="_4">发布者</h3>
+<p>步骤： 1. 确定话题名称和消息类型 2. 包含消息类型的头文件。 3. 通过NodeHandler大管家发布一个话题获得消息发送对象。 4. 生成要发送的消息包并进行发送数据复制。 5. 调用消息发送对象publish函数发布消息。</p>
+<p>常用工具： rostopic list 列出当前系统所有活跃的话题 rostopic echo &lt;主题名称&gt; 显示话题中发送的消息包内容 rostopic hz 查看话题发布频率</p>
+<h3 id="_5">订阅者</h3>
+<p>步骤： 1. 确定话题名称和消息类型。 2. 包含ros.h和消息类型对应头文件。 3. 通过NodeHandler订阅一个话题并设置一个消息接收回调。 4. 定义一个回调函数。 5. main函数中执行ros::spinOnce()，在while循环中可以响应接收消息。</p>
+<p>常用工具：rqt_graph 查看ROS中节点，通讯关系。</p>
+<h2 id="launch">launch</h2>
+<p>可以支持一下启动多个节点，使用xml来描述。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_2bd154662e0a861e5f7c1684eaa5506c_1757063236.png"><img alt="" src="assets/doc/05-ros系统/ros：机器人操作系统随记/images/wp_editor_md_2bd154662e0a861e5f7c1684eaa5506c_1757063236.png"/></a></p>
+<ol>
+<li>使用launch文件，可以通过roslaunch指令一次启动多个节点。</li>
+<li>在lauch文件中，为节点添加output="screen"属性，可以让节点信息输出终端。</li>
+<li>在launch文件中，为节点添加launch-prefix="gnome-terminal -e"属性，可以让节点单独运行在一个独立终端中。</li>
+</ol>
+<p>可以通过launch文件来分析工程代码。</p>
+<h2 id="python">python方式</h2>
+<p>使用python的方式，只需要开始的时候编译一次，同步一下环境就行，后续就不用编译了，因为python是脚本，不需要编译。</p>
+<h2 id="_6">机器的运动控制</h2>
+<p>线性方向：X,Y,Z坐标值。 角度控制：X,Y,Z方向旋转角度。</p>
+<p>使用wbr_simulation，要控制机器人就发送消息就行了，消息类型就是线性方向+角度</p>
+<p>要控制对主题/cmd_vel发布指令即可。</p>
+<h3 id="rviz">RViz</h3>
+<p>激光雷达原理，发射红外，接收红外，通过光速与时间计算障碍物距离，360°旋转。</p>
+<p>Rviz是观测传感器数据，显示到仿真界面中。</p>
+<h3 id="_7">激光雷达</h3>
+<p>激光雷达的数据包格式</p>
+<div class="codehilite"><pre><span></span><code><span class="n">float32</span><span class="p">[]</span> <span class="n">ranges</span>  <span class="c1">#一个数组，每个角度对应的测试距离。共360</span>
+<span class="n">float32</span><span class="p">[]</span> <span class="n">ranges</span>  <span class="c1"># 每个角度的信号强度，强度越高对上上面的测试距离越可信</span>
+</code></pre></div>
+<p>如何获取到雷达测距数据？</p>
+<p>使用wbr_simulation，订阅/scan话题即可获取到雷达数据。激光雷达每扫描一圈，就会调用一次注册订阅的话题回调函数。</p>
+<p>如何实现运动避障的效果？</p>
+<p>订阅/scan获取雷达测试数据，对/cmd_vel主题进行发布控制。当发现测距比较近的时候，就发布控制指令进行调整。</p>
+<h3 id="imu">IMU</h3>
+<p>用于测量空间姿态，也就是陀螺仪。</p>
+<p>消息包格式</p>
+<ul>
+<li>imu/data_raw( sensor_msgs/Imu)：加速度输出的矢量加速度、陀螺仪输出的旋转角速度</li>
+<li>imu/data(sensor_msgs/imu)：对矢量加速度和旋转角速度融合后的4元素姿态描述。最后可以通过这4元素计算出欧拉角度。</li>
+<li>imu/mag(sensor_msgs/MagneticField)：磁强计输出数据。</li>
+</ul>
+<p>ros中怎么获取数据？订阅/imu/data主题得到4元素，然后通过FT计算欧拉角，得到相对X,Y,Z的旋转角度。</p>
+<p>航向锁定的实验</p>
+<p>获取到朝向角后，然后通过/cmd_vel发布主题进行控制。</p>
+<h2 id="ros_1">ROS消息包</h2>
+<ul>
+<li>标准消息包：std_msgs，包含数值类型、数组类型、结构体类型。</li>
+<li>常规消息包：common_msgs,包括（sensor_msgs）传感器消息包、（geometry_msgs）几何消息包、(nav_msgs)导航消息包等等。</li>
+<li>自定义消息包：根据基本的消息包类型来构建消息。需要按照ros规则来创建一个.msg的文件， rosmsg show xxx显示。</li>
+</ul>
+<p>栅格地图：map_server</p>
+<p>获取/map主题，获取栅格坐标格式为nav_msgs/OccupancyGird，可以和RVIZ进行联动显示。</p>
+<h2 id="slam">SLAM</h2>
+<p>simultaneous localization and mapping 同时定位与地图构建</p>
+<p>如何建图原理？</p>
+<p>先确定一个参考位置，然后进行移动，每移动一个位置获得一个图，这个图可以是用视觉识别的物体、雷达探测障碍物等方式，然后通过每个位置获得的图进行拼接合并，以此获取到全局的地图。</p>
+<p>在ros系统中如何获取地图</p>
+<p>激光雷电 发布/scan-&gt; Slam节点获取处理 发布/map-&gt;RViz显示</p>
+<p>hector_mapping开源的slam算法</p>
+<h2 id="tf">TF</h2>
+<p>TransForm描述两个坐标系的空间关系，坐标变化关系。简单理解就是机器人相对参考坐标的位置关系</p>
+<p>由TF发布节点，通过/tf主题来发布。</p>
+<p>结合里程计的 gmaping建图算法。</p>
+<h2 id="_8">导航</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_5fe5b075d8d9d68579074fa3af393d17_1757322322.png"><img alt="" src="assets/doc/05-ros系统/ros：机器人操作系统随记/images/wp_editor_md_5fe5b075d8d9d68579074fa3af393d17_1757322322.png"/></a></p>
+<p>详细的官方图</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_95c6b6e957ff7a79d2b97535c9b550ae_1757322477.png"><img alt="" src="assets/doc/05-ros系统/ros：机器人操作系统随记/images/wp_editor_md_95c6b6e957ff7a79d2b97535c9b550ae_1757322477.png"/></a></p>
+<h3 id="_9">规划器</h3>
+<p>先使用目标点生成一个导航路线，然后按照导航路线走，在过程中遇到障碍物则进行避障。在move_base中提供了不同风格的规划器拥有规划路线如Dijkstra算法、A*算法。</p>
+<h3 id="_10">定位算法</h3>
+<p>接着需要知道机器人的具体位置，知道具体的位置才能跟着导航路线走，这就需要定位节点如AMCL算法。</p>
+<h3 id="_11">代价地图</h3>
+<p>代价地图，因为导航路线规划有时候的最短路径没有考虑机器人的尺寸，可能会导致机器人沿着墙边走而导致卡住，代价地图就是把障碍物线设置一个虚拟的安全距离（也可以说是把障碍物膨胀变大些）。全局代价地图和全局代价地图。</p>
+<h3 id="_12">恢复行为</h3>
+<p>机器在运动过程中遇到了障碍物导致不能行动，会进入应急机制重新进行规划路线。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_e6e89eb51fd2a3e133c6efabd422b2c9_1757324737.png"><img alt="" src="assets/doc/05-ros系统/ros：机器人操作系统随记/images/wp_editor_md_e6e89eb51fd2a3e133c6efabd422b2c9_1757324737.png"/></a></p>
+<h3 id="_13">局部规划器</h3>
+<p>DWA、TEB、WpbhLocalPlanner等等。</p>
+<h3 id="action">ACTION</h3>
+<p>action是节点通信的另外一种方式，与订阅/发布不同而是可以双向传输，传输的双方分别是client和Server。client向server发送信息后，server可以持续不断的通知返回信息。</p>
+<p>如：可以通过action接口来调用move_base设置导航的功能。client发送导航的目的地，然后server按照目的地运动，client阻塞等待server的回复，当server到达目的时返回结果。</p>
+<p>航点的目的地，不用口算、目测；具体的导航目的地可以用插件获取，如waterplus_map_tools。可以将导航插件写到launch。</p>
+<h2 id="ros_2">ROS相机</h2>
+<ul>
+<li>/image_raw主题：相机原始数据</li>
+<li>/image_color：相机的彩色图像</li>
+<li>/image_color_rect：畸变校正后的彩色图像。</li>
+<li>/camera_info：相机相关的参数。</li>
+</ul>
+<p>获取到图像后可以调用opencv处理图像，如果要做目标跟随，可以找出目标的坐标，然后跟随运动。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="解决ubuntu安装搜狗输入闪烁.html">← 解决ubuntu安装搜狗输入闪烁</a>
+    <a class="next" href="ubuntu英伟达显卡驱动安装.html">ubuntu英伟达显卡驱动安装 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ROS2机器人仿真：urdf模型、gaezbo仿真 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#urdf">机器URDF模型</a><ul><li><a href="#urdf_1">创建一个URDF</a></li><li><a href="#xacro">XACRO模型优化</a></li></ul></li><li><a href="#_1">机器模型动起来</a><ul><li><a href="#_2">运动控制</a></li><li><a href="#_3">相机仿真</a></li><li><a href="#_4">雷达仿真</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>ROS2机器人仿真：urdf模型、gaezbo仿真</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-18
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ros系统
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="urdf">机器URDF模型</h2>
+<p>URDF 的全称是 Unified Robot Description Format（统一机器人描述格式）。它是 ROS / ROS2 系统里专门用来描述机器人结构和属性的一种 XML 格式文件。简单来说，URDF 就是“机器人说明书”，告诉 ROS：这个机器人长什么样、由哪些零件组成、它们之间怎么连接。</p>
+<p>URDF核心作用是建模机器人、仿真可视化、运动学与动力学计算。一个带轮式的机器人URDF示例：</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;robot</span><span class="w"> </span><span class="na">name=</span><span class="s">"simple_bot"</span><span class="nt">&gt;</span>
+<span class="w">  </span><span class="cm">&lt;!-- 车体 --&gt;</span>
+<span class="w">  </span><span class="nt">&lt;link</span><span class="w"> </span><span class="na">name=</span><span class="s">"base_link"</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;visual&gt;</span>
+<span class="w">      </span><span class="nt">&lt;geometry&gt;</span>
+<span class="w">        </span><span class="nt">&lt;box</span><span class="w"> </span><span class="na">size=</span><span class="s">"0.5 0.3 0.1"</span><span class="nt">/&gt;</span>
+<span class="w">      </span><span class="nt">&lt;/geometry&gt;</span>
+<span class="w">    </span><span class="nt">&lt;/visual&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/link&gt;</span>
+
+<span class="w">  </span><span class="cm">&lt;!-- 左轮 --&gt;</span>
+<span class="w">  </span><span class="nt">&lt;link</span><span class="w"> </span><span class="na">name=</span><span class="s">"left_wheel"</span><span class="nt">/&gt;</span>
+<span class="w">  </span><span class="nt">&lt;joint</span><span class="w"> </span><span class="na">name=</span><span class="s">"left_wheel_joint"</span><span class="w"> </span><span class="na">type=</span><span class="s">"continuous"</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;parent</span><span class="w"> </span><span class="na">link=</span><span class="s">"base_link"</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;child</span><span class="w"> </span><span class="na">link=</span><span class="s">"left_wheel"</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;origin</span><span class="w"> </span><span class="na">xyz=</span><span class="s">"0.2 0.15 0"</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;axis</span><span class="w"> </span><span class="na">xyz=</span><span class="s">"0 1 0"</span><span class="nt">/&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/joint&gt;</span>
+
+<span class="w">  </span><span class="cm">&lt;!-- 右轮 --&gt;</span>
+<span class="w">  </span><span class="nt">&lt;link</span><span class="w"> </span><span class="na">name=</span><span class="s">"right_wheel"</span><span class="nt">/&gt;</span>
+<span class="w">  </span><span class="nt">&lt;joint</span><span class="w"> </span><span class="na">name=</span><span class="s">"right_wheel_joint"</span><span class="w"> </span><span class="na">type=</span><span class="s">"continuous"</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;parent</span><span class="w"> </span><span class="na">link=</span><span class="s">"base_link"</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;child</span><span class="w"> </span><span class="na">link=</span><span class="s">"right_wheel"</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;origin</span><span class="w"> </span><span class="na">xyz=</span><span class="s">"0.2 -0.15 0"</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;axis</span><span class="w"> </span><span class="na">xyz=</span><span class="s">"0 1 0"</span><span class="nt">/&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/joint&gt;</span>
+<span class="nt">&lt;/robot&gt;</span>
+</code></pre></div>
+<h3 id="urdf_1">创建一个URDF</h3>
+<p><strong>（1）创建一个包</strong></p>
+<div class="codehilite"><pre><span></span><code>ros2<span class="w"> </span>pkg<span class="w"> </span>create<span class="w"> </span>--build-type<span class="w"> </span>ament_python<span class="w"> </span>learn_urdf<span class="w"> </span>--dependencies<span class="w"> </span>rclpy<span class="w"> </span>robot_state_publisher<span class="w"> </span>joint_state_publisher_gui<span class="w"> </span>rviz2
+</code></pre></div>
+<p><strong>（2）新建urdf和launch目录</strong></p>
+<p>主要用于存放URDF和launch文件。</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>learn_urdf
+mkdir<span class="w"> </span>urdf<span class="w"> </span>launch
+</code></pre></div>
+<p><strong>（3）编写urdf文件</strong></p>
+<p>进入urdf目录，创建simple_bot.urdf模型文件。</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">&lt;?xml version="1.0"?&gt;</span>
+<span class="nt">&lt;robot</span><span class="w"> </span><span class="na">name=</span><span class="s">"simple_bot"</span><span class="nt">&gt;</span>
+
+<span class="w">  </span><span class="cm">&lt;!-- 车体 --&gt;</span>
+<span class="w">  </span><span class="nt">&lt;link</span><span class="w"> </span><span class="na">name=</span><span class="s">"base_link"</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;visual&gt;</span>
+<span class="w">      </span><span class="nt">&lt;geometry&gt;</span>
+<span class="w">        </span><span class="nt">&lt;box</span><span class="w"> </span><span class="na">size=</span><span class="s">"0.5 0.3 0.1"</span><span class="nt">/&gt;</span><span class="w"> </span><span class="cm">&lt;!-- 长0.5m 宽0.3m 高0.1m --&gt;</span>
+<span class="w">      </span><span class="nt">&lt;/geometry&gt;</span>
+<span class="w">      </span><span class="nt">&lt;material</span><span class="w"> </span><span class="na">name=</span><span class="s">"gray"</span><span class="nt">&gt;</span>
+<span class="w">        </span><span class="nt">&lt;color</span><span class="w"> </span><span class="na">rgba=</span><span class="s">"0.7 0.7 0.7 1.0"</span><span class="nt">/&gt;</span>
+<span class="w">      </span><span class="nt">&lt;/material&gt;</span>
+<span class="w">    </span><span class="nt">&lt;/visual&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/link&gt;</span>
+
+<span class="w">  </span><span class="cm">&lt;!-- 左轮 --&gt;</span>
+<span class="w">  </span><span class="nt">&lt;link</span><span class="w"> </span><span class="na">name=</span><span class="s">"left_wheel"</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;visual&gt;</span>
+<span class="w">      </span><span class="nt">&lt;geometry&gt;</span>
+<span class="w">        </span><span class="nt">&lt;cylinder</span><span class="w"> </span><span class="na">radius=</span><span class="s">"0.05"</span><span class="w"> </span><span class="na">length=</span><span class="s">"0.02"</span><span class="nt">/&gt;</span><span class="w"> </span><span class="cm">&lt;!-- 半径0.05m 厚度0.02m --&gt;</span>
+<span class="w">      </span><span class="nt">&lt;/geometry&gt;</span>
+<span class="w">      </span><span class="cm">&lt;!-- 旋转90度，让圆柱变成“轮子”横放 --&gt;</span>
+<span class="w">      </span><span class="nt">&lt;origin</span><span class="w"> </span><span class="na">xyz=</span><span class="s">"0 0 0"</span><span class="w"> </span><span class="na">rpy=</span><span class="s">"1.5708 0 0"</span><span class="nt">/&gt;</span>
+<span class="w">      </span><span class="nt">&lt;material</span><span class="w"> </span><span class="na">name=</span><span class="s">"black"</span><span class="nt">&gt;</span>
+<span class="w">        </span><span class="nt">&lt;color</span><span class="w"> </span><span class="na">rgba=</span><span class="s">"0 0 0 1.0"</span><span class="nt">/&gt;</span>
+<span class="w">      </span><span class="nt">&lt;/material&gt;</span>
+<span class="w">    </span><span class="nt">&lt;/visual&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/link&gt;</span>
+
+<span class="w">  </span><span class="nt">&lt;joint</span><span class="w"> </span><span class="na">name=</span><span class="s">"left_wheel_joint"</span><span class="w"> </span><span class="na">type=</span><span class="s">"continuous"</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;parent</span><span class="w"> </span><span class="na">link=</span><span class="s">"base_link"</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;child</span><span class="w"> </span><span class="na">link=</span><span class="s">"left_wheel"</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;origin</span><span class="w"> </span><span class="na">xyz=</span><span class="s">"0.2 0.15 0"</span><span class="nt">/&gt;</span><span class="w"> </span><span class="cm">&lt;!-- 相对于车体的位置 --&gt;</span>
+<span class="w">    </span><span class="nt">&lt;axis</span><span class="w"> </span><span class="na">xyz=</span><span class="s">"0 0 1"</span><span class="nt">/&gt;</span><span class="w">        </span><span class="cm">&lt;!-- 绕Z轴旋转 --&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/joint&gt;</span>
+
+<span class="w">  </span><span class="cm">&lt;!-- 右轮 --&gt;</span>
+<span class="w">  </span><span class="nt">&lt;link</span><span class="w"> </span><span class="na">name=</span><span class="s">"right_wheel"</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;visual&gt;</span>
+<span class="w">      </span><span class="nt">&lt;geometry&gt;</span>
+<span class="w">        </span><span class="nt">&lt;cylinder</span><span class="w"> </span><span class="na">radius=</span><span class="s">"0.05"</span><span class="w"> </span><span class="na">length=</span><span class="s">"0.02"</span><span class="nt">/&gt;</span>
+<span class="w">      </span><span class="nt">&lt;/geometry&gt;</span>
+<span class="w">      </span><span class="nt">&lt;origin</span><span class="w"> </span><span class="na">xyz=</span><span class="s">"0 0 0"</span><span class="w"> </span><span class="na">rpy=</span><span class="s">"1.5708 0 0"</span><span class="nt">/&gt;</span>
+<span class="w">      </span><span class="nt">&lt;material</span><span class="w"> </span><span class="na">name=</span><span class="s">"black"</span><span class="nt">&gt;</span>
+<span class="w">        </span><span class="nt">&lt;color</span><span class="w"> </span><span class="na">rgba=</span><span class="s">"0 0 0 1.0"</span><span class="nt">/&gt;</span>
+<span class="w">      </span><span class="nt">&lt;/material&gt;</span>
+<span class="w">    </span><span class="nt">&lt;/visual&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/link&gt;</span>
+
+<span class="w">  </span><span class="nt">&lt;joint</span><span class="w"> </span><span class="na">name=</span><span class="s">"right_wheel_joint"</span><span class="w"> </span><span class="na">type=</span><span class="s">"continuous"</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;parent</span><span class="w"> </span><span class="na">link=</span><span class="s">"base_link"</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;child</span><span class="w"> </span><span class="na">link=</span><span class="s">"right_wheel"</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;origin</span><span class="w"> </span><span class="na">xyz=</span><span class="s">"0.2 -0.15 0"</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;axis</span><span class="w"> </span><span class="na">xyz=</span><span class="s">"0 0 1"</span><span class="nt">/&gt;</span><span class="w">  </span><span class="cm">&lt;!-- 改成绕 Z 轴旋转 --&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/joint&gt;</span>
+
+<span class="nt">&lt;/robot&gt;</span>
+</code></pre></div>
+<p><strong>（4）创建launch文件</strong></p>
+<p>进入launch目录，编写display.launch.py文件</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">launch</span><span class="w"> </span><span class="kn">import</span><span class="w"> </span><span class="n">LaunchDescription</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">launch_ros.actions</span><span class="w"> </span><span class="kn">import</span><span class="w"> </span><span class="n">Node</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ament_index_python.packages</span><span class="w"> </span><span class="kn">import</span><span class="w"> </span><span class="n">get_package_share_directory</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">generate_launch_description</span><span class="p">():</span>
+<span class="w">    </span><span class="c1"># 找到 URDF 文件路径</span>
+<span class="w">    </span><span class="n">urdf_file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+<span class="w">        </span><span class="n">get_package_share_directory</span><span class="p">(</span><span class="s1">'learn_urdf'</span><span class="p">),</span>
+<span class="w">        </span><span class="s1">'urdf'</span><span class="p">,</span>
+<span class="w">        </span><span class="s1">'simple_bot.urdf'</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1"># 读取 URDF 文件</span>
+<span class="w">    </span><span class="k">with</span><span class="w"> </span><span class="nb">open</span><span class="p">(</span><span class="n">urdf_file</span><span class="p">,</span><span class="w"> </span><span class="s1">'r'</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">infp</span><span class="p">:</span>
+<span class="w">        </span><span class="n">robot_desc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">infp</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+<span class="w">    </span><span class="c1"># robot_state_publisher 节点</span>
+<span class="w">    </span><span class="n">rsp_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Node</span><span class="p">(</span>
+<span class="w">        </span><span class="n">package</span><span class="o">=</span><span class="s1">'robot_state_publisher'</span><span class="p">,</span>
+<span class="w">        </span><span class="n">executable</span><span class="o">=</span><span class="s1">'robot_state_publisher'</span><span class="p">,</span>
+<span class="w">        </span><span class="n">output</span><span class="o">=</span><span class="s1">'screen'</span><span class="p">,</span>
+<span class="w">        </span><span class="n">parameters</span><span class="o">=</span><span class="p">[{</span><span class="s1">'robot_description'</span><span class="p">:</span><span class="w"> </span><span class="n">robot_desc</span><span class="p">}]</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1"># joint_state_publisher_gui 节点（带GUI，可以动关节）</span>
+<span class="w">    </span><span class="n">jsp_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Node</span><span class="p">(</span>
+<span class="w">        </span><span class="n">package</span><span class="o">=</span><span class="s1">'joint_state_publisher_gui'</span><span class="p">,</span>
+<span class="w">        </span><span class="n">executable</span><span class="o">=</span><span class="s1">'joint_state_publisher_gui'</span><span class="p">,</span>
+<span class="w">        </span><span class="n">name</span><span class="o">=</span><span class="s1">'joint_state_publisher_gui'</span><span class="p">,</span>
+<span class="w">        </span><span class="n">output</span><span class="o">=</span><span class="s1">'screen'</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1"># rviz2 节点</span>
+<span class="w">    </span><span class="n">rviz_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Node</span><span class="p">(</span>
+<span class="w">        </span><span class="n">package</span><span class="o">=</span><span class="s1">'rviz2'</span><span class="p">,</span>
+<span class="w">        </span><span class="n">executable</span><span class="o">=</span><span class="s1">'rviz2'</span><span class="p">,</span>
+<span class="w">        </span><span class="n">name</span><span class="o">=</span><span class="s1">'rviz2'</span><span class="p">,</span>
+<span class="w">        </span><span class="n">output</span><span class="o">=</span><span class="s1">'screen'</span>
+<span class="w">    </span><span class="p">)</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">LaunchDescription</span><span class="p">([</span><span class="n">rsp_node</span><span class="p">,</span><span class="w"> </span><span class="n">jsp_node</span><span class="p">,</span><span class="w"> </span><span class="n">rviz_node</span><span class="p">])</span>
+</code></pre></div>
+<p><strong>（5）配置setup.py</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">setuptools</span> <span class="kn">import</span> <span class="n">setup</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">glob</span> <span class="kn">import</span> <span class="n">glob</span>
+<span class="o">......</span>
+    <span class="n">data_files</span><span class="o">=</span><span class="p">[</span>
+        <span class="c1"># 让 ROS2 知道这个包的安装位置</span>
+        <span class="p">(</span><span class="s1">'share/ament_index/resource_index/packages'</span><span class="p">,</span>
+            <span class="p">[</span><span class="s1">'resource/'</span> <span class="o">+</span> <span class="n">package_name</span><span class="p">]),</span>
+        <span class="p">(</span><span class="s1">'share/'</span> <span class="o">+</span> <span class="n">package_name</span><span class="p">,</span> <span class="p">[</span><span class="s1">'package.xml'</span><span class="p">]),</span>
+
+        <span class="c1"># 安装 launch 文件</span>
+        <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">'share'</span><span class="p">,</span> <span class="n">package_name</span><span class="p">,</span> <span class="s1">'launch'</span><span class="p">),</span> <span class="n">glob</span><span class="p">(</span><span class="s1">'launch/*.launch.py'</span><span class="p">)),</span>
+
+        <span class="c1"># 安装 urdf 文件</span>
+        <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">'share'</span><span class="p">,</span> <span class="n">package_name</span><span class="p">,</span> <span class="s1">'urdf'</span><span class="p">),</span> <span class="n">glob</span><span class="p">(</span><span class="s1">'urdf/*.urdf'</span><span class="p">)),</span>
+    <span class="p">],</span>
+<span class="o">......</span>
+</code></pre></div>
+<p>找到 setup.py，把里面的 data_files 部分改成上面那样，主要加入导入的模块。</p>
+<p><strong>（6）编译运行</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">cd</span> <span class="o">~/</span><span class="n">dev_ws</span>
+
+<span class="n">colcon</span> <span class="n">build</span>
+
+<span class="n">source</span> <span class="n">install</span><span class="o">/</span><span class="n">setup</span><span class="o">.</span><span class="n">bash</span>
+
+<span class="n">ros2</span> <span class="n">launch</span> <span class="n">learn_urdf</span> <span class="n">display</span><span class="o">.</span><span class="n">launch</span><span class="o">.</span><span class="n">py</span>
+</code></pre></div>
+<p>执行上面命令后，就可以看到运行了rviz2，然后配置一下rviz2即可显示模型。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_9d10fb01da7c4cfe30f8d8d50d0ce51b_1758181119.png"><img alt="" src="assets/doc/05-ros系统/ros2机器人仿真：urdf模型、gaezbo仿真/images/wp_editor_md_9d10fb01da7c4cfe30f8d8d50d0ce51b_1758181119.png"/></a></p>
+<p>最后的效果就是这样，可以通过joint state publish调整轮子方向。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_af26f4ae5796ef66b255e56d02b7e5c7_1758181165.png"><img alt="" src="assets/doc/05-ros系统/ros2机器人仿真：urdf模型、gaezbo仿真/images/wp_editor_md_af26f4ae5796ef66b255e56d02b7e5c7_1758181165.png"/></a></p>
+<h3 id="xacro">XACRO模型优化</h3>
+<p>XACRO是XML Macros，它是ROS 中对 URDF 的扩展，可以理解为 “带变量和函数的 URDF”。普通 URDF 是纯 XML，很死板，写起来很长；XACRO 在 URDF 的基础上加了变量、宏、表达式计算、条件/循环。</p>
+<p>如下示例一个普通的URDF</p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">link</span> <span class="n">name</span><span class="o">=</span><span class="s2">"leg1"</span><span class="o">&gt;</span>
+  <span class="o">&lt;</span><span class="n">visual</span><span class="o">&gt;&lt;</span><span class="n">geometry</span><span class="o">&gt;&lt;</span><span class="n">cylinder</span> <span class="n">radius</span><span class="o">=</span><span class="s2">"0.05"</span> <span class="n">length</span><span class="o">=</span><span class="s2">"0.3"</span><span class="o">/&gt;&lt;/</span><span class="n">geometry</span><span class="o">&gt;&lt;/</span><span class="n">visual</span><span class="o">&gt;</span>
+<span class="o">&lt;/</span><span class="n">link</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">link</span> <span class="n">name</span><span class="o">=</span><span class="s2">"leg2"</span><span class="o">&gt;</span>
+  <span class="o">&lt;</span><span class="n">visual</span><span class="o">&gt;&lt;</span><span class="n">geometry</span><span class="o">&gt;&lt;</span><span class="n">cylinder</span> <span class="n">radius</span><span class="o">=</span><span class="s2">"0.05"</span> <span class="n">length</span><span class="o">=</span><span class="s2">"0.3"</span><span class="o">/&gt;&lt;/</span><span class="n">geometry</span><span class="o">&gt;&lt;/</span><span class="n">visual</span><span class="o">&gt;</span>
+<span class="o">&lt;/</span><span class="n">link</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>有很多重复，如果用XACRO</p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">xacro</span><span class="p">:</span><span class="n">macro</span> <span class="n">name</span><span class="o">=</span><span class="s2">"leg"</span> <span class="n">params</span><span class="o">=</span><span class="s2">"name"</span><span class="o">&gt;</span>
+  <span class="o">&lt;</span><span class="n">link</span> <span class="n">name</span><span class="o">=</span><span class="s2">"$</span><span class="si">{name}</span><span class="s2">"</span><span class="o">&gt;</span>
+    <span class="o">&lt;</span><span class="n">visual</span><span class="o">&gt;</span>
+      <span class="o">&lt;</span><span class="n">geometry</span><span class="o">&gt;</span>
+        <span class="o">&lt;</span><span class="n">cylinder</span> <span class="n">radius</span><span class="o">=</span><span class="s2">"0.05"</span> <span class="n">length</span><span class="o">=</span><span class="s2">"0.3"</span><span class="o">/&gt;</span>
+      <span class="o">&lt;/</span><span class="n">geometry</span><span class="o">&gt;</span>
+    <span class="o">&lt;/</span><span class="n">visual</span><span class="o">&gt;</span>
+  <span class="o">&lt;/</span><span class="n">link</span><span class="o">&gt;</span>
+<span class="o">&lt;/</span><span class="n">xacro</span><span class="p">:</span><span class="n">macro</span><span class="o">&gt;</span>
+
+<span class="o">&lt;</span><span class="n">xacro</span><span class="p">:</span><span class="n">leg</span> <span class="n">name</span><span class="o">=</span><span class="s2">"leg1"</span><span class="o">/&gt;</span>
+<span class="o">&lt;</span><span class="n">xacro</span><span class="p">:</span><span class="n">leg</span> <span class="n">name</span><span class="o">=</span><span class="s2">"leg2"</span><span class="o">/&gt;</span>
+</code></pre></div>
+<h2 id="_1">机器模型动起来</h2>
+<p>如果要让创建的模型能够动起来，那就要在Gazebo加载模型，然后通过/cmd_vel控制就可以让机器动起来了。</p>
+<p>Gazebo是如何加载机器的模型了？</p>
+<p>首先在xxx.launch.py中将机器的描述文件.xacro展开为标准的.urdf XML内容。然后会通过 robot_state_publisher 节点把这个 URDF 存到 ROS 参数服务器里/robot_description。</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">xacro</span>
+<span class="n">robot_desc</span> <span class="o">=</span> <span class="n">xacro</span><span class="o">.</span><span class="n">process_file</span><span class="p">(</span><span class="s1">'simple_bot.urdf.xacro'</span><span class="p">)</span><span class="o">.</span><span class="n">toxml</span><span class="p">()</span>
+</code></pre></div>
+<p>其次，Gazebo并不能直接解析 URDF，它使用的是 SDF (Simulation Description Format)。需要通过spawn_entity.py 读取 URDF → 转成 SDF。因此在launch文件中有看到spawn_entity.py。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">ros2</span> <span class="n">run</span> <span class="n">gazebo_ros</span> <span class="n">spawn_entity</span><span class="o">.</span><span class="n">py</span> <span class="o">-</span><span class="n">topic</span> <span class="n">robot_description</span> <span class="o">-</span><span class="n">entity</span> <span class="n">simple_bot</span>
+</code></pre></div>
+<p>最后Gazebo 根据 SDF 构建物理模型，比如SDF的link、joint等等。</p>
+<h3 id="_2">运动控制</h3>
+<p>这里直接就不在演示完整创建过程了，直接使用示例程序。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">ros2</span> <span class="n">launch</span> <span class="n">learning_gazebo_harmonic</span> <span class="n">load_urdf_into_gazebo_harmonic</span><span class="o">.</span><span class="n">launch</span><span class="o">.</span><span class="n">py</span>
+
+<span class="n">ros2</span> <span class="n">run</span> <span class="n">teleop_twist_keyboard</span> <span class="n">teleop_twist_keyboard</span>
+</code></pre></div>
+<p>执行上面两个命令，就可以在控制终端i/j/k/l在仿真环境中控制机器人移动了。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_9638a55a2ee62f7ffdca370540f169d9_1758182480.png"><img alt="" src="assets/doc/05-ros系统/ros2机器人仿真：urdf模型、gaezbo仿真/images/wp_editor_md_9638a55a2ee62f7ffdca370540f169d9_1758182480.png"/></a></p>
+<h3 id="_3">相机仿真</h3>
+<p>可以给机器装上相机</p>
+<div class="codehilite"><pre><span></span><code><span class="n">ros2</span> <span class="n">launch</span> <span class="n">learning_gazebo_harmonic</span> <span class="n">load_mbot_camera_into_gazebo_harmonic</span><span class="o">.</span><span class="n">launch</span><span class="o">.</span><span class="n">py</span>
+
+<span class="n">ros2</span> <span class="n">run</span> <span class="n">rviz2</span> <span class="n">rviz2</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_89529560d665ba64bb34819ad33563ac_1758182747.png"><img alt="" src="assets/doc/05-ros系统/ros2机器人仿真：urdf模型、gaezbo仿真/images/wp_editor_md_89529560d665ba64bb34819ad33563ac_1758182747.png"/></a></p>
+<h3 id="_4">雷达仿真</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">ros2</span> <span class="n">launch</span> <span class="n">learning_gazebo_harmonic</span> <span class="n">load_mbot_lidar_into_gazebo_harmonic</span><span class="o">.</span><span class="n">launch</span><span class="o">.</span><span class="n">py</span>
+
+<span class="n">ros2</span> <span class="n">run</span> <span class="n">rviz2</span> <span class="n">rviz2</span>
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_1eb122c62096f0c00a9f2906cdc9e3ac_1758182907.png"><img alt="" src="assets/doc/05-ros系统/ros2机器人仿真：urdf模型、gaezbo仿真/images/wp_editor_md_1eb122c62096f0c00a9f2906cdc9e3ac_1758182907.png"/></a></p>
+<p>附录：本文主要来自《ROS2智能机器人开发实践》笔记</p></div>
+  <div class="post-nav">
+    <a class="prev" href="ros2常用开发工具-launch-tf-gazebo-rosbag-rqt.html">← ROS2常用开发工具：launch、TF、Gazebo、rosbag、rqt</a>
+    <a class="next" href="ros2节点通信-话题-服务-动作三剑客-参数.html">ROS2节点通信：话题、服务、动作三剑客+参数 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ROS2安装：ubuntu 24.04.2上实践 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">前言</a><ul></ul></li><li><a href="#_2">设置编码格式</a><ul></ul></li><li><a href="#ros-apt">添加ROS apt仓库</a><ul></ul></li><li><a href="#ros-2">安装ROS 2</a><ul></ul></li><li><a href="#_3">设置环境变量</a><ul></ul></li><li><a href="#_4">运行测试用例</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>ROS2安装：ubuntu 24.04.2上实践</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-15
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ros系统
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">前言</h2>
+<p>本文在unbuntu 24.10系统上搭建ROS2系统。</p>
+<div class="codehilite"><pre><span></span><code>No<span class="w"> </span>LSB<span class="w"> </span>modules<span class="w"> </span>are<span class="w"> </span>available.
+Distributor<span class="w"> </span>ID:<span class="w"> </span>Ubuntu
+Description:<span class="w">    </span>Ubuntu<span class="w"> </span><span class="m">24</span>.04.2<span class="w"> </span>LTS
+Release:<span class="w">    </span><span class="m">24</span>.04
+Codename:<span class="w">   </span>noble
+</code></pre></div>
+<h2 id="_2">设置编码格式</h2>
+<div class="codehilite"><pre><span></span><code>locale<span class="w">  </span><span class="c1"># check for UTF-8</span>
+
+sudo<span class="w"> </span>apt<span class="w"> </span>update<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>locales
+sudo<span class="w"> </span>locale-gen<span class="w"> </span>en_US<span class="w"> </span>en_US.UTF-8
+sudo<span class="w"> </span>update-locale<span class="w"> </span><span class="nv">LC_ALL</span><span class="o">=</span>en_US.UTF-8<span class="w"> </span><span class="nv">LANG</span><span class="o">=</span>en_US.UTF-8
+<span class="nb">export</span><span class="w"> </span><span class="nv">LANG</span><span class="o">=</span>en_US.UTF-8
+
+locale<span class="w">  </span><span class="c1"># verify settings</span>
+</code></pre></div>
+<h2 id="ros-apt">添加ROS apt仓库</h2>
+<p>启用 universe 仓库</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>software-properties-common
+sudo<span class="w"> </span>add-apt-repository<span class="w"> </span>universe
+</code></pre></div>
+<p>添加 ROS 的 GPG key 和 repository</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>update<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>curl<span class="w"> </span>gnupg2<span class="w"> </span>lsb-release
+sudo<span class="w"> </span>curl<span class="w"> </span>-sSL<span class="w"> </span>https://raw.githubusercontent.com/ros/rosdistro/master/ros.key<span class="w">  </span>-o<span class="w"> </span>/usr/share/keyrings/ros-archive-keyring.gpg
+</code></pre></div>
+<p>将仓库添加到列表中</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">echo</span><span class="w"> </span><span class="s2">"deb [arch=</span><span class="k">$(</span>dpkg<span class="w"> </span>--print-architecture<span class="k">)</span><span class="s2"> signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu </span><span class="k">$(</span><span class="nb">source</span><span class="w"> </span>/etc/os-release<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$UBUNTU_CODENAME</span><span class="k">)</span><span class="s2"> main"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/apt/sources.list.d/ros2.list<span class="w"> </span>&gt;<span class="w"> </span>/dev/null
+</code></pre></div>
+<h2 id="ros-2">安装ROS 2</h2>
+<p>下载安装ROS2桌面版软件。</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>update
+sudo<span class="w"> </span>apt<span class="w"> </span>upgrade
+
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>ros-jazzy-desktop
+</code></pre></div>
+<h2 id="_3">设置环境变量</h2>
+<p>执行上面的安装命令，没有报错就已经成功安装好ROS2了，默认在/opt路径下。因为要常用到ROS2相关的命令，因此可以添加一下环境变量。</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">echo</span><span class="w"> </span><span class="s2">"source /opt/ros/jazzy/setup.bash"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.bashrc
+<span class="nb">source</span><span class="w"> </span>~/.bashrc
+</code></pre></div>
+<h2 id="_4">运行测试用例</h2>
+<p>在一个终端启动如下命令，表示一个数据的发布者节点发送消息。</p>
+<div class="codehilite"><pre><span></span><code>ros2<span class="w"> </span>run<span class="w"> </span>demo_nodes_cpp<span class="w"> </span>talker
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919638</span>.619982839<span class="o">]</span><span class="w"> </span><span class="o">[</span>talker<span class="o">]</span>:<span class="w"> </span>Publishing:<span class="w"> </span><span class="s1">'Hello World: 1'</span>
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919639</span>.619919625<span class="o">]</span><span class="w"> </span><span class="o">[</span>talker<span class="o">]</span>:<span class="w"> </span>Publishing:<span class="w"> </span><span class="s1">'Hello World: 2'</span>
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919640</span>.619874774<span class="o">]</span><span class="w"> </span><span class="o">[</span>talker<span class="o">]</span>:<span class="w"> </span>Publishing:<span class="w"> </span><span class="s1">'Hello World: 3'</span>
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919641</span>.619899411<span class="o">]</span><span class="w"> </span><span class="o">[</span>talker<span class="o">]</span>:<span class="w"> </span>Publishing:<span class="w"> </span><span class="s1">'Hello World: 4'</span>
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919642</span>.619969273<span class="o">]</span><span class="w"> </span><span class="o">[</span>talker<span class="o">]</span>:<span class="w"> </span>Publishing:<span class="w"> </span><span class="s1">'Hello World: 5'</span>
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919643</span>.619894999<span class="o">]</span><span class="w"> </span><span class="o">[</span>talker<span class="o">]</span>:<span class="w"> </span>Publishing:<span class="w"> </span><span class="s1">'Hello World: 6'</span>
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919644</span>.619798092<span class="o">]</span><span class="w"> </span><span class="o">[</span>talker<span class="o">]</span>:<span class="w"> </span>Publishing:<span class="w"> </span><span class="s1">'Hello World: 7'</span>
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919645</span>.619868044<span class="o">]</span><span class="w"> </span><span class="o">[</span>talker<span class="o">]</span>:<span class="w"> </span>Publishing:<span class="w"> </span><span class="s1">'Hello World: 8'</span>
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919646</span>.619927174<span class="o">]</span><span class="w"> </span><span class="o">[</span>talker<span class="o">]</span>:<span class="w"> </span>Publishing:<span class="w"> </span><span class="s1">'Hello World: 9'</span>
+</code></pre></div>
+<p>在另外一个终端执行一下命令，可以订阅此消息</p>
+<div class="codehilite"><pre><span></span><code>ros2<span class="w"> </span>run<span class="w"> </span>demo_nodes_py<span class="w"> </span>listener
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919722</span>.633895350<span class="o">]</span><span class="w"> </span><span class="o">[</span>listener<span class="o">]</span>:<span class="w"> </span>I<span class="w"> </span>heard:<span class="w"> </span><span class="o">[</span>Hello<span class="w"> </span>World:<span class="w"> </span><span class="m">85</span><span class="o">]</span>
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919723</span>.620902142<span class="o">]</span><span class="w"> </span><span class="o">[</span>listener<span class="o">]</span>:<span class="w"> </span>I<span class="w"> </span>heard:<span class="w"> </span><span class="o">[</span>Hello<span class="w"> </span>World:<span class="w"> </span><span class="m">86</span><span class="o">]</span>
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919724</span>.621171224<span class="o">]</span><span class="w"> </span><span class="o">[</span>listener<span class="o">]</span>:<span class="w"> </span>I<span class="w"> </span>heard:<span class="w"> </span><span class="o">[</span>Hello<span class="w"> </span>World:<span class="w"> </span><span class="m">87</span><span class="o">]</span>
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919725</span>.621231371<span class="o">]</span><span class="w"> </span><span class="o">[</span>listener<span class="o">]</span>:<span class="w"> </span>I<span class="w"> </span>heard:<span class="w"> </span><span class="o">[</span>Hello<span class="w"> </span>World:<span class="w"> </span><span class="m">88</span><span class="o">]</span>
+<span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1757919726</span>.620940203<span class="o">]</span><span class="w"> </span><span class="o">[</span>listener<span class="o">]</span>:<span class="w"> </span>I<span class="w"> </span>heard:<span class="w"> </span><span class="o">[</span>Hello<span class="w"> </span>World:<span class="w"> </span><span class="m">89</span><span class="o">]</span>
+</code></pre></div>
+<p>如果listener能够正确接收到消息，那么ROS2就已经在系统中安装好了。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="ros2实践-创建一个包和节点.html">← ROS2实践：创建一个包和节点</a>
+    <a class="next" href="ubuntu-apt-命令.html">ubuntu apt 命令 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

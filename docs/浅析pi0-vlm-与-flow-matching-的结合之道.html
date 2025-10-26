@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>浅析Pi0 ：VLM 与 Flow Matching 的结合之道 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">概述</a><ul></ul></li><li><a href="#_2">原理</a><ul><li><a href="#_3">结构</a></li><li><a href="#_4">训练</a></li><li><a href="#_5">推理</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>浅析Pi0 ：VLM 与 Flow Matching 的结合之道</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-08-22
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">概述</h2>
+<p>传统机器人策略模型往往局限在单一任务或平台，难以跨场景泛化。与此同时，大规模 <strong>视觉-语言模型（VLM）</strong> 已展现出卓越的语义理解与任务指令解析能力。如果能将 <strong>VLM 的语义理解能力</strong> 与 <strong>Flow Matching 的连续动作建模能力</strong> 结合，有望构建具备泛化与实时性的机器人通用控制器。</p>
+<p><strong>Pi0</strong> （π0）正是这样一个探索：基于 <strong>PaliGemma（3B 参数 VLM）</strong> 作为感知与语义主干，结合 <strong>Flow Matching</strong> 动作生成器，实现语言到多机器人动作的端到端建模。它借鉴了大语言模型的“预训练 + 微调”范式，把互联网级别的语义知识和机器人操控数据结合起来，从而实现跨平台、跨任务的通用机器人控制。</p>
+<p>我们此前分析了VLM、Flow Matching原理，掌握这些之后理解Pi0是非常简单的。</p>
+<h2 id="_2">原理</h2>
+<h3 id="_3">结构</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_af0b023cd12d9ba9f55e19a618e15384_1755859779.png"><img alt="" src="assets/doc/04-ai/算法模型/机器人策略模型pi0/images/wp_editor_md_af0b023cd12d9ba9f55e19a618e15384_1755859779.png"/></a></p>
+<p>模型结构主要有VLM主干+ Action Expert动作专家构成。</p>
+<ul>
+<li>VLM主干：基于 PaliGemma（一个 3B 参数的 VLM），继承互联网规模的图像+语言知识。</li>
+<li>Action Expert（动作专家）：额外的子网络，负责用 Flow Matching 方法预测连续动作向量。</li>
+</ul>
+<p>模型的输入包括观测的多视角RGB图像、语言指令、机器人自身状态（关节角、传感器），经过模型处理后输出为高频动作序列（每秒50HZ动作chunk），这些动作控制单臂、双臂、移动操作臂等多类机器人。</p>
+<h3 id="_4">训练</h3>
+<p>我们训练的目标是让$A_t^0 \sim \mathcal{N}(0, I)$ ——&gt;$A_t$（真实动作），希望模型学会如何把一个“噪声动作”流动成一个真实的动作。就像扩散模型是“噪声 → 图像”，这里是“噪声动作 → 专家动作”。</p>
+<p>在训练的时候要让噪声动作流向真实动作，我们需要构建一个路径，这里依旧使用的是直线路径。</p>
+<p>$$ A_t^\tau = \tau A_t + (1-\tau)\epsilon, \quad \epsilon \sim \mathcal{N}(0,I) $$</p>
+<p>这个公式跟我们在Flow Matching文章中的训练公式是不是一样的。我们在噪声动作$\epsilon$和真实动作$A_t$之间，采样一个"插值点"。$\tau $表示时间的进度，当$\tau = 0$时完全是噪声，当$\tau = 1$时完全是真实动作，这个就构造了一条噪声到动作的直线路径。</p>
+<p>我们的目标是要让模型告诉我们"从当前点$A_t$应该往哪个方向移动，才能逐渐靠近真实动作"，因此就是在计算在每个时间速度。</p>
+<p>$$ u(A_t^\tau \mid A_t) \triangleq \frac{d}{d\tau} A_t^\tau $$</p>
+<p>代入公式可得：</p>
+<p>$$ \frac{d}{d\tau} A_t^\tau = A_t - \epsilon $$</p>
+<p>而论文中成$u(A_t^\tau \mid A_t) = \epsilon - A_t$，只是方向约定相反，本质上没有差异。上面的公式，目标速度就是噪声 - 动作，它定义了“流动的方向”。就像在地图上，目标向量场就是指路的“箭头”。这样得到了真实的速度场，我们就可以在训练的时候计算损失了。</p>
+<p>$$ L(\theta) = \mathbb{E}\big[ | v_\theta(A_t^\tau, o_t) - u(A_t^\tau \mid A_t) |^2 \big] $$</p>
+<p>$v_\theta$是神经网络（Action Expert），输入 当前 noisy action + 观察$o_t$，输出预测的速度场。损失函数就是 预测的速度场 vs 真实的目标速度场 的均方误差 (MSE)。训练目标：让模型学会在任意中间点给出正确的“流动方向”。</p>
+<h3 id="_5">推理</h3>
+<p>$$ A_t^{\tau+\delta} = A_t^\tau + \delta v_\theta(A_t^\tau, o_t) $$</p>
+<p>推理生成也比较简单，从噪声动作$A_t$开始，每次迭代一步：输入当前的$A_t^\tau $和观察的$o_t$，接着模型给出速度场，就沿着这个方向走一步（步长$\delta$），然后按照这个步骤重复迭代，最终得到真实的动作$A_t$。和扩散模型不同：这里不需要几十/上百步，只要 ~10 步 ODE 积分，就能得到高质量动作，适合机器人实时控制。</p>
+<p>参考： <a href="https://arxiv.org/abs/2410.24164">https://arxiv.org/abs/2410.24164</a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="flow-matching-让生成模型-流动-起来.html">← Flow Matching：让生成模型“流动”起来</a>
+    <a class="next" href="diffusion-如何从噪声中生成清晰图像.html">Diffusion：如何从噪声中生成清晰图像 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

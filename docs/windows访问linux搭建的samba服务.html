@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>windows访问Linux搭建的samba服务 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#linux">Linux 服务</a><ul><li><a href="#_1">安装</a></li><li><a href="#_2">配置</a></li><li><a href="#_3">启动</a></li></ul></li><li><a href="#windows">windows连接</a><ul></ul></li><li><a href="#_4">排查</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>windows访问Linux搭建的samba服务</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-23
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      其他
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="linux">Linux 服务</h2>
+<h3 id="_1">安装</h3>
+<p>Samba 是Linux上实现SMB/CIFS 协议的服务，可以让 Windows、Linux、macOS 之间互相访问文件夹。</p>
+<p>安装samba</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>update
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>samba<span class="w"> </span>-y
+</code></pre></div>
+<h3 id="_2">配置</h3>
+<p><strong>（1）配置文件</strong></p>
+<p>sudo vim /etc/samba/smb.conf</p>
+<div class="codehilite"><pre><span></span><code><span class="o">[</span>share<span class="o">]</span>
+<span class="w">   </span><span class="nv">path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>/home/bianbu
+<span class="w">   </span><span class="nv">browseable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>yes
+<span class="w">   </span><span class="nv">writable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>yes
+<span class="w">   </span>valid<span class="w"> </span><span class="nv">users</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>bianbu
+<span class="w">   </span><span class="nb">read</span><span class="w"> </span><span class="nv">only</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>no
+</code></pre></div>
+<ul>
+<li>[share] 是共享名称，如window访问可以"\服务器IP\share"，如下图。</li>
+<li>path 访问的共享目录路径</li>
+<li>valid users 表示允许访问的用户，这里一般要与系统的用户一致。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_5438472a848cc53bdd5430a3d737e1cc_1758613394.png"><img alt="" src="assets/doc/11-其他/windows访问linux搭建的samba服务/images/wp_editor_md_5438472a848cc53bdd5430a3d737e1cc_1758613394.png"/></a></p>
+<p><strong>（2）设置用户名</strong></p>
+<p>设置Samba用户，注意用户名要是系统中存在的用户名。</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>smbpasswd<span class="w"> </span>-a<span class="w"> </span>bianbu
+</code></pre></div>
+<h3 id="_3">启动</h3>
+<p>启动服务器并设置开机自启动</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>systemctl<span class="w"> </span>restart<span class="w"> </span>smbd
+sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>smbd
+</code></pre></div>
+<p>检查状态</p>
+<div class="codehilite"><pre><span></span><code>systemctl<span class="w"> </span>status<span class="w"> </span>smbd
+</code></pre></div>
+<div class="codehilite"><pre><span></span><code>bianbu@bianbu:~$<span class="w"> </span>sudo<span class="w"> </span>systemctl<span class="w"> </span>restart<span class="w"> </span>smbd
+sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>smbd
+Synchronizing<span class="w"> </span>state<span class="w"> </span>of<span class="w"> </span>smbd.service<span class="w"> </span>with<span class="w"> </span>SysV<span class="w"> </span>service<span class="w"> </span>script<span class="w"> </span>with<span class="w"> </span>/usr/lib/systemd/systemd-sysv-install.
+Executing:<span class="w"> </span>/usr/lib/systemd/systemd-sysv-install<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>smbd
+
+bianbu@bianbu:~$<span class="w"> </span>systemctl<span class="w"> </span>status<span class="w"> </span>smbd
+●<span class="w"> </span>smbd.service<span class="w"> </span>-<span class="w"> </span>Samba<span class="w"> </span>SMB<span class="w"> </span>Daemon
+<span class="w">     </span>Loaded:<span class="w"> </span>loaded<span class="w"> </span><span class="o">(</span>/usr/lib/systemd/system/smbd.service<span class="p">;</span><span class="w"> </span>enabled<span class="p">;</span><span class="w"> </span>preset:<span class="w"> </span>enabled<span class="o">)</span>
+<span class="w">     </span>Active:<span class="w"> </span>active<span class="w"> </span><span class="o">(</span>running<span class="o">)</span><span class="w"> </span>since<span class="w"> </span>Tue<span class="w"> </span><span class="m">2025</span>-09-23<span class="w"> </span><span class="m">15</span>:41:53<span class="w"> </span>CST<span class="p">;</span><span class="w"> </span>8s<span class="w"> </span>ago
+<span class="w">       </span>Docs:<span class="w"> </span>man:smbd<span class="o">(</span><span class="m">8</span><span class="o">)</span>
+<span class="w">             </span>man:samba<span class="o">(</span><span class="m">7</span><span class="o">)</span>
+<span class="w">             </span>man:smb.conf<span class="o">(</span><span class="m">5</span><span class="o">)</span>
+<span class="w">   </span>Main<span class="w"> </span>PID:<span class="w"> </span><span class="m">22211</span><span class="w"> </span><span class="o">(</span>smbd<span class="o">)</span>
+<span class="w">     </span>Status:<span class="w"> </span><span class="s2">"smbd: ready to serve connections..."</span>
+<span class="w">      </span>Tasks:<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="o">(</span>limit:<span class="w"> </span><span class="m">4089</span><span class="o">)</span>
+<span class="w">     </span>Memory:<span class="w"> </span><span class="m">7</span>.1M<span class="w"> </span><span class="o">(</span>peak:<span class="w"> </span><span class="m">7</span>.6M<span class="o">)</span>
+<span class="w">        </span>CPU:<span class="w"> </span>435ms
+<span class="w">     </span>CGroup:<span class="w"> </span>/system.slice/smbd.service
+<span class="w">             </span>├─22211<span class="w"> </span>/usr/sbin/smbd<span class="w"> </span>--foreground<span class="w"> </span>--no-process-group
+<span class="w">             </span>├─22220<span class="w"> </span><span class="s2">"smbd: notifyd"</span><span class="w"> </span>.
+<span class="w">             </span>└─22221<span class="w"> </span><span class="s2">"smbd: cleanupd "</span>
+
+9月<span class="w"> </span><span class="m">23</span><span class="w"> </span><span class="m">15</span>:41:53<span class="w"> </span>bianbu<span class="w"> </span>systemd<span class="o">[</span><span class="m">1</span><span class="o">]</span>:<span class="w"> </span>Starting<span class="w"> </span>smbd.service<span class="w"> </span>-<span class="w"> </span>Samba<span class="w"> </span>SMB<span class="w"> </span>Daemon...
+9月<span class="w"> </span><span class="m">23</span><span class="w"> </span><span class="m">15</span>:41:53<span class="w"> </span>bianbu<span class="w"> </span><span class="o">(</span>smbd<span class="o">)[</span><span class="m">22211</span><span class="o">]</span>:<span class="w"> </span>smbd.service:<span class="w"> </span>Referenced<span class="w"> </span>but<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>environment<span class="w"> </span>variable<span class="w"> </span>evaluates<span class="w"> </span>to<span class="w"> </span>an<span class="w"> </span>empty<span class="w"> </span>string:<span class="w"> </span>SMBDOPTIONS
+9月<span class="w"> </span><span class="m">23</span><span class="w"> </span><span class="m">15</span>:41:53<span class="w"> </span>bianbu<span class="w"> </span>systemd<span class="o">[</span><span class="m">1</span><span class="o">]</span>:<span class="w"> </span>Started<span class="w"> </span>smbd.service<span class="w"> </span>-<span class="w"> </span>Samba<span class="w"> </span>SMB<span class="w"> </span>Daemon.
+</code></pre></div>
+<h2 id="windows">windows连接</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_f54b9d6d09871eb3a0d6bf64d9593ccf_1758617101.png"><img alt="" src="assets/doc/11-其他/windows访问linux搭建的samba服务/images/wp_editor_md_f54b9d6d09871eb3a0d6bf64d9593ccf_1758617101.png"/></a></p>
+<p>ip就是服务器地址，share就是smb.conf。注意如果连接不上，就把"使用其他凭据连接勾选上"。</p>
+<p>接着输入用户命令和密码，这里的用户名和密码就是使用sudo smbpasswd -a bianbu命令配置的。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_52452e0e16c62f1fc8dc6900cd2c0aaa_1758617186.png"><img alt="" src="assets/doc/11-其他/windows访问linux搭建的samba服务/images/wp_editor_md_52452e0e16c62f1fc8dc6900cd2c0aaa_1758617186.png"/></a></p>
+<h2 id="_4">排查</h2>
+<p><strong>（1）测试linux段samba服务是否正常</strong></p>
+<p>测试本地samba服务运行情况。</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>update
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>smbclient<span class="w"> </span>-y
+</code></pre></div>
+<p>然后运行</p>
+<div class="codehilite"><pre><span></span><code>smbclient<span class="w"> </span>-L<span class="w"> </span>localhost<span class="w"> </span>-U<span class="w"> </span>bianbu
+</code></pre></div>
+<p>smbclient是samba提供的客户端工具，用来测试samba服务器是否能正常工作。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_945b712a8abeba7f5c5e4c1bbd9bf3d0_1758613852.png"><img alt="" src="assets/doc/11-其他/windows访问linux搭建的samba服务/images/wp_editor_md_945b712a8abeba7f5c5e4c1bbd9bf3d0_1758613852.png"/></a></p>
+<p>** 在window上命令测试是否联通**</p>
+<p>在window上试试命令：</p>
+<div class="codehilite"><pre><span></span><code>net<span class="w"> </span>use<span class="w"> </span>*<span class="w"> </span><span class="se">\\</span><span class="m">192</span>.168.0.34<span class="se">\S</span>hared<span class="w"> </span>/user:192.168.0.34<span class="se">\b</span>ianbu<span class="w"> </span>密码
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="语音识别模型-sensevoice入门实践.html">← 语音识别模型：SenseVoice入门实践</a>
+    <a class="next" href="ros2-建图与导航-slam-toolbox-nav2实践.html">ROS2 建图与导航：Slam_toolbox、Nav2实践 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

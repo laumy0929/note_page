@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ubuntu英伟达显卡驱动安装 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">环境准备</a><ul></ul></li><li><a href="#_2">卸载原驱动</a><ul></ul></li><li><a href="#nouveau">禁用nouveau</a><ul></ul></li><li><a href="#_3">安装显卡驱动</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>ubuntu英伟达显卡驱动安装</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-07
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      其他
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">环境准备</h2>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>update
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>build-essential<span class="w"> </span>dkms<span class="w"> </span>linux-headers-<span class="k">$(</span>uname<span class="w"> </span>-r<span class="k">)</span>
+sudo<span class="w"> </span>apt<span class="w"> </span>autoremove
+</code></pre></div>
+<h2 id="_2">卸载原驱动</h2>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt-get<span class="w"> </span>remove<span class="w"> </span>--purge<span class="w"> </span><span class="s1">'^nvidia-.*'</span>
+sudo<span class="w"> </span>apt-get<span class="w"> </span>autoremove
+<span class="c1">#重新生成内核</span>
+sudo<span class="w"> </span>update-initramfs<span class="w"> </span>-u
+</code></pre></div>
+<h2 id="nouveau">禁用nouveau</h2>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>vim<span class="w"> </span>/etc/modprobe.d/blacklist.conf<span class="w"> </span>
+<span class="c1"># 文件末尾添加如下两行</span>
+blacklist<span class="w"> </span>nouveau
+options<span class="w"> </span>nouveau<span class="w"> </span><span class="nv">modeset</span><span class="o">=</span><span class="m">0</span>
+sudo<span class="w"> </span>update-initramfs<span class="w"> </span>-u
+sudo<span class="w"> </span>reboot
+</code></pre></div>
+<p>重启后确认是否有禁用成功</p>
+<div class="codehilite"><pre><span></span><code>lsmod<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>nouveau
+</code></pre></div>
+<p>没有输出表示禁用成功</p>
+<h2 id="_3">安装显卡驱动</h2>
+<p>上官网获取显卡驱动</p>
+<p><a href="https://www.nvidia.cn/geforce/drivers/">https://www.nvidia.cn/geforce/drivers/</a></p>
+<p>安装</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>chmod<span class="w">  </span>a+x<span class="w"> </span>NVIDIA-Linux-x86_64-580.82.07.run
+
+sudo<span class="w"> </span>./NVIDIA-Linux-x86_64-580.82.07.run
+</code></pre></div>
+<p>如果发现重启后不能进入系统，黑屏了，那大概率就是驱动太新了，跟当前的ubuntu系统不兼容，解决办法如下：</p>
+<p>首先将显卡拔掉能进入系统，然后执行下面命令重新安装驱动，这次安装使用ubuntu系统自动安装的方式。</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>ubuntu-drivers<span class="w"> </span>autoinstall
+sudo<span class="w"> </span>apt-get<span class="w"> </span>purge<span class="w"> </span>nvidia*
+sudo<span class="w"> </span>reboot
+</code></pre></div>
+<p>重启后，执行下面命令进行安装。</p>
+<div class="codehilite"><pre><span></span><code>ubuntu-drivers<span class="w"> </span>autoinstall
+</code></pre></div>
+<p>或者也可以手动选择特定的驱动版本</p>
+<div class="codehilite"><pre><span></span><code>ubuntu-drivers<span class="w"> </span>devices
+然后，安装推荐的驱动（假设nvidia-driver-470是推荐的版本）：
+sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>nvidia-driver-470
+</code></pre></div></div>
+  <div class="post-nav">
+    <a class="prev" href="什么是ros-机器人操作系统快览随记.html">← 什么是ROS：机器人操作系统快览随记</a>
+    <a class="next" href="nvidia-jetson平台简介-机器人和边缘ai.html">NVIDIA Jetson平台简介：机器人和边缘AI →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

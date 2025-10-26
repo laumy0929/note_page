@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jetson Orin Nano环境搭建 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">安装浏览器</a><ul></ul></li><li><a href="#vnc">配置VNC</a><ul></ul></li><li><a href="#ssh">SSH</a><ul></ul></li><li><a href="#conda">conda环境</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>Jetson Orin Nano环境搭建</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-10-22
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">安装浏览器</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">sudo</span> <span class="n">apt</span> <span class="n">update</span>
+<span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">chromium</span><span class="o">-</span><span class="n">browser</span> <span class="o">-</span><span class="n">y</span>
+</code></pre></div>
+<p>安装后发现点击浏览器会没反应。按照下面方法配置。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">snap</span> <span class="n">download</span> <span class="n">snapd</span> <span class="o">--</span><span class="n">revision</span><span class="o">=</span><span class="mi">24724</span>
+<span class="n">sudo</span> <span class="n">snap</span> <span class="n">ack</span> <span class="n">snapd_24724</span><span class="o">.</span><span class="k">assert</span>
+<span class="n">sudo</span> <span class="n">snap</span> <span class="n">install</span> <span class="n">snapd_24724</span><span class="o">.</span><span class="n">snap</span>
+<span class="n">sudo</span> <span class="n">sudo</span> <span class="n">snap</span> <span class="n">refresh</span> <span class="o">--</span><span class="n">hold</span> <span class="n">snapd</span>
+</code></pre></div>
+<h2 id="vnc">配置VNC</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">sudo</span> <span class="n">apt</span> <span class="n">update</span>
+<span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">vino</span>
+</code></pre></div>
+<p>然后配置</p>
+<p>步骤1： 设置开机自启</p>
+<p>对于 LXDE 桌面（例如 2 GB 版本的 Jetson Nano）</p>
+<div class="codehilite"><pre><span></span><code><span class="n">mkdir</span> <span class="o">-</span><span class="n">p</span> <span class="o">~/.</span><span class="n">config</span><span class="o">/</span><span class="n">autostart</span>
+<span class="n">cp</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">share</span><span class="o">/</span><span class="n">applications</span><span class="o">/</span><span class="n">vino</span><span class="o">-</span><span class="n">server</span><span class="o">.</span><span class="n">desktop</span> <span class="o">~/.</span><span class="n">config</span><span class="o">/</span><span class="n">autostart</span><span class="o">/.</span>
+</code></pre></div>
+<p>对于 GNOME 桌面：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cd</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">systemd</span><span class="o">/</span><span class="n">user</span><span class="o">/</span><span class="n">graphical</span><span class="o">-</span><span class="n">session</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">wants</span>
+<span class="n">sudo</span> <span class="n">ln</span> <span class="o">-</span><span class="n">s</span> <span class="o">../</span><span class="n">vino</span><span class="o">-</span><span class="n">server</span><span class="o">.</span><span class="n">service</span> <span class="o">./.</span>
+</code></pre></div>
+<p>步骤2：调整共享／认证设置</p>
+<div class="codehilite"><pre><span></span><code><span class="n">gsettings</span> <span class="nb">set</span> <span class="n">org</span><span class="o">.</span><span class="n">gnome</span><span class="o">.</span><span class="n">Vino</span> <span class="n">prompt</span><span class="o">-</span><span class="n">enabled</span> <span class="n">false</span>
+<span class="n">gsettings</span> <span class="nb">set</span> <span class="n">org</span><span class="o">.</span><span class="n">gnome</span><span class="o">.</span><span class="n">Vino</span> <span class="n">require</span><span class="o">-</span><span class="n">encryption</span> <span class="n">false</span>
+</code></pre></div>
+<p>步骤3：然后设置密码</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Replace thepassword with your desired password</span>
+<span class="n">gsettings</span> <span class="nb">set</span> <span class="n">org</span><span class="o">.</span><span class="n">gnome</span><span class="o">.</span><span class="n">Vino</span> <span class="n">authentication</span><span class="o">-</span><span class="n">methods</span> <span class="s2">"['vnc']"</span>
+<span class="n">gsettings</span> <span class="nb">set</span> <span class="n">org</span><span class="o">.</span><span class="n">gnome</span><span class="o">.</span><span class="n">Vino</span> <span class="n">vnc</span><span class="o">-</span><span class="n">password</span> <span class="err">$</span><span class="p">(</span><span class="n">echo</span> <span class="o">-</span><span class="n">n</span> <span class="s1">'thepassword'</span><span class="o">|</span><span class="n">base64</span><span class="p">)</span>
+</code></pre></div>
+<p>上面登录密码设置的是thepassword</p>
+<p>步骤4： Reboot the system so that the settings take effect</p>
+<div class="codehilite"><pre><span></span><code><span class="n">sudo</span> <span class="n">reboot</span>
+</code></pre></div>
+<h2 id="ssh">SSH</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">ssh</span> <span class="n">user</span><span class="nd">@ip</span>
+</code></pre></div>
+<p>输入密码就可以登录进去了。</p>
+<h2 id="conda">conda环境</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">wget</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">repo</span><span class="o">.</span><span class="n">anaconda</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">miniconda</span><span class="o">/</span><span class="n">Miniconda3</span><span class="o">-</span><span class="n">latest</span><span class="o">-</span><span class="n">Linux</span><span class="o">-</span><span class="n">aarch64</span><span class="o">.</span><span class="n">sh</span>
+<span class="n">sh</span> <span class="n">Miniconda3</span><span class="o">-</span><span class="n">latest</span><span class="o">-</span><span class="n">Linux</span><span class="o">-</span><span class="n">x86_64</span><span class="o">.</span><span class="n">sh</span>
+<span class="n">source</span> <span class="o">~/.</span><span class="n">bashrc</span>
+</code></pre></div>
+<p>注意这里是aarch64</p></div>
+  <div class="post-nav">
+    <a class="prev" href="lekiwi-orin-nano环境搭建.html">← lekiwi+Orin Nano环境搭建</a>
+    <a class="next" href="为什么alphago能自学围棋-强化学习基本概念.html">为什么AlphaGo能自学围棋？强化学习基本概念 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

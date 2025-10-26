@@ -69,7 +69,7 @@
     </span>
   </div>
   <div class="post-content"><h2 id="_1">交互流程</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_7a3e5882d13fb51eecfaaf7fc8c53b59.jpg"><img alt="" src="assets/doc/10-其他/webrtc网页代码分析二/images/wp_editor_md_7a3e5882d13fb51eecfaaf7fc8c53b59.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/12/wp_editor_md_7a3e5882d13fb51eecfaaf7fc8c53b59.jpg"><img alt="" src="assets/doc/11-其他/webrtc网页代码分析二/images/wp_editor_md_7a3e5882d13fb51eecfaaf7fc8c53b59.jpg"/></a></p>
 <p>上图是完整的处理流程。</p>
 <h2 id="url">获取URL参数</h2>
 <div class="codehilite"><pre><span></span><code><span class="k">const</span><span class="w"> </span><span class="n">queryString</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">window</span><span class="o">.</span><span class="n">location</span><span class="o">.</span><span class="n">search</span><span class="p">;</span>
@@ -277,8 +277,8 @@
 <p>创建了一个名为pear的数据通道（const datachannel = pc.createDataChannel(\\'pear\\')），并分别对数据通道的打开、关闭、接收消息等事件绑定了相应的回调函数。例如在数据通道打开时（datachannel.onopen），会定期（每隔 1 秒）发送 ping 消息用于保持连接或检测连接状态等；在接收到消息时（datachannel.onmessage），根据消息数据类型判断，如果是文本消息直接在控制台输出，如果是二进制数据（判断为 MJPEG 流），则将其转换为图片的 URL 并设置给页面中的图片元素（id 为 imgStream）用于显示。</p>
 <p>所以这里支持mjpeg的方式，但是是通过数据通道来实现的。</p></div>
   <div class="post-nav">
-    <a class="prev" href="webrtc网页代码分析一.html">← webrtc网页代码分析一</a>
-    <a class="next" href="javascript之dom.html">javascript之dom →</a>
+    <a class="prev" href="javascript之dom.html">← javascript之dom</a>
+    <a class="next" href="webrtc网页代码分析一.html">webrtc网页代码分析一 →</a>
   </div>
 </article>
 

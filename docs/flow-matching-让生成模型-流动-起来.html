@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Flow Matching：让生成模型“流动”起来 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">背景</a><ul></ul></li><li><a href="#_2">原理</a><ul><li><a href="#_3">推理</a></li><li><a href="#_4">训练</a></li></ul></li><li><a href="#_5">源码示例</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>Flow Matching：让生成模型“流动”起来</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-08-22
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">背景</h2>
+<p>上一篇文章分析了diffusion扩散模型。diffusion扩散模型做法是加噪声、再一步步去噪，训练过程复杂，还需要 carefully 设计噪声调度。</p>
+<p>Flow Matching提出了更直接的方式：与其通过一大堆离散的“加噪/去噪”步骤，不如直接学习一个连续的流动 (flow)，让点从噪声“顺滑地流动”到目标数据。</p>
+<h2 id="_2">原理</h2>
+<p>把生成过程看作流体运动，想象有一堆水滴（噪声），通过一个力场，它们会被推动、流动，最后聚集成目标形状（真实分布的数据）。Flow Matching从物理学角度学一个"速度场"，让数据点从"源分布(噪声)"流动到"目标分布(真实数据)"。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_3fb75ea4a45a7ab5c6d38bfd4d17f2ea_1755833389.png"><img alt="" src="assets/doc/04-ai/算法模型/flow-matching：让生成模型流动起来/images/wp_editor_md_3fb75ea4a45a7ab5c6d38bfd4d17f2ea_1755833389.png"/></a></p>
+<p>如图所示左边是源随机点云，中间是目标形状，右边是实际使用模型生成的形状。为了更直观的体会再来看下图从源分布逼近目标分布的过程。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_fd213f42b0c85b976bec94c11ae680ea_1755846480.gif"><img alt="" src="assets/doc/04-ai/算法模型/flow-matching：让生成模型流动起来/images/wp_editor_md_fd213f42b0c85b976bec94c11ae680ea_1755846480.gif"/></a></p>
+<p>左图就是源分布的点在不同时间应该朝那个方向运动直到最终的目标分布，右图是不同时刻让这些点应该往哪个方向进行流动速度场。</p>
+<p>接下来看看数学怎么表示，我们希望从源分布$p_{src}$(比如高斯分布)按照流动的方式到目标分布$p_{data}$，那么方式就是在每个时间$t$为每个点$x$都指定一个速度$v_\theta(x,t)$，这样在不同时间就知道点该往哪里动，那么点的轨迹就完全确定了。在数学上点的位置$x(t)$随着时间变化，那就是速度场向量，即常微分方程</p>
+<p>$$ \frac{dx}{dt} = v_\theta(x, t) $$</p>
+<p>左边的$\frac{dx}{dt}$描述的是随时间的变化率，右边$v_\theta(x, t)$就是我们要学习的"速度场",它给出"$t$时刻，位置$x$应该往哪里动"。</p>
+<p>总结一下Flow Matching 里速度场写成 ODE，是因为它给出“点的位置随时间的变化率”，这正是常微分方程的定义，生成过程就是解 ODE，从噪声轨迹流到数据。</p>
+<h3 id="_3">推理</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_8e0b8416afdea0cca5cc338541726c6c_1755844577.png"><img alt="" src="assets/doc/04-ai/算法模型/flow-matching：让生成模型流动起来/images/wp_editor_md_8e0b8416afdea0cca5cc338541726c6c_1755844577.png"/></a></p>
+<p>模型要做的事情就是要预测出下一个时间刻应该往哪里走，输出是一个速度场；推理的过程就是解常微分方程ODE。</p>
+<ul>
+<li>输入：当前位置$x \in \mathbb{R}^d$，当前时间$t \in [0,1]$。</li>
+<li>输出：模型计算输出当前的速度向量，即$\frac{dx}{dt} = v_\theta(x,t)$。</li>
+<li>更新：根据速度向量$v_\theta(x,t)$通过积分公式把所有时间段速度累积起来得到最终点$x(1)$。</li>
+</ul>
+<p>$$ x(1) = x(0) + \int_{0}^{1} v_\theta(x(t),t)\,dt $$</p>
+<p>直观理解就是神经网络提供"切线方向"，积分就是"把所有切线拼起来"，形成完整的轨迹，从噪声走到目标分布。</p>
+<p>但实际过程中我们用离散的数值方式，比如欧拉法，如下：</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_758e59dc3351fb35665db20b4ab7cbc4_1755845366.png"><img alt="" src="assets/doc/04-ai/算法模型/flow-matching：让生成模型流动起来/images/wp_editor_md_758e59dc3351fb35665db20b4ab7cbc4_1755845366.png"/></a></p>
+<p>时间从$t$=$0$到$t$=$1$，分成若干小步（比如50或100步），在每一步按照上面公式更新。</p>
+<ul>
+<li>输入：当前的位置$x_k$和当前时间步$t_k$。</li>
+<li>输出: 模型预测计算速度向量场$v_\theta(x_k, t_k)$。</li>
+<li>更新：通过欧拉法更新公式更新下一步位置$x_{k+1} = x_k + v_\theta(x_k, t_k)\Delta t$</li>
+</ul>
+<p>每一步模型计算出速度向量$v_\theta(x_k, t_k)$然后根据公式进行更新下一步的位置，新位置=旧位置+速度x时间步长；$v_\theta(x_k, t_k)\Delta t$计算每次迭代的移动距离（速度x时间），这就是基本的欧拉积分法，直观的意义是在短时间$\Delta t$内，点会沿着速度场方向前进一点。不断的进行多步迭代，从$x_0$出发，逐步得到$x_1$，$x_1$，$x_2$，$x_3$，....，$x_k$，当$k$=$K$时，$t_K$=$1$，就得到最终的$x(1)$。</p>
+<p>怎么理解$t_k$、$x_k$、$\Delta t$？</p>
+<p>$t_k$是第$k$步对应的时间点，如果flow matching的时间区间是[0,1]，我们把它切成$K$个小步（如50或100步），每个时间点就是$t0$=$0.00$，$t1$=$0.01$；$\Delta t$是时间步长如把时间区间[0,1]均匀分成100步，那么$\Delta t$=$1/100$=$0.01$；$x_k$是表示在$t_k$时的点（或点云），初始时从高斯噪音采样到。</p>
+<p>下面再来一个直观图展示了Flow Matching推理的过程。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_d01b4272e66c8dcc01ab3d77cefb661e_1755835578.png"><img alt="" src="assets/doc/04-ai/算法模型/flow-matching：让生成模型流动起来/images/wp_editor_md_d01b4272e66c8dcc01ab3d77cefb661e_1755835578.png"/></a></p>
+<ul>
+<li>灰色箭头：代表速度场$v_\theta(x_k, t_k)$，告诉每个位置的点应该往哪里走。上图设定的目标是(2,2)。</li>
+<li>绿色点：初始$x(0)$来自噪声分布即源分布。</li>
+<li>红色叉：表示目标位置，代表数据分布的一个样本区域。</li>
+<li>蓝色折现轨迹：数值积分结果，点一步一步验证速度场北推向目标。</li>
+</ul>
+<h3 id="_4">训练</h3>
+<p>我们希望模型学会把源分布$p_{src}$流动到目标分布$p_{data}$；换句话说就是有$x_0 \sim p_{\text{src}}$，输出目标点$x_1 \sim p_{\text{data}}$我们要训练一个速度场网络$v_\theta(x_k, t_k)$，让它指导点$x_t$沿正确的路径从$x_0$——&gt;$x_1$。</p>
+<p>要训练行动轨迹需要知道真实轨迹这样才能和实际预测值做比较求损失，而训练的关键却正好是不知道真实的速度场。那如何构建训练的目标了？可以设计一个简单的"参考轨迹"，如直线路径$x_0$——&gt;$x_1$。</p>
+<p>$$ x_t = (1 - t)x_0 + tx_1 $$</p>
+<p>给定输入样本$(x_0 \sim p_{\text{src}},x_1 \sim p_{\text{data}})$，其中$x_0$是源随机位置，$x_1$是目标位置。在训练的时候我们自己定义一条直线路径$x_0$——&gt;$x_1$，我们不能一步到位，而是要有一个流动的过程。</p>
+<p>这条直线路径上的真实速度公式对$t$求偏导，而恰巧速度是一个<strong>常数</strong>（始终指向目标点$x_1$）。</p>
+<p>$$ u^\star = \frac{dx_t}{dt} = x_1 - x_0 $$</p>
+<p><strong>既然速度方向就是一个常数$x1-x0$，为什么不直接一步把$x1$变成$x0$，而要搞成连续流动了？</strong></p>
+<p>如果一步到位公式就变成$x_1 = x_0 + (x_1 - x_0)$，相当于直接跳到目标点，完全不需要ODE、积分、网络。但问题在于训练时我们有配对的$(x_0, x_1)$，所以能写下$(x_1-x_0)$，而推理时了我们只有$x_0 \sim p_{\text{src}}$,并不知道该对应那个$x1$，因此不能一步到位，因为没有$x_1$可直接计算。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_085c6c44aae2e7361e87e77122c3e11e_1755838310.png"><img alt="" src="assets/doc/04-ai/算法模型/flow-matching：让生成模型流动起来/images/wp_editor_md_085c6c44aae2e7361e87e77122c3e11e_1755838310.png"/></a></p>
+<p>最后我们训练目标就是网络预测的速度$v_\theta(x_k, t_k)$，损失就网络预测的速度$v_\theta(x_k, t_k)$与真实的速度$x_1-x_0$的均方误差。训练完成之后，网络就学会了在任何位置$x_t$、时间$t$给出正确的速度场。</p>
+<p>$$ \mathbb{E}\Big[ || v_\theta(x_t, t) - (x_1 - x_0) ||^2 \Big] $$</p>
+<h2 id="_5">源码示例</h2>
+<p>为了加深理解，程序实现一个最小的 Conditional Flow Matching（直线路径的 Rectified Flow）示例，学习时间条件速度场 vθ(x,t)，把二维标准高斯源分布推到左右两个高斯簇的目标分布。训练后输出两张图：训练损失曲线 cfm_loss.png，以及三联静态图 cfm_overview.png（源/目标/生成）。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="c1"># Flow Matching demo: source N(0,I) -&gt; target: Two Gaussians (left &amp; right)</span>
+<span class="c1"># 输出：</span>
+<span class="c1">#   1) cfm_loss.png（训练损失）</span>
+<span class="c1">#   2) cfm_overview.png（三联图：Source / Target / Generated）</span>
+<span class="c1"># 依赖：pip install torch matplotlib</span>
+
+<span class="kn">import</span> <span class="nn">time</span><span class="o">,</span> <span class="nn">warnings</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">UserWarning</span><span class="p">,</span> <span class="n">module</span><span class="o">=</span><span class="s2">"matplotlib"</span><span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span><span class="o">,</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span><span class="o">,</span> <span class="nn">torch.optim</span> <span class="k">as</span> <span class="nn">optim</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">"Agg"</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="c1"># ------------------------- 配置 -------------------------</span>
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">"cuda"</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">"cpu"</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">XLIM</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">)</span>
+<span class="n">YLIM</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">)</span>
+
+<span class="c1"># ------------------------- 数据分布 -------------------------</span>
+<span class="k">def</span> <span class="nf">sample_source</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">sample_target</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="mf">0.35</span>
+    <span class="n">means</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]],</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="n">n</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="n">means</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">mu</span> <span class="o">+</span> <span class="n">sigma</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+<span class="c1"># ------------------------- 模型：速度场 v_theta(x,t) -------------------------</span>
+<span class="k">class</span> <span class="nc">VelocityNet</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="mi">64</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">net</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">h</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">h</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+<span class="c1"># ------------------------- 训练（CFM，直线路径） -------------------------</span>
+<span class="k">def</span> <span class="nf">train_cfm</span><span class="p">(</span><span class="n">steps</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">batch</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
+    <span class="n">net</span> <span class="o">=</span> <span class="n">VelocityNet</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">opt</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">net</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">loss_hist</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">steps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">sample_source</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">sample_target</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+        <span class="n">t</span>  <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">xt</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">x0</span> <span class="o">+</span> <span class="n">t</span> <span class="o">*</span> <span class="n">x1</span>
+        <span class="n">u</span>  <span class="o">=</span> <span class="n">x1</span> <span class="o">-</span> <span class="n">x0</span>
+
+        <span class="n">pred</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="n">xt</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="p">((</span><span class="n">pred</span> <span class="o">-</span> <span class="n">u</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+
+        <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">(</span><span class="n">set_to_none</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">();</span> <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="n">loss_hist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">loss</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">s</span> <span class="o">%</span> <span class="mi">200</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">steps</span><span class="si">}</span><span class="s2">] loss=</span><span class="si">{</span><span class="n">loss</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Train time: </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">t0</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">s"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">net</span><span class="p">,</span> <span class="n">loss_hist</span>
+
+<span class="c1"># ------------------------- 采样（生成轨迹） -------------------------</span>
+<span class="nd">@torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">generate_traj</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">60</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">sample_source</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">steps</span>
+    <span class="n">traj</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()]</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">steps</span><span class="p">):</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="n">k</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="n">dt</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">net</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="n">traj</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">traj</span>
+
+<span class="c1"># ------------------------- Matplotlib 工具 -------------------------</span>
+
+<span class="k">def</span> <span class="nf">save_loss</span><span class="p">(</span><span class="n">loss_hist</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mf">3.6</span><span class="p">))</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">loss_hist</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">"Training Loss (CFM)"</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">"step"</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"MSE"</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">();</span> <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">140</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Saved </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">save_overview</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">tgt</span><span class="p">,</span> <span class="n">gen</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+    <span class="n">titles</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"Source (Noise)"</span><span class="p">,</span> <span class="s2">"Target (Two Gaussians)"</span><span class="p">,</span> <span class="s2">"Generated (Flow Matching ODE)"</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">pts</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="n">titles</span><span class="p">,</span> <span class="p">[</span><span class="n">src</span><span class="p">,</span> <span class="n">tgt</span><span class="p">,</span> <span class="n">gen</span><span class="p">]):</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">pts</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.75</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="o">*</span><span class="n">XLIM</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="o">*</span><span class="n">YLIM</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">([]);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">([])</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">();</span> <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">140</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Saved </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># （已移除 GIF 相关工具与依赖）</span>
+
+<span class="c1"># ------------------------- 主程序 -------------------------</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="c1"># 训练</span>
+    <span class="n">net</span><span class="p">,</span> <span class="n">loss_hist</span> <span class="o">=</span> <span class="n">train_cfm</span><span class="p">(</span><span class="n">steps</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">batch</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+    <span class="n">save_loss</span><span class="p">(</span><span class="n">loss_hist</span><span class="p">,</span> <span class="s2">"cfm_loss.png"</span><span class="p">)</span>
+
+    <span class="c1"># 数据与生成</span>
+    <span class="n">src</span> <span class="o">=</span> <span class="n">sample_source</span><span class="p">(</span><span class="mi">3000</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+    <span class="n">tgt</span> <span class="o">=</span> <span class="n">sample_target</span><span class="p">(</span><span class="mi">3000</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+    <span class="n">traj</span> <span class="o">=</span> <span class="n">generate_traj</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+    <span class="n">gen</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># 三联静态图</span>
+    <span class="n">save_overview</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">tgt</span><span class="p">,</span> <span class="n">gen</span><span class="p">,</span> <span class="s2">"cfm_overview.png"</span><span class="p">)</span>
+
+    <span class="c1"># （已移除 GIF 生成步骤）</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"All done."</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>（1）模型结构</strong></p>
+<p>模型结构为VelocityNet，使用了一个小型 MLP，输入 3 维（x 的 2 维 + t 的 1 维），输出 2 维速度向量。结构为Linear(3,64) → ReLU → Linear(64,64) → ReLU → Linear(64,2)。forward(x,t) 直接拼接 [x, t] 后送入网络。这里没有使用时间位置编码。</p>
+<p><strong>（2）训练过程</strong></p>
+<p>训练函数为train_cfm(steps=2000, batch=512, lr=1e-3)，具体过程如下：</p>
+<p>1) 每步采样源 x0 ~ source 和目标 x1 ~ target，独立均匀采样 t~U(0,1)。 2) 构造直线桥接点 xt = (1 - t)x0 + tx1。 3) 定义理想恒定速度 u = x1 - x0（常速，不依赖 t）。 4) 让网络在 (xt, t) 上预测 pred = vθ(xt,t)，用 MSE(pred, u) 作为损失。 5) Adam 更新一次；每 200 步打印当前损失。 6) 返回训练好的 net 与 loss_hist。</p>
+<p>直观理解，虽然 u 依赖 (x0, x1)，但模型只观察 (xt,t)。训练学到的是条件期望 E[x1 - x0 | xt, t]，也就是让网络在直线路径上学会把点往“正确方向”推的平均速度。这是直线路径 CFM 的核心思想。</p>
+<p><strong>（3）采样</strong></p>
+<p>采样函数为generate_traj，从源分布采样 n 个起点，设步长 dt=1/steps。用无梯度模式按欧拉法更新：对每步 k，用中点时间 t=(k+0.5)dt 预测速度 vθ(x,t)，然后 x ← x + vθ(x,t)dt。记录每一步的点云到列表，返回整个轨迹（列表元素是 numpy 数组）。主程序中只使用最后一步作为“生成结果”。</p>
+<p><strong>（4）主流程</strong></p>
+<p>最后就是主流程先调 train_cfm 进行训练，保存 cfm_loss.png。分别采样 3000 个源样本 src 与目标样本 tgt。生成 n=3000、steps=60 的轨迹 traj，并取 gen = traj[-1] 作为最终生成样本。保存 cfm_overview.png，展示源/目标/生成的对比。</p>
+<p>整体主要的实现点为</p>
+<ul>
+<li>目标路径：x_t = (1 - t) x0 + t x1，直线连接源与目标。</li>
+<li>理想速度：dx/dt = x1 - x0，使点沿直线以恒定速度匀速前进。</li>
+<li>学习目标：在 (xt,t) 上回归 u = x1 - x0 的条件期望；推断时只需网络与当前状态，无需知道具体的 x0 或 x1。</li>
+<li>数值积分：使用欧拉法简单高效；采用中点时间能略微减小离散误差。</li>
+</ul></div>
+  <div class="post-nav">
+    <a class="prev" href="轻量smolvla-半层vlm-视觉压缩与异步推理赋能具身智能.html">← 轻量SmolVLA：半层VLM、视觉压缩与异步推理赋能具身智能</a>
+    <a class="next" href="浅析pi0-vlm-与-flow-matching-的结合之道.html">浅析Pi0 ：VLM 与 Flow Matching 的结合之道 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

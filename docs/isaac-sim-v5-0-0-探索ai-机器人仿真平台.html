@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Isaac Sim v5.0.0：探索AI 机器人仿真平台 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#isaac-sim">什么是isaac sim</a><ul><li><a href="#_1">设计</a></li><li><a href="#_2">微调与训练</a></li><li><a href="#_3">部署</a></li><li><a href="#_4">快速入门</a></li><li><a href="#_5">系统架构</a></li><li><a href="#omniverse-kit">Omniverse Kit</a></li><li><a href="#_6">开发工作流</a></li><li><a href="#usd">USD格式</a></li></ul></li><li><a href="#_7">安装指南</a><ul><li><a href="#_8">快速安装</a></li><li><a href="#isaac">isaac 系统需求</a></li><li><a href="#_9">工作站安装</a></li><li><a href="#docker">Docker容器安装</a></li><li><a href="#_10">云部署</a></li><li><a href="#_11">直播客户端</a></li><li><a href="#python">Python环境安装</a></li></ul></li><li><a href="#isaac-sim_1">Isaac Sim 资源库</a><ul><li><a href="#_12">机器人</a></li><li><a href="#_13">相机与深度传感器</a></li><li><a href="#_14">非视觉传感器</a></li><li><a href="#_15">道具</a></li><li><a href="#_16">环境资产</a></li><li><a href="#_17">精选资产</a></li><li><a href="#neural-volume">Neural Volume渲染</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>Isaac Sim v5.0.0：探索AI 机器人仿真平台</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-10
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="isaac-sim">什么是isaac sim</h2>
+<p>NVIDIA Issac Sim是一款基于NVIDIA omniverse构建的参考应用应用程序，使开发人员能够在基于物理的虚拟环境开发、模拟和测试AI机器人。</p>
+<h3 id="_1">设计</h3>
+<p>Isaac Sim提供了一系列工作流程，用于导入和调整最常见格式（包括Onshape、统一机器人描述格式URDF和MuJoco XML格式MJCF）设计的机械系统。这通过使用通用常见描述USD实现，该开源3D常见描述API具有高度可扩展性，是Isaac Sim核心的统一数据交换格式。</p>
+<h3 id="_2">微调与训练</h3>
+<p>Isaac Sim的核心功能在与其仿真能力本身：这是一个基于GPU的高保真physX物理引擎，能够支持工业规模的传感器PTX渲染。该平台通过直接调用GPU，实现了对各类传感器（包括摄像头、激光雷达和接触式传感器）的仿真模拟。这种能力进而支持数字孪生技术的实现，让您的端到端流程在真实机器人启动前就能完成测试运行。Isaac Sim提供了一整套工具链：通过Replicator生成合成数据，利用Omnigraph编程仿真环境，调整PhysX参数以匹配实现物理特性，最终通过强化学习RL等多样化方法训练控制智能体。</p>
+<h3 id="_3">部署</h3>
+<p>Isaac Sim预先配备了所有必要组建，不仅能将智能体部署到真实机器人，还能构建与这类系统完全集成的应用程序。Omniverse提供了应用基础设施API，包括图形界面和文件管理功能。该平台还提供了与ROS 2桥接API,实现真实机器人与仿真的直接通信，同时搭建NVIDIA Isaac ROS：一套高性能硬件加速的ROS 2工具包，专为打造自主机器人而设计。</p>
+<h3 id="_4">快速入门</h3>
+<ul>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/quick-install.html#isaac-sim-quick-install" title="快速安装">快速安装</a>：一小时内完成安装并开始使用。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/introduction/quickstart_isaacsim.html#isaac-sim-app-intro-quickstart" title="Isaac Sim基础教程">Isaac Sim基础教程</a>：助您快速上手 NVIDIA Isaac 仿真平台</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_workstation.html#isaac-sim-app-install-workstation" title="工作站安装">工作站安装</a>：本地工作站安装指南。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_container.html#isaac-sim-app-install-container" title="容器安装">容器安装</a>：远程桌面服务器安装指南。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/development_tools/index.html#isaac-sim-development-tools-tutorials" title="开发工具">开发工具</a>：用于调试和开发的工具与环境。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/python_scripting/index.html#isaac-sim-app-python-scripting-overview" title="python脚本与教程">python脚本与教程</a>：使用 NVIDIA Isaac Sim 核心 Python API 构建环境、机器人和任务的工具与教程。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/gui/index.html#isaac-sim-gui-tutorials-page" title="图形用户界面参考">图形用户界面参考</a>：通过图形用户界面了解 NVIDIA Isaac Sim 中的机器人基础概念。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/importer_exporter/importers_exporters.html#isaac-sim-importers-and-exporters" title="导入与导出功能">导入与导出功能</a>：支持多种文件格式的机器人及资产导入导出功能。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/robot_setup/index.html#isaac-sim-robot-setup" title="机器人设置">机器人设置</a>：Isaac Sim 提供的机器人修改工具集。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/robot_setup_tutorials/index.html#isaac-sim-robot-setup-tutorials" title="机器人设置教程系列">机器人设置教程系列</a>：关于机器人配置工具及工作流程的系列教学。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/robot_simulation/index.html#isaac-sim-robot-simulation" title="机器人仿真">机器人仿真</a>：用于模拟机器人的控制器与运动生成工具。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/ros2_tutorials/ros2_landing_page.html#isaac-sim-ros-ros2-tutorials" title="ROS2">ROS2</a>：ROS2桥接与接口。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/isaac_lab_tutorials/index.html#isaac-lab-tutorials-page" title="Isaac Lab">Isaac Lab</a>：强化学习框架与克隆器API。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/synthetic_data_generation/index.html#isaac-synthetic-data-generation-page" title="合成数据生成">合成数据生成</a>：用于生成合成书记的工具集与工作流程。</li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/digital_twin/index.html#isaac-sim-app-digital-twin-index" title="数字孪生">数字孪生</a>：：用于构建和操作数字孪生的工具，如仓库物流、Cortex 和地图绘制。</li>
+</ul>
+<h3 id="_5">系统架构</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_f1bd52ce13e8d9e95e6a87bd5c68377a_1757493223.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_f1bd52ce13e8d9e95e6a87bd5c68377a_1757493223.png"/></a></p>
+<p>Isaac Sim旨在支持新型机器人工具的创建，并增强现有工具的功能。该平台为为C++和Python提供了灵活的API,可根据需求以不同深度集成到项目中。平台目标并非与现有软件竞争，而是与之协调并提升其能力。为此，Isaac Sim的许多组建都是开源的，可自由独立使用。可以在Onshape中设计机器人，用Isaac Sim模拟传感器，并通过ROS或其他消息系统控制场景。同样，也可以完全基于isaac sim提供的ingt构建完整的独立应用程序。</p>
+<h3 id="omniverse-kit">Omniverse Kit</h3>
+<p>Isaac Sim基于Omniverse Kit构建，这是一个用于开发原生Omniverse应用和微服务的工具包。Omniverse Kit通过一系列轻量级插件提供多样化功能。这些插件采样C语言接口开发以确保API持久兼容性，同时提供python解释器以便进行便捷的脚本编写和定制。</p>
+<p>通过 Python API 可以为 Omniverse Kit 编写新扩展，或为 Omniverse 创建新体验。</p>
+<h3 id="_6">开发工作流</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_47531a99e99bafa3f2bb6815a8053428_1757493919.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_47531a99e99bafa3f2bb6815a8053428_1757493919.png"/></a></p>
+<p>Isaac Sim基于C++和Python构建，通常分别通过编译插件和绑定进行操作。这意味着该平台能够支持多种工作流程，拥有构建和交互利用Isaac Sim项目。Isaac Sim提供完整的OMniverse应用程序，拥有与机器人交互和仿真，虽然这是用户与平台互动的最常见方式，但绝非唯一途径。Isaac Sim还以VS code和Jupyter Notebook扩展形式提供直接python开发支持。此外Isaac Sim不仅限与同步操作，还能通过ROS2实现硬件在环运行，从而促进仿真到现实的迁移以及数字孪生应用。</p>
+<h3 id="usd">USD格式</h3>
+<p>NVIDIA Isaac Sim采用USD通过常见描述文件格式呈现常见。Universal Scene Description（USD）是由皮克斯开发的一种易于扩展的开源 3D 场景描述文件格式，专为内容创作和不同工具间的交互而设计。凭借其强大功能和通用性，USD 不仅被视觉特效领域广泛采用，还应用于建筑、设计、机器人、制造等多个学科领域。</p>
+<h2 id="_7">安装指南</h2>
+<p>Isaac Sim支持windows和Linux系统安装。可通过容器（ container）、工作站（workstation）、云端（in the cloud）、直播流（livestream）或者python环境进行部署，根据使用场景，还可以自定义硬件配置。</p>
+<h3 id="_8">快速安装</h3>
+<p>快速安装适用于演示场景，可让您了解完整产品的功能概览。完成快速安装后，您能创建包含机器人的虚拟房间，这将更全面的展示产品能力。该只能面向具备基础计算机知识的安装人员。</p>
+<p>windows或linux系统快速安装步骤：</p>
+<p><strong>（1）下载以下任意安装包</strong></p>
+<ul>
+<li>windows: <a href="https://download.isaacsim.omniverse.nvidia.com/isaac-sim-comp-check-5.0.0-windows-x86_64.zip" title="windows系统兼容性检查工具">windows系统兼容性检查工具</a></li>
+<li>linux：<a href="https://download.isaacsim.omniverse.nvidia.com/isaac-sim-comp-check-5.0.0-linux-x86_64.zip" title="linux系统兼容性检查工具">linux系统兼容性检查工具</a></li>
+</ul>
+<p><strong>（2）将安装包解压至制定文件夹</strong></p>
+<p><strong>（3）运行脚本检查</strong></p>
+<ul>
+<li>window：请双击 omni.isaac.sim.compatibility_check.bat。</li>
+<li>linux：./omni.isaac.sim.compatibility_check.sh</li>
+</ul>
+<p>更多信息参阅：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_workstation.html#isaac-sim-compatibility-checker" title="Isaac Sim兼容性检查">Isaac Sim兼容性检查</a></p>
+<p><strong>（4）下载任意一个安装包</strong></p>
+<ul>
+<li>window：<a href="https://download.isaacsim.omniverse.nvidia.com/isaac-sim-standalone-5.0.0-windows-x86_64.zip">https://download.isaacsim.omniverse.nvidia.com/isaac-sim-standalone-5.0.0-windows-x86_64.zip</a></li>
+<li>linux：<a href="https://download.isaacsim.omniverse.nvidia.com/isaac-sim-standalone-5.0.0-linux-x86_64.zip">https://download.isaacsim.omniverse.nvidia.com/isaac-sim-standalone-5.0.0-linux-x86_64.zip</a></li>
+</ul>
+<p><strong>（5）创建一个isaac-sim的文件夹</strong></p>
+<p>在windows的C:/或linux根目录下直接创建一个名为isaac-sim的文件夹。然后将下载的文件解压到文件夹中去。</p>
+<p><strong>（6）在isaac-sim文件夹中，执行操作</strong></p>
+<ul>
+<li>window：请双击 isaac-sim.selector.bat</li>
+<li>linux：命令窗口中运行 ./post_install.sh ，然后运行 ./isaac-sim.selector.sh。</li>
+</ul>
+<p><strong>（7）在issac应用选择起窗口，选择"start"</strong></p>
+<p>有关应用选择器的详细信息，请参阅<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/gui/app_selector.html" title="《Isaac Sim 应用选择器》">《Isaac Sim 应用选择器》</a>。随后将打开另一个命令窗口并运行脚本，此过程可能比预期耗时更长。在此期间由于会出现空白窗口，可能看似安装失败。请继续等待。</p>
+<p><strong>（8）issac启动成功</strong></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_2e621d2c26855d47c17c5330a5a3177a_1757496738.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_2e621d2c26855d47c17c5330a5a3177a_1757496738.png"/></a></p>
+<p><strong>（9）选择 选择创建一个房间</strong></p>
+<p>Create &gt; Environment &gt; Simple Room.</p>
+<p><strong>（10）选择创建一个机械臂</strong></p>
+<p>Create &gt; Robots &gt; Franka Emika Panda Arm.</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_5d970a3919f3ab6d77926e7098c8face_1757496810.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_5d970a3919f3ab6d77926e7098c8face_1757496810.png"/></a></p>
+<p><strong>（11）点击运行模拟</strong></p>
+<p>在屏幕最左侧寻找箭头按钮，点击它来运行一段简短模拟。</p>
+<h3 id="isaac">isaac 系统需求</h3>
+<p>对操作系统需求如下</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_92715577a9ea1436e2e5cc68c83d26d4_1757497190.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_92715577a9ea1436e2e5cc68c83d26d4_1757497190.png"/></a></p>
+<p>对驱动的要求如下</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_549978d7678b6f465b078d0b801e8b50_1757497421.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_549978d7678b6f465b078d0b801e8b50_1757497421.png"/></a></p>
+<h3 id="_9">工作站安装</h3>
+<p>工作站安装方式是在本地允许模拟器，需要对本地电脑有较高的要求，官方要求最低的配置要为RTX4080的显卡。因此若本地配置了GPU的windows或linux系统上以GUI应用程序允许isaac sim，推荐采用工作站安装方式。下面是安装步骤</p>
+<p><strong>（1）isaac Sim兼容性检查工具</strong></p>
+<p>Isaac 兼容性检查工具是一款轻量级应用程序，可通过编程方式检查本地的软硬件要求，会给出运行NVIDIA isaac sim时那些要求满足或不满足。</p>
+<ul>
+<li>下载工具：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/download.html#isaac-sim-latest-release" title="Latest Release兼容性工具">Latest Release兼容性工具</a></li>
+<li>解压：将压缩包解压到指定文件夹。</li>
+<li>运行：在Linux系统上云霄omni.isaac.sim.compatibility_check.sh脚本，在windows系统上运行omni.isaac.sim.compatibility_check.bat文件。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_305476a5d9a7690b86456bbd2c284db9_1757559120.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_305476a5d9a7690b86456bbd2c284db9_1757559120.png"/></a></p>
+<p>点击工具的"Test Kit"按钮就会显示测试结果。</p>
+<p>应用程序会以不同颜色高亮显示以下状态：</p>
+<ul>
+<li>绿色：表示优秀</li>
+<li>浅绿色：表示良好</li>
+<li>橙色：表示基本满足，建议更高配置</li>
+<li>红色：不足/不支持</li>
+</ul>
+<p>应用程序检查维度为：</p>
+<ul>
+<li>NVIDIA GPU：驱动程序版本、支持RTX功能的GPU、显存容量。</li>
+<li>CPU、内存和存储：CPU处理器、CPU核心数量、运行内存、可用存储空间。</li>
+<li>others：操作系统、显示设备。</li>
+</ul>
+<p>对于操作系统如果ubuntu大于版本号也会变成红色，可先测试是否可运行，实测是可以，但不排除有兼容性问题。</p>
+<p><strong>（2）下载软件包</strong></p>
+<p>下载链接：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/download.html#isaac-sim-latest-release" title="Latest Release">Latest Release</a>，根据自己的系统选择软件包下载的本地。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_df0b5713eca911d2ca82d472565660f2_1757559954.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_df0b5713eca911d2ca82d472565660f2_1757559954.png"/></a></p>
+<p>在本地创建一个isaacsim文件夹，然后将压缩包解压到文件夹。</p>
+<p><strong>（3）运行启动</strong></p>
+<p>先创建extension_examples 的符号链接，请运行 post_install 脚本。</p>
+<ul>
+<li>linux：./post_install.sh</li>
+<li>windows:双击 post_install.bat 文件</li>
+</ul>
+<p>然后就可以启动应用程序</p>
+<ul>
+<li>linux: 执行 ./isaac-sim.selector.sh</li>
+<li>windows:双击isaac-sim.selector.bat 文件</li>
+</ul>
+<p>启动后会弹出以下界面</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_f05ada3a9e4d164c24b5541f30d6cebd_1757560212.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_f05ada3a9e4d164c24b5541f30d6cebd_1757560212.png"/></a></p>
+<p>在弹出的窗口中选择<strong>isaac Sim Full</strong>，然后点击<strong>START</strong>就可以运行。启动过程中可能要一点时间，如果期间弹出“程序无法响应”，可以选择<strong>等待</strong>，以免被误杀。</p>
+<p>启动后就可以开始第一个基础教程了：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_workstation.html" title="基础教程。">基础教程。</a></p>
+<p>总结一下命令执行的实例：</p>
+<p>linux系统</p>
+<div class="codehilite"><pre><span></span><code>mkdir<span class="w"> </span>~/isaacsim
+<span class="nb">cd</span><span class="w"> </span>~/Downloads
+unzip<span class="w"> </span><span class="s2">"isaac-sim-standalone-5.0.0-linux-x86_64.zip"</span><span class="w"> </span>-d<span class="w"> </span>~/isaacsim
+<span class="nb">cd</span><span class="w"> </span>~/isaacsim
+./post_install.sh
+./isaac-sim.selector.sh
+</code></pre></div>
+<p>window系统</p>
+<div class="codehilite"><pre><span></span><code>mkdir<span class="w"> </span>C:<span class="se">\i</span>saacsim
+<span class="nb">cd</span><span class="w"> </span>%USERPROFILE%/Downloads
+tar<span class="w"> </span>-xvzf<span class="w"> </span><span class="s2">"isaac-sim-standalone-5.0.0-windows-x86_64.zip"</span><span class="w"> </span>-C<span class="w"> </span>C:<span class="se">\i</span>saacsim
+<span class="nb">cd</span><span class="w"> </span>C:<span class="se">\i</span>saacsim
+post_install.bat
+isaac-sim.selector.bat
+</code></pre></div>
+<h3 id="docker">Docker容器安装</h3>
+<p>在远程服务器或者云端部署isaac sim建议使用docker容器的方式。</p>
+<p><strong>（1）检查系统是否满足需求</strong></p>
+<p>首先先确保系统满足运行NVIDIA isaac Sim所需的<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/requirements.html#isaac-sim-requirements-isaac-sim-system" title="系统要求">系统要求</a>和<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/requirements.html#isaac-sim-requirements-isaac-sim-drivers" title="驱动程序">驱动程序</a>要求。</p>
+<p><strong>（2）安装docker</strong></p>
+<div class="codehilite"><pre><span></span><code>Docker<span class="w"> </span>installation<span class="w"> </span>using<span class="w"> </span>the<span class="w"> </span>convenience<span class="w"> </span>script
+curl<span class="w"> </span>-fsSL<span class="w"> </span>https://get.docker.com<span class="w"> </span>-o<span class="w"> </span>get-docker.sh
+sudo<span class="w"> </span>sh<span class="w"> </span>get-docker.sh
+
+Post-install<span class="w"> </span>steps<span class="w"> </span><span class="k">for</span><span class="w"> </span>Docker
+sudo<span class="w"> </span>groupadd<span class="w"> </span>docker
+sudo<span class="w"> </span>usermod<span class="w"> </span>-aG<span class="w"> </span>docker<span class="w"> </span><span class="nv">$USER</span>
+newgrp<span class="w"> </span>docker
+
+Verify<span class="w"> </span>Docker
+docker<span class="w"> </span>run<span class="w"> </span>hello-world
+</code></pre></div>
+<p>详细的docker安装步骤见<a href="https://docs.docker.com/engine/install/ubuntu" title="docker安装">docker安装</a>，安装后的配置步骤见<a href="https://docs.docker.com/engine/install/linux-postinstall" title="配置步骤">配置步骤</a>。</p>
+<p><strong>（3）安装NVIDIA容器工具包</strong></p>
+<div class="codehilite"><pre><span></span><code>Configure<span class="w"> </span>the<span class="w"> </span>repository
+curl<span class="w"> </span>-fsSL<span class="w"> </span>https://nvidia.github.io/libnvidia-container/gpgkey<span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>gpg<span class="w"> </span>--dearmor<span class="w"> </span>-o<span class="w"> </span>/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="o">&amp;&amp;</span><span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span>-L<span class="w"> </span>https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>sed<span class="w"> </span><span class="s1">'s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/apt/sources.list.d/nvidia-container-toolkit.list<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>sudo<span class="w"> </span>apt-get<span class="w"> </span>update
+
+Install<span class="w"> </span>the<span class="w"> </span>NVIDIA<span class="w"> </span>Container<span class="w"> </span>Toolkit<span class="w"> </span>packages
+sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>nvidia-container-toolkit
+sudo<span class="w"> </span>systemctl<span class="w"> </span>restart<span class="w"> </span>docker
+
+Configure<span class="w"> </span>the<span class="w"> </span>container<span class="w"> </span>runtime
+sudo<span class="w"> </span>nvidia-ctk<span class="w"> </span>runtime<span class="w"> </span>configure<span class="w"> </span>--runtime<span class="o">=</span>docker
+sudo<span class="w"> </span>systemctl<span class="w"> </span>restart<span class="w"> </span>docker
+
+Verify<span class="w"> </span>NVIDIA<span class="w"> </span>Container<span class="w"> </span>Toolkit
+docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--runtime<span class="o">=</span>nvidia<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span>ubuntu<span class="w"> </span>nvidia-smi
+</code></pre></div>
+<p>安装最新版本的 <a href="https://github.com/NVIDIA/nvidia-container-toolkit" title="NVIDIA 容器工具包">NVIDIA 容器工具包</a>以获取安全补丁。</p>
+<p><strong>（4）容器部署</strong></p>
+<div class="codehilite"><pre><span></span><code>docker<span class="w"> </span>pull<span class="w"> </span>nvcr.io/nvidia/isaac-sim:5.0.0
+</code></pre></div>
+<p>拉取isaac sim容器。</p>
+<p>然后以交互式bash会话运行isaac sim容器。</p>
+<div class="codehilite"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>--name<span class="w"> </span>isaac-sim<span class="w"> </span>--entrypoint<span class="w"> </span>bash<span class="w"> </span>-it<span class="w"> </span>--runtime<span class="o">=</span>nvidia<span class="w"> </span>--gpus<span class="w"> </span>all<span class="w"> </span>-e<span class="w"> </span><span class="s2">"ACCEPT_EULA=Y"</span><span class="w"> </span>--rm<span class="w"> </span>--network<span class="o">=</span>host<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-e<span class="w"> </span><span class="s2">"PRIVACY_CONSENT=Y"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-v<span class="w"> </span>~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-v<span class="w"> </span>~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-v<span class="w"> </span>~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-v<span class="w"> </span>~/docker/isaac-sim/cache/glcache:/root/.cache/nvidia/GLCache:rw<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-v<span class="w"> </span>~/docker/isaac-sim/cache/computecache:/root/.nv/ComputeCache:rw<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-v<span class="w"> </span>~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-v<span class="w"> </span>~/docker/isaac-sim/data:/root/.local/share/ov/data:rw<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-v<span class="w"> </span>~/docker/isaac-sim/documents:/root/Documents:rw<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>nvcr.io/nvidia/isaac-sim:5.0.0
+</code></pre></div>
+<ul>
+<li>使用 -e "ACCEPT_EULA=Y" 标志即表示您接受 NVIDIA Omniverse 许可协议中规定的镜像许可协议。</li>
+<li>使用 -e "PRIVACY_CONSENT=Y" 标志即表示您同意数据收集与使用协议中的条款。不设置此标志即可选择退出数据收集。</li>
+<li>使用-e "PRIVACY_USERID=\<emai\\l>" 标志可选择性地设置用于标记会话日志。</emai\\l></li>
+</ul>
+<p>最后以原生直播模式启动 isaac sim</p>
+<div class="codehilite"><pre><span></span><code>./runheadless.sh<span class="w"> </span>-v
+</code></pre></div>
+<p>运行直播客户端前，必须确保 Isaac Sim 应用已加载就绪。Isaac Sim 可能需要几分钟才能完全加载。-v 标志用于在着色器缓存预热时显示额外日志。要确认这一点，请留意控制台或日志中的这一行：Isaac Sim Full Streaming App is loaded。</p>
+<p>首次加载 Isaac Sim 时，着色器缓存需要较长时间。后续运行 Isaac Sim 会更快，因为着色器已被缓存，且容器运行时缓存会被挂载。</p>
+<p><strong>（5）安装isaac sim WebRTC流媒体客户端</strong></p>
+<p>见后续章节。输入运行 Isaac Sim 容器的机器或实例的 IP 地址，点击连接按钮开始实时流传输。</p>
+<h3 id="_10">云部署</h3>
+<p>Isaac Sim以容器形式提供，可在本地运行，也可在配备NVIDIA RTX的亚马逊云服务、微软、谷歌云平台、腾讯云或阿里云上运行，并支持将应用程序直接流式传输到您的桌面。这种基于云的交付方式能为任何桌面系统提供最新的RTX图像处理能力与性能，无需本地配置NVIDIA RTX GPU。</p>
+<p>根据选择的云服务提供商，提供以下可选方案。</p>
+<ul>
+<li>NVIDIA Brev：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_advanced_cloud_setup_brev.html" title="NVIDIA Brev Instructions">NVIDIA Brev Instructions</a></li>
+<li>AWS:<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_advanced_cloud_setup_aws.html" title="Amazon Web Instructions">Amazon Web Instructions</a></li>
+<li>Azure：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_advanced_cloud_setup_azure.html" title="Microsoft Cloud Instructions">Microsoft Cloud Instructions</a></li>
+<li>GCP：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_advanced_cloud_setup_gcp.html" title="Google Cloud Instructions">Google Cloud Instructions</a></li>
+<li>Tencent：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_advanced_cloud_setup_tencent.html" title="Tencent Cloud Instructions">Tencent Cloud Instructions</a></li>
+<li>Alibaba：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_advanced_cloud_setup_alibaba.html" title="Alibaba Cloud Instructions">Alibaba Cloud Instructions</a></li>
+<li>Volcano Engine：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_advanced_cloud_setup_volcano.html" title="Volcano Engine Instructions">Volcano Engine Instructions</a></li>
+<li>Remote：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_advanced_remote_setup.html" title="Remote Workstation Instructions">Remote Workstation Instructions</a></li>
+</ul>
+<p>上述链接提供了云端部署指南，包含通过 SSIsaac Automator 是一款高级工具，可帮助将自定义 Isaac Sim 部署自动化至公有云平台。该工具支持通过 SSH、基于网页的 VNC 客户端以及远程桌面客户端访问 Isaac Sim 实例，兼容 AWS、Azure、GCP 和阿里云等主流云服务商。H 和远程桌面客户端访问实例的操作说明。</p>
+<h3 id="_11">直播客户端</h3>
+<p>本节将介绍如何以无界面模式直播运行 Isaac Sim 实例。需要注意的是每个 Isaac Sim 实例同一时间只能采用一种直播方式。同一时间仅允许一个客户端访问单个 Isaac Sim 实例。要远程退出 Isaac Sim 应用程序：点击文件菜单，然后在流式传输的 Isaac Sim 应用中选择退出。接着关闭 Isaac Sim WebRTC 流媒体客户端应用。当 Isaac Sim 运行在 A100 GPU 上时不支持直播功能。直播需要 NVENC（NVIDIA 编码器）支持，而 A100 GPU 不包含该编码器。</p>
+<p>Isaac Sim WebRTC流媒体客户端是推荐的远程查看工具，可让您在桌面或工作站以无需配置高性能GPU可以查看Isaac Sim画面。</p>
+<p><strong>（1）服务端的启动</strong></p>
+<p>要使用Isaac Sim WebRTC流媒体客户端，需要先在远程运行isaac Sim。</p>
+<ul>
+<li>linux：cd ~/isaacsim &amp;&amp; ./isaac-sim.streaming.sh</li>
+<li>windows：双击isaac-sim.streaming.bat</li>
+<li>Docker：./runheadless.sh</li>
+<li>PIP：isaacsim isaacsim.exp.full.streaming --no-window</li>
+<li>Python sample：./python.sh standalone_examples/api/isaacsim.simulation_app/livestream.py</li>
+</ul>
+<p>要可以通过互联网连接远程实例运行isaac sim，需要添加以下标志：--/app/livestream/publicEndpointAddress= --/app/livestream/port=49100。如在docker容器示例中：</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">PUBLIC_IP</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-s<span class="w"> </span>ifconfig.me<span class="k">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>./runheadless.sh<span class="w"> </span>--/app/livestream/publicEndpointAddress<span class="o">=</span><span class="nv">$PUBLIC_IP</span><span class="w"> </span>--/app/livestream/port<span class="o">=</span><span class="m">49100</span>
+</code></pre></div>
+<p>然后在 Isaac Sim WebRTC 流媒体客户端应用中使用相同的公共 IP。运行 Isaac Sim 的主机必须开放UDP port 47998和TCP port 49100。</p>
+<p>确保 Isaac Sim 应用已加载就绪。首次启动时，Isaac Sim 可能需要数分钟才能完全加载完成。</p>
+<p>为确认加载状态，请在终端/控制台输出或应用日志中查找以下信息。使用 PIP 或 Python Sample 运行时可能不会显示该行信息。Isaac Sim Full Streaming App is loaded.</p>
+<p><strong>（2）客户端的启动</strong></p>
+<p>请根据您的平台，从最新发布版块下载 <a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/download.html#isaac-sim-latest-release" title="Isaac Sim WebRTC 流媒体客户端">Isaac Sim WebRTC 流媒体客户端</a>。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_35ff0eec5941355b42abfadeec4f0344_1757572599.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_35ff0eec5941355b42abfadeec4f0344_1757572599.png"/></a></p>
+<p>运行 Isaac Sim WebRTC 流媒体客户端应用程序。 <a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_f8f66cbbff321f5ebf781de3615b3120_1757572616.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_f8f66cbbff321f5ebf781de3615b3120_1757572616.png"/></a></p>
+<p>使用默认的 127.0.0.1 IP 地址作为服务器，连接到本地 Isaac Sim 实例。点击"连接"。连接过程可能需要一些时间。连接成功后，您将在客户端窗口中看到 Isaac Sim 界面。</p>
+<p>需要注意的是建议在与 Isaac Sim 无头实例相同的网络中使用 WebRTC 流媒体客户端。连接到同一网络中无头模式的 Isaac Sim 实例时，请将 127.0.0.1 替换为运行 Isaac Sim 的计算机 IP 地址。</p>
+<ul>
+<li>linux系统：在终端中运行 chmod +x xx.AppImage 命令，使应用程序获得可执行权限。双击 AppImage 文件即可运行 Isaac Sim WebRTC 流媒体客户端。重要提示：在 Ubuntu 22.04 或更高版本上运行需安装 libfuse2。具体安装方法请参阅《安装 FUSE 2》指南。</li>
+<li>windows：若在连接本地或远程 Isaac Sim 实例时遇到问题，请确保 Windows 防火墙允许列表中已添加/kit/kit.exe 及 Isaac Sim WebRTC 流媒体客户端应用。</li>
+<li>macbook：打开 DMG 文件后，点击并拖拽 Isaac Sim WebRTC 流媒体客户端应用程序至"应用程序"文件夹图标完成安装。</li>
+</ul>
+<p>要重新加载连接，请在视图菜单中点击“重新加载”。如果一段时间后出现空白屏幕，此操作可能会有所帮助。</p>
+<h3 id="python">Python环境安装</h3>
+<p>主要是在python虚拟环境中通过PIP安装Isaac Sim和使用isaac Sim默认python环境。这里就不展开了，具体参考链接：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_python.html" title="python环境安装">python环境安装</a></p>
+<h2 id="isaac-sim_1">Isaac Sim 资源库</h2>
+<p>isaac Sim提供多种资源与机器人模型，助您构建虚拟世界。部分资源专为isaac Sim及机器人应用打造，另一些则适用于其他基于NVIDIA Omniverse的应用程序。默认提供的资源均可在<strong>Window &gt; Browsers</strong>选项卡中找到。</p>
+<p>内容浏览器集中管理所有isaac Sim资源与文件，包含下来全部资源清单，以及URDF文件、配置文件、策略二进制等。<strong>Window &gt; Browsers &gt; Content</strong>。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_cea7ca519cd6cf7e199f908f2de7413d_1757574440.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_cea7ca519cd6cf7e199f908f2de7413d_1757574440.png"/></a></p>
+<p>isaac Sim最新版本提供示例资源包可供下载。使用这些资源时，需将文件下载至本地磁盘或Nucleus服务器。下文中所有资源路径均默认相对于 persistent.isaac.asset_root.default 设置中的默认资源根目录。详见<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/install_faq.html#isaac-sim-setup-assets-content-pack" title="本地资源包">本地资源包</a>章节。</p>
+<p>首次加载资源时耗时较长：机器人模型可能需要数分钟加载，大型环境场景的加载时间可能长达十分钟以上</p>
+<p>资源分类如下：</p>
+<ul>
+<li>机器人资产</li>
+<li>相机与深度传感器</li>
+<li>非视觉传感器</li>
+<li>道具</li>
+<li>环境</li>
+<li>精选资源</li>
+<li>Neural Volume渲染</li>
+</ul>
+<h3 id="_12">机器人</h3>
+<p>NVIDIA Isaac Sim 支持多种具有不同底盘、外形和功能的机器人。这些机器人可分为轮式机器人、全向移动机器人、四足机器人、机械臂和空中机器人（无人机），它们位于内容浏览器的 Isaac Sim/Robots 文件夹中。</p>
+<p><strong>（1）轮式机器人</strong></p>
+<p>Limo是NVIDIA Isaac Sim 支持集成 ROS 系统的 AgileX Limo 差速驱动底盘机器人。Robots/AgilexRobotics/Limo/limo.usd</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_c7504a696d93a783280fccf278cd240a_1757574959.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_c7504a696d93a783280fccf278cd240a_1757574959.png"/></a></p>
+<p>NVIDIA 卡特机器人专为导航相关应用提供差速移动底盘。新一代 Nova 卡特机器人基于 Nova Orin 计算与传感器平台打造。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_a38099d949862fc6d229c2f7f5f89aca_1757575009.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_a38099d949862fc6d229c2f7f5f89aca_1757575009.png"/></a></p>
+<p>NVIDIA Isaac Sim 支持 Clearpath 移动机器人，包括 Dingo 和 Jackal。Clearpath 机器人位于 Robots/Clearpath 中。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_58ed6a2285057bd4badf5ebe1135f7e6_1757575034.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_58ed6a2285057bd4badf5ebe1135f7e6_1757575034.png"/></a></p>
+<p>Evobot 是一款采用两轮驱动的自平衡机器人，专为抓取和运输物体设计。该机器人由德国多特蒙德弗劳恩霍夫研究所开发。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_b1c5306e67490a3bd85d0d0390431485_1757575056.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_b1c5306e67490a3bd85d0d0390431485_1757575056.png"/></a></p>
+<p>Forklift 叉车模型采用单枢轴轮和滚轮设计，通过连接至关节动作的棱柱关节来控制升降操作。 <a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_cd1e0470cc66150e7cdcf2e7832cc0f1_1757575094.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_cd1e0470cc66150e7cdcf2e7832cc0f1_1757575094.png"/></a></p>
+<p>JetBot是开源 NVIDIA JetBot 人工智能机器人平台为创客、学生和爱好者提供了构建创意趣味 AI 应用所需的一切。 <a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_ad735e5babc52c82cb77d57a3cef9d5c_1757575141.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_ad735e5babc52c82cb77d57a3cef9d5c_1757575141.png"/></a></p>
+<p>Idealworks iw.hub 是一款配备激光雷达和摄像头的移动底盘，搭载 NVIDIA AGX GPU 实现自主导航。该平台负载能力达 1000 公斤，最高行驶速度 2.2 米/秒。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_5fdb5c48326d01808e85cb952eaf2b29_1757575167.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_5fdb5c48326d01808e85cb952eaf2b29_1757575167.png"/></a></p>
+<p>iRobot 公司推出的 Create3 机器人是一款先进的差速驱动机器人，专为多种教育应用场景设计。其圆形底盘集成了多种传感器和先进控制功能，特别适合室内导航、环境建图等任务。NVIDIA Isaac Sim 中的 Create3 机器人配备了差速驱动系统和各类传感器，可实现高度逼真的仿真效果。Create 3 机器人可在 Robots/iRobot/Create3/create_3.usd - 基础版本中找到。已配置移动底盘物理系统。更多信息参阅 <a href="https://iroboteducation.github.io/create3_docs/" title="iRobot Create 3">iRobot Create 3</a> 。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_d6d43a571c06c8b7ec49450b3e2c65cd_1757575201.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_d6d43a571c06c8b7ec49450b3e2c65cd_1757575201.png"/></a></p>
+<p>Leatherback 是 NVIDIA 用于自动驾驶的研究平台。皮背甲机器人位于 Robots/NVIDIA/Leatherback/leatherback.usd</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_8a477e1c83c751b386fdb35a83f51e5b_1757575287.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_8a477e1c83c751b386fdb35a83f51e5b_1757575287.png"/></a></p>
+<p><strong>（2）全向移动机器人</strong></p>
+<p>Kaya机器人是一个展示 Isaac 机器人引擎在 NVIDIA Jetson Nano™平台上运行能力与灵活性的演示平台。该平台采用 3D 打印部件和爱好者级组件设计，力求实现最大程度的可及性，并配备三轮全向驱动系统，使其能够朝任意方向移动。 <a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_436f5ef6c96a2f06c1a8777af7098fba_1757575387.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_436f5ef6c96a2f06c1a8777af7098fba_1757575387.png"/></a></p>
+<ul>
+<li>Robots/NVIDIA/Kaya/kaya.usd ：基础版本</li>
+<li>Robots/NVIDIA/Kaya/kaya_ogn_gamepad.usd：基础版本，外加使用全向控制器实现的游戏手柄操控功能。</li>
+</ul>
+<p>O3dyn 是由多特蒙德弗劳恩霍夫研究所开发的自主全向运输机器人。凭借其全向轮，该机器人可实现任意方向移动，并通过四个杠杆抓取托盘，进而抬升托盘进行运输。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_d2f803606f58593e3f82b2cf3220df6e_1757575450.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_d2f803606f58593e3f82b2cf3220df6e_1757575450.png"/></a></p>
+<ul>
+<li>Robots/Fraunhofer/O3dyn/o3dyn.usd： 基础版本。包含移动底盘、夹具与升降机构的物理绑定，以及传感器定位功能。</li>
+<li>Robots/Fraunhofer/O3dyn/o3dyn_controller.usd ：基础版本，外加使用全向控制器实现的游戏手柄操控功能。</li>
+</ul>
+<p><strong>（3）四足机器人</strong></p>
+<p>Ant蚂蚁是一种基础四足机器人，腿部采用旋转关节设计，其原型源自 OpenAI Gym 中的 Ant 机器人。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_73542d972eb8719cd08ec74c6848d2f3_1757575512.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_73542d972eb8719cd08ec74c6848d2f3_1757575512.png"/></a></p>
+<ul>
+<li>Robots/IsaacSim/Ant/ant.usd ：基础版本。可通过菜单栏中 Create&gt;Robots&gt;Ant 选项创建。</li>
+<li>Robots/IsaacSim/Ant/ant_instanceable.usd ：可实例化版本，专为强化学习场景配置以创建多个高效克隆体。</li>
+</ul>
+<p>ANYmal 机器人是由 ANYbotics 开发的自主四足机器人。Isaac Sim 支持 B、C、D 三种型号。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_dc875e483a08537c0b96ee50fbdefed9_1757575567.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_dc875e483a08537c0b96ee50fbdefed9_1757575567.png"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_dbc17e76c7fc6e9f9a56368758211e36_1757575584.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_dbc17e76c7fc6e9f9a56368758211e36_1757575584.png"/></a></p>
+<p>Boston Dynamics Spot 波士顿动力 Spot 机器人位于 Robots/BostonDynamics/spot</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_acdb2a2a3bd8ab830f25d5867da78916_1757575630.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_acdb2a2a3bd8ab830f25d5867da78916_1757575630.png"/></a></p>
+<p>Unitree Quadruped Robots 宇树四足机器人A1、B2、Go1 和 Go2 是 Unitree Robotics 研发的四足机器人，在 Isaac Sim 中进行仿真。四足示例中使用的是 A1 型号。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_2bddbcd04bcc9fd5df7c1e919f696f64_1757575704.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_2bddbcd04bcc9fd5df7c1e919f696f64_1757575704.png"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_245eb4035a945fa9719d551766e7654c_1757575712.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_245eb4035a945fa9719d551766e7654c_1757575712.png"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_b0c5a4a15724c57eb9cde7928eee9984_1757575720.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_b0c5a4a15724c57eb9cde7928eee9984_1757575720.png"/></a></p>
+<p>关于四组机器人控制示例，请参阅：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/robot_simulation/ext_isaacsim_robot_policy_example.html#isaac-sim-policy-example" title="Isaac Sim 中的强化学习策略示例">Isaac Sim 中的强化学习策略示例</a></p>
+<p><strong>（4）机械臂机器人</strong></p>
+<p>Denso Cobotta 包含以下 Denso 型号：Cobotta Pro 900、Cobotta Pro 1300。位于 Robots/Denso/Cobotta。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_58fcdef83a0293bb9a093b81a1782740_1757575817.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_58fcdef83a0293bb9a093b81a1782740_1757575817.png"/></a></p>
+<p>Fanuc CRX10iA/L 是一款 6 轴机器人，有效载荷为 10 公斤。 <a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_afad9ca9d1961df5c68c37e4051c88a8_1757575842.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_afad9ca9d1961df5c68c37e4051c88a8_1757575842.png"/></a></p>
+<p>Festo费斯托协作机器人是一款六轴气动机械臂。 <a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_b1bd02023efdf9c4066f089988a530c2_1757575860.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_b1bd02023efdf9c4066f089988a530c2_1757575860.png"/></a></p>
+<p>Flexiv Rizon 4 是一款 7 轴自适应机械臂。 <a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_318696089d2462417288a0a23762563f_1757575886.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_318696089d2462417288a0a23762563f_1757575886.png"/></a></p>
+<p>RobotStudio是lerobot机械臂，包含以下 RobotStudio 模型：SO-100、SO-101。RobotStudio 机器人位于 Robots/RobotStudio。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_03c4052f0f94cecf57df38828c0c3351_1757575962.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_03c4052f0f94cecf57df38828c0c3351_1757575962.png"/></a></p>
+<p>太多了，只列出部分。</p>
+<p><strong>（5）空中机器人</strong></p>
+<p>Crazyflie 2.X 微型四轴飞行器机器人</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_67cdfbb05b2a1ae3a3dbaed7df7e19a5_1757576125.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_67cdfbb05b2a1ae3a3dbaed7df7e19a5_1757576125.png"/></a></p>
+<p>Ingenuity火星直升机"机智号"</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_600345bf80cf545d41c825f47094d24d_1757576145.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_600345bf80cf545d41c825f47094d24d_1757576145.png"/></a></p>
+<p><strong>（6）人形机器人</strong></p>
+<p>Fourier Intelligence GR1 傅里叶智能 GR1</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_3e06db6c185cc0b2a0fd045b4e28300e_1757576188.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_3e06db6c185cc0b2a0fd045b4e28300e_1757576188.png"/></a></p>
+<p>Unitree Humanoids 宇树人形机器人，位于 Robots/Unitree</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_24f0d9fb0b458b8d97425c9a0bb33abe_1757576223.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_24f0d9fb0b458b8d97425c9a0bb33abe_1757576223.png"/></a></p>
+<p>Xiao Peng PX5 小鹏 PX5机器人位于 Robots/XiaoPeng/PX5</p>
+<p><strong>（7）移动式机械臂</strong></p>
+<p>Clearpath Ridgeback提供两种 Clearpath Ridgeback 型号配置：一种配备 Emika Franka Panda 机械臂，另一种配备 Universal Robots UR5 机械臂。位于 Robots&gt;Clearpath 目录下。 <a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_938708faa083a330f86b22de969a69af_1757576333.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_938708faa083a330f86b22de969a69af_1757576333.png"/></a></p>
+<p>Boston Dynamics Spot 波士顿动力 Spot 机器人，带机械臂的 Spot 机器人位于 Robots&gt;BostonDynamics&gt;spot 路径下</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_4c34fcffc35bb85b998b189ebafccbf1_1757576356.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_4c34fcffc35bb85b998b189ebafccbf1_1757576356.png"/></a></p>
+<h3 id="_13">相机与深度传感器</h3>
+<p>Isaac Sim 支持相机和深度传感器，其数字孪生体可在内容浏览器中找到，位于 Isaac Sim/Sensors 目录下，并按制造商分类存放于子文件夹中。这里就不过多阐述。</p>
+<h3 id="_14">非视觉传感器</h3>
+<p>Isaac Sim 模拟了多种类型的非视觉传感器模型，其数字孪生体可在内容浏览器的 Isaac Sim/Sensors 路径下找到，并按制造商分类存放于子文件夹中。 部分非视觉传感器类型尚未提供数字孪生体。有关这些传感器的详细信息（包括如何通过图形界面创建它们），请点击下方链接：</p>
+<ul>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/sensors/isaacsim_sensors_physics_contact.html#isaacsim-sensors-physics-contact" title="接触传感器">接触传感器</a></li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/sensors/isaacsim_sensors_physics_imu.html#isaacsim-sensors-physics-imu" title="惯性测量单元传感器">惯性测量单元传感器</a></li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/sensors/isaacsim_sensors_physx_lightbeam.html#isaacsim-sensors-physx-lightbeam" title="光束传感器">光束传感器</a></li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/sensors/isaacsim_sensors_physx_lidar.html#isaacsim-sensors-physx-lidar" title="激光雷达">激光雷达</a></li>
+<li><a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/sensors/isaacsim_sensors_rtx_radar.html#isaacsim-sensors-rtx-radar" title="雷达">雷达</a></li>
+</ul>
+<h3 id="_15">道具</h3>
+<p>道具主要是一些角色人物如警察、医生、工人，以及杂项资产。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_d7af3d95d4e395c1a5481cfd295a4b62_1757576730.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_d7af3d95d4e395c1a5481cfd295a4b62_1757576730.png"/></a></p>
+<h3 id="_16">环境资产</h3>
+<p>环境资产提供如网格、房间、仓库、医院、办公室、赛道、小型仓库数字孪生</p>
+<p><strong>（1）简单网格</strong></p>
+<p>这个简易环境包含一块带有网格纹理的平坦地面和围边。系统提供了三种配置：前两种为直角转角，第三种则为圆角设计。 <a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_d4cdc00861f61510da03172607d14f87_1757576785.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_d4cdc00861f61510da03172607d14f87_1757576785.png"/></a></p>
+<p><strong>（2）简单房间</strong></p>
+<p>包含一张桌子的简易房间</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_8147ad775fe6d153f12bc436b2ee5306_1757576891.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_8147ad775fe6d153f12bc436b2ee5306_1757576891.png"/></a></p>
+<p>在内容浏览器中搜索 simple_room.usd 或通过创建菜单：<strong>Create&gt;Environments&gt;Simple Room</strong></p>
+<p><strong>（3）仓库</strong></p>
+<p>一个包含货架及可放置物品的仓库环境。提供四种配置方案：</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_0250dc9b90fdef3eaca8043491592e60_1757576966.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_0250dc9b90fdef3eaca8043491592e60_1757576966.png"/></a></p>
+<p><strong>（4）医院</strong></p>
+<p>医院环境，包含多个房间和空间。 <a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_64d136aff0c3dcbd61bf97631481d3cc_1757576992.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_64d136aff0c3dcbd61bf97631481d3cc_1757576992.png"/></a></p>
+<p><strong>（5）办公室</strong></p>
+<p>一个办公环境，包含多个房间和开放式平面布局。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_221b59909e437fb243da5917c9c93282_1757577019.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_221b59909e437fb243da5917c9c93282_1757577019.png"/></a></p>
+<p><strong>（6）赛道</strong></p>
+<p>地面上勾勒出的 Jetracer 赛道轮廓。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_7a248061eeda6545ff272312f108bd36_1757577047.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_7a248061eeda6545ff272312f108bd36_1757577047.png"/></a></p>
+<p><strong>（7）小型仓库数字孪生</strong></p>
+<p>一个小型仓库的数字孪生，可以使用。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_9961a9785def5c830f835779888713dc_1757577081.png"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_9961a9785def5c830f835779888713dc_1757577081.png"/></a></p>
+<h3 id="_17">精选资产</h3>
+<p>Nova Carter 搭载 Nova Orin™传感器与计算架构，是一套完整的机器人开发平台，可加速新一代自主移动机器人（AMR）的开发和部署。</p>
+<p>Nova Carter 目前作为 Isaac AMR 和 Isaac ROS 软件的双重参考平台，支持真实场景与仿真环境下的开发工作。用户可通过赛格威机器人公司购买 Nova Carter 机器人。</p>
+<p>关于功能完整的 Nova Carter Isaac Sim 资产详情，请参阅<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/assets/nova_carter_landing_page.html#isaac-nova-carter" title="Nova Carter 文档">Nova Carter 文档</a>页面。</p>
+<p>注意Nova Carter 机器人在首次加载时可能需要数分钟时间。</p>
+<h3 id="neural-volume">Neural Volume渲染</h3>
+<p>NuRec（神经重建）技术能够利用源自真实世界图像的神经体积数据，在 Omniverse 中进行场景渲染。这些基于 3D 高斯模型的场景可作为标准 USD 资产加载至 Isaac Sim，用于可视化与仿真。</p>
+<p>有关 NuRec 在 Omniverse 中的详细工作原理（包括数据准备、渲染设置及已知限制），请参阅<a href="https://docs.omniverse.nvidia.com/materials-and-rendering/latest/neural-rendering.html" title="NuRec 文档">NuRec 文档</a>。要生成兼容场景，可使用开源项目<a href="https://github.com/nv-tlabs/3dgrut" title="3DGruT">3DGruT</a>——该项目提供从图像集合训练 3D 高斯模型的工具，并能导出适用于 Omniverse 应用的 USDZ 格式数据。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_d0af10ffa1b6571fc2f8a55f40e8354a_1757577332.webp"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim-v5-0-0/images/wp_editor_md_d0af10ffa1b6571fc2f8a55f40e8354a_1757577332.webp"/></a></p>
+<p>示例展示了如何将 NuRec 场景加载到 Isaac Sim 中并运行模拟。该代码片段遍历提供的示例，首先加载指定的舞台，随后加载 carter 导航资源并设置起始位置。接着检查是否需要在生成位置创建碰撞地平面，若需要，则创建一个应用了碰撞 API 的平面基元。然后设置 carter 导航目标基元位置，并运行指定步数的模拟。在模拟过程中，轮式机器人将朝目标位置行进。</p>
+<div class="codehilite"><pre><span></span><code>import<span class="w"> </span>asyncio
+import<span class="w"> </span>os
+
+import<span class="w"> </span>omni.kit.commands
+import<span class="w"> </span>omni.kit.app
+import<span class="w"> </span>omni.usd
+import<span class="w"> </span>omni.timeline
+from<span class="w"> </span>isaacsim.storage.native<span class="w"> </span>import<span class="w"> </span>get_assets_root_path_async
+from<span class="w"> </span>isaacsim.core.utils.stage<span class="w"> </span>import<span class="w"> </span>add_reference_to_stage
+from<span class="w"> </span>pxr<span class="w"> </span>import<span class="w"> </span>PhysxSchema,<span class="w"> </span>UsdGeom,<span class="w"> </span>UsdPhysics
+
+<span class="c1"># User path of the HF NuRec dataset</span>
+<span class="nv">USER_PATH</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"/home/user/PhysicalAI-Robotics-NuRec"</span>
+
+<span class="c1"># Paths for loading and placing the Nova Carter navigation asset and its target.</span>
+<span class="nv">NOVA_CARTER_NAV_URL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"/Isaac/Samples/Replicator/OmniGraph/nova_carter_nav_only.usd"</span>
+<span class="nv">NOVA_CARTER_NAV_USD_PATH</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"/World/NovaCarterNav"</span>
+<span class="nv">NOVA_CARTER_NAV_TARGET_PATH</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>f<span class="s2">"{NOVA_CARTER_NAV_USD_PATH}/targetXform"</span>
+<span class="c1"># Scenarios for testing navigation in the environments</span>
+<span class="nv">EXAMPLE_CONFIGS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span>
+<span class="w">   </span><span class="o">{</span>
+<span class="w">      </span><span class="s2">"name"</span>:<span class="w"> </span><span class="s2">"Voyager Cafe"</span>,
+<span class="w">      </span><span class="s2">"stage_url"</span>:<span class="w"> </span>f<span class="s2">"{USER_PATH}/nova_carter-cafe/stage.usdz"</span>,
+<span class="w">      </span><span class="s2">"nav_start_loc"</span>:<span class="w"> </span><span class="o">(</span><span class="m">0</span>,<span class="w"> </span><span class="m">0</span>,<span class="w"> </span><span class="m">0</span><span class="o">)</span>,
+<span class="w">      </span><span class="s2">"nav_relative_target_loc"</span>:<span class="w"> </span><span class="o">(</span>-3,<span class="w"> </span>-1.5,<span class="w"> </span><span class="m">0</span><span class="o">)</span>,
+<span class="w">      </span><span class="s2">"create_collision_ground_plane"</span>:<span class="w"> </span>False,
+<span class="w">      </span><span class="s2">"num_simulation_steps"</span>:<span class="w"> </span><span class="m">500</span>,
+<span class="w">   </span><span class="o">}</span>,
+<span class="w">   </span><span class="o">{</span>
+<span class="w">      </span><span class="s2">"name"</span>:<span class="w"> </span><span class="s2">"Galileo Lab"</span>,
+<span class="w">      </span><span class="s2">"stage_url"</span>:<span class="w"> </span>f<span class="s2">"{USER_PATH}/nova_carter-galileo/stage.usdz"</span>,
+<span class="w">      </span><span class="s2">"nav_start_loc"</span>:<span class="w"> </span><span class="o">(</span><span class="m">3</span>.5,<span class="w"> </span><span class="m">2</span>.5,<span class="w"> </span><span class="m">0</span><span class="o">)</span>,
+<span class="w">      </span><span class="s2">"nav_relative_target_loc"</span>:<span class="w"> </span><span class="o">(</span><span class="m">4</span>,<span class="w"> </span><span class="m">0</span>,<span class="w"> </span><span class="m">0</span><span class="o">)</span>,
+<span class="w">      </span><span class="s2">"create_collision_ground_plane"</span>:<span class="w"> </span>False,
+<span class="w">      </span><span class="s2">"num_simulation_steps"</span>:<span class="w"> </span><span class="m">500</span>,
+<span class="w">   </span><span class="o">}</span>,
+<span class="w">   </span><span class="o">{</span>
+<span class="w">      </span><span class="s2">"name"</span>:<span class="w"> </span><span class="s2">"Wormhole"</span>,
+<span class="w">      </span><span class="s2">"stage_url"</span>:<span class="w"> </span>f<span class="s2">"{USER_PATH}/nova_carter-wormhole/stage.usdz"</span>,
+<span class="w">      </span><span class="s2">"nav_start_loc"</span>:<span class="w"> </span><span class="o">(</span><span class="m">0</span>,<span class="w"> </span><span class="m">0</span>,<span class="w"> </span><span class="m">0</span><span class="o">)</span>,
+<span class="w">      </span><span class="s2">"nav_relative_target_loc"</span>:<span class="w"> </span><span class="o">(</span><span class="m">5</span>,<span class="w"> </span><span class="m">0</span>,<span class="w"> </span><span class="m">0</span><span class="o">)</span>,
+<span class="w">      </span><span class="s2">"create_collision_ground_plane"</span>:<span class="w"> </span>False,
+<span class="w">      </span><span class="s2">"num_simulation_steps"</span>:<span class="w"> </span><span class="m">500</span>,
+<span class="w">   </span><span class="o">}</span>,
+<span class="w">   </span><span class="o">{</span>
+<span class="w">      </span><span class="s2">"name"</span>:<span class="w"> </span><span class="s2">"ZH Lounge"</span>,
+<span class="w">      </span><span class="s2">"stage_url"</span>:<span class="w"> </span>f<span class="s2">"{USER_PATH}/zh_lounge/usd/zh_lounge.usda"</span>,
+<span class="w">      </span><span class="s2">"nav_start_loc"</span>:<span class="w"> </span><span class="o">(</span>-1.5,<span class="w"> </span>-3,<span class="w"> </span>-1.6<span class="o">)</span>,
+<span class="w">      </span><span class="s2">"nav_relative_target_loc"</span>:<span class="w"> </span><span class="o">(</span>-0.5,<span class="w"> </span><span class="m">5</span>,<span class="w"> </span>-1.6<span class="o">)</span>,
+<span class="w">      </span><span class="s2">"create_collision_ground_plane"</span>:<span class="w"> </span>True,
+<span class="w">      </span><span class="s2">"num_simulation_steps"</span>:<span class="w"> </span><span class="m">500</span>,
+<span class="w">   </span><span class="o">}</span>,
+<span class="o">]</span>
+
+async<span class="w"> </span>def<span class="w"> </span>run_example_async<span class="o">(</span>example_config<span class="o">)</span>:
+<span class="w">   </span><span class="nv">example_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>example_config.get<span class="o">(</span><span class="s2">"name"</span><span class="o">)</span>
+<span class="w">   </span>print<span class="o">(</span>f<span class="s2">"Running example: '{example_name}'"</span><span class="o">)</span>
+
+<span class="w">   </span><span class="c1"># Open the stage</span>
+<span class="w">   </span><span class="nv">stage_url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>example_config.get<span class="o">(</span><span class="s2">"stage_url"</span><span class="o">)</span>
+<span class="w">   </span><span class="k">if</span><span class="w"> </span>not<span class="w"> </span>stage_url:
+<span class="w">      </span>print<span class="o">(</span>f<span class="s2">"Stage URL not provided, exiting"</span><span class="o">)</span>
+<span class="w">      </span><span class="k">return</span>
+<span class="w">   </span><span class="k">if</span><span class="w"> </span>not<span class="w"> </span>os.path.exists<span class="o">(</span>stage_url<span class="o">)</span>:
+<span class="w">      </span>print<span class="o">(</span>f<span class="s2">"Stage URL does not exist: '{stage_url}', exiting"</span><span class="o">)</span>
+<span class="w">      </span><span class="k">return</span>
+
+<span class="w">   </span>print<span class="o">(</span>f<span class="s2">"Opening stage: '{stage_url}'"</span><span class="o">)</span>
+<span class="w">   </span>await<span class="w"> </span>omni.usd.get_context<span class="o">()</span>.open_stage_async<span class="o">(</span>stage_url<span class="o">)</span>
+<span class="w">   </span><span class="nv">stage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>omni.usd.get_context<span class="o">()</span>.get_stage<span class="o">()</span>
+
+<span class="w">   </span><span class="c1"># Make sure the physics scene is set to synchronous for the navigation to work</span>
+<span class="w">   </span><span class="k">for</span><span class="w"> </span>prim<span class="w"> </span><span class="k">in</span><span class="w"> </span>stage.Traverse<span class="o">()</span>:
+<span class="w">      </span><span class="k">if</span><span class="w"> </span>prim.IsA<span class="o">(</span>UsdPhysics.Scene<span class="o">)</span>:
+<span class="w">            </span><span class="nv">physx_scene</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>PhysxSchema.PhysxSceneAPI.Apply<span class="o">(</span>prim<span class="o">)</span>
+<span class="w">            </span>physx_scene.GetUpdateTypeAttr<span class="o">()</span>.Set<span class="o">(</span><span class="s2">"Synchronous"</span><span class="o">)</span>
+<span class="w">            </span><span class="k">break</span>
+
+<span class="w">   </span><span class="c1"># Load the carter navigation asset</span>
+<span class="w">   </span><span class="nv">assets_root_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>await<span class="w"> </span>get_assets_root_path_async<span class="o">()</span>
+<span class="w">   </span><span class="nv">carter_nav_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>assets_root_path<span class="w"> </span>+<span class="w"> </span>NOVA_CARTER_NAV_URL
+<span class="w">   </span>print<span class="o">(</span>f<span class="s2">"Loading carter nova asset: '{carter_nav_path}'"</span><span class="o">)</span>
+<span class="w">   </span><span class="nv">carter_nav_prim</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>add_reference_to_stage<span class="o">(</span><span class="nv">usd_path</span><span class="o">=</span>carter_nav_path,<span class="w"> </span><span class="nv">prim_path</span><span class="o">=</span>NOVA_CARTER_NAV_USD_PATH<span class="o">)</span>
+
+<span class="w">   </span><span class="c1"># Set the carter navigation start location</span>
+<span class="w">   </span><span class="nv">nav_start_loc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>example_config.get<span class="o">(</span><span class="s2">"nav_start_loc"</span><span class="o">)</span>
+<span class="w">   </span><span class="k">if</span><span class="w"> </span>not<span class="w"> </span>nav_start_loc:
+<span class="w">      </span>print<span class="o">(</span>f<span class="s2">"Navigation start location not provided, exiting"</span><span class="o">)</span>
+<span class="w">      </span><span class="k">return</span>
+<span class="w">   </span>print<span class="o">(</span>f<span class="s2">"Setting carter navigation start location to: {nav_start_loc}"</span><span class="o">)</span>
+<span class="w">   </span><span class="k">if</span><span class="w"> </span>not<span class="w"> </span>carter_nav_prim.GetAttribute<span class="o">(</span><span class="s2">"xformOp:translate"</span><span class="o">)</span>:
+<span class="w">      </span>UsdGeom.Xformable<span class="o">(</span>carter_nav_prim<span class="o">)</span>.AddTranslateOp<span class="o">()</span>
+<span class="w">   </span>carter_nav_prim.GetAttribute<span class="o">(</span><span class="s2">"xformOp:translate"</span><span class="o">)</span>.Set<span class="o">(</span>nav_start_loc<span class="o">)</span>
+
+<span class="w">   </span><span class="c1"># Check if a collision ground plane needs to be created at the spawn location</span>
+<span class="w">   </span><span class="k">if</span><span class="w"> </span>example_config.get<span class="o">(</span><span class="s2">"create_collision_ground_plane"</span><span class="o">)</span>:
+<span class="w">      </span><span class="nv">plane_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"/World/CollisionPlane"</span>
+<span class="w">      </span>print<span class="o">(</span>f<span class="s2">"Creating collision ground plane {plane_path} at {nav_start_loc}"</span><span class="o">)</span>
+<span class="w">      </span>omni.kit.commands.execute<span class="o">(</span><span class="s2">"CreateMeshPrimWithDefaultXform"</span>,<span class="w"> </span><span class="nv">prim_path</span><span class="o">=</span>plane_path,<span class="w"> </span><span class="nv">prim_type</span><span class="o">=</span><span class="s2">"Plane"</span><span class="o">)</span>
+<span class="w">      </span><span class="nv">plane_prim</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>stage.GetPrimAtPath<span class="o">(</span>plane_path<span class="o">)</span>
+<span class="w">      </span>plane_prim.GetAttribute<span class="o">(</span><span class="s2">"xformOp:scale"</span><span class="o">)</span>.Set<span class="o">((</span><span class="m">10</span>,<span class="w"> </span><span class="m">10</span>,<span class="w"> </span><span class="m">1</span><span class="o">))</span>
+<span class="w">      </span>plane_prim.GetAttribute<span class="o">(</span><span class="s2">"xformOp:translate"</span><span class="o">)</span>.Set<span class="o">(</span>nav_start_loc<span class="o">)</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span>not<span class="w"> </span>plane_prim.HasAPI<span class="o">(</span>UsdPhysics.CollisionAPI<span class="o">)</span>:
+<span class="w">            </span><span class="nv">collision_api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>UsdPhysics.CollisionAPI.Apply<span class="o">(</span>plane_prim<span class="o">)</span>
+<span class="w">      </span><span class="k">else</span>:
+<span class="w">            </span><span class="nv">collision_api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>UsdPhysics.CollisionAPI<span class="o">(</span>plane_prim<span class="o">)</span>
+<span class="w">      </span>collision_api.CreateCollisionEnabledAttr<span class="o">(</span>True<span class="o">)</span>
+<span class="w">      </span>plane_prim.GetAttribute<span class="o">(</span><span class="s2">"visibility"</span><span class="o">)</span>.Set<span class="o">(</span><span class="s2">"invisible"</span><span class="o">)</span>
+
+<span class="w">   </span><span class="c1"># Set the carter navigation target prim location</span>
+<span class="w">   </span><span class="nv">nav_relative_target_loc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>example_config.get<span class="o">(</span><span class="s2">"nav_relative_target_loc"</span><span class="o">)</span>
+<span class="w">   </span><span class="k">if</span><span class="w"> </span>not<span class="w"> </span>nav_relative_target_loc:
+<span class="w">      </span>print<span class="o">(</span>f<span class="s2">"Navigation relative target location not provided, exiting"</span><span class="o">)</span>
+<span class="w">      </span><span class="k">return</span>
+<span class="w">   </span>print<span class="o">(</span>f<span class="s2">"Setting carter navigation target location to: {nav_relative_target_loc}"</span><span class="o">)</span>
+<span class="w">   </span><span class="nv">carter_navigation_target_prim</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>stage.GetPrimAtPath<span class="o">(</span>NOVA_CARTER_NAV_TARGET_PATH<span class="o">)</span>
+<span class="w">   </span><span class="k">if</span><span class="w"> </span>not<span class="w"> </span>carter_navigation_target_prim.IsValid<span class="o">()</span>:
+<span class="w">      </span>print<span class="o">(</span>f<span class="s2">"Carter navigation target prim not found at path: '{NOVA_CARTER_NAV_TARGET_PATH}', exiting"</span><span class="o">)</span>
+<span class="w">      </span><span class="k">return</span>
+<span class="w">   </span><span class="k">if</span><span class="w"> </span>not<span class="w"> </span>carter_navigation_target_prim.GetAttribute<span class="o">(</span><span class="s2">"xformOp:translate"</span><span class="o">)</span>:
+<span class="w">      </span>UsdGeom.Xformable<span class="o">(</span>carter_navigation_target_prim<span class="o">)</span>.AddTranslateOp<span class="o">()</span>
+<span class="w">   </span>carter_navigation_target_prim.GetAttribute<span class="o">(</span><span class="s2">"xformOp:translate"</span><span class="o">)</span>.Set<span class="o">(</span>nav_relative_target_loc<span class="o">)</span>
+
+<span class="w">   </span><span class="c1"># Run the simulation for the given number of steps</span>
+<span class="w">   </span><span class="nv">num_simulation_steps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>example_config.get<span class="o">(</span><span class="s2">"num_simulation_steps"</span><span class="o">)</span>
+<span class="w">   </span><span class="k">if</span><span class="w"> </span>not<span class="w"> </span>num_simulation_steps:
+<span class="w">      </span>print<span class="o">(</span>f<span class="s2">"Number of simulation steps not provided, exiting"</span><span class="o">)</span>
+<span class="w">      </span><span class="k">return</span>
+<span class="w">   </span>print<span class="o">(</span>f<span class="s2">"Running {num_simulation_steps} simulation steps"</span><span class="o">)</span>
+<span class="w">   </span><span class="nv">timeline</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>omni.timeline.get_timeline_interface<span class="o">()</span>
+<span class="w">   </span>timeline.play<span class="o">()</span>
+<span class="w">   </span><span class="k">for</span><span class="w"> </span>i<span class="w"> </span><span class="k">in</span><span class="w"> </span>range<span class="o">(</span>num_simulation_steps<span class="o">)</span>:
+<span class="w">      </span><span class="k">if</span><span class="w"> </span>i<span class="w"> </span>%<span class="w"> </span><span class="nv">10</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="m">0</span>:
+<span class="w">            </span>print<span class="o">(</span>f<span class="s2">"Step {i}, time: {timeline.get_current_time():.4f}"</span><span class="o">)</span>
+<span class="w">      </span>await<span class="w"> </span>omni.kit.app.get_app<span class="o">()</span>.next_update_async<span class="o">()</span>
+
+<span class="w">   </span>print<span class="o">(</span>f<span class="s2">"Simulation complete, pausing timeline"</span><span class="o">)</span>
+<span class="w">   </span>timeline.pause<span class="o">()</span>
+
+async<span class="w"> </span>def<span class="w"> </span>run_examples_async<span class="o">()</span>:
+<span class="w">   </span><span class="k">for</span><span class="w"> </span>example_config<span class="w"> </span><span class="k">in</span><span class="w"> </span>EXAMPLE_CONFIGS:
+<span class="w">      </span>await<span class="w"> </span>run_example_async<span class="o">(</span>example_config<span class="o">)</span>
+
+asyncio.ensure_future<span class="o">(</span>run_examples_async<span class="o">())</span>
+</code></pre></div>
+<p>从 Hugging Face 下载 NVIDIA NuRec 数据集。更新脚本中的 USER_PATH 变量： USER_PATH = "/home/user/PhysicalAI-Robotics-NuRec"。</p>
+<p>本文主要来自<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/index.html" title="Isaac Sim Documentation  V5.0.0">Isaac Sim Documentation V5.0.0</a>的翻译。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="isaac-sim-快速入门-三种工作流程示例.html">← Isaac Sim 快速入门：三种工作流程示例</a>
+    <a class="next" href="解决ubuntu安装搜狗输入闪烁.html">解决ubuntu安装搜狗输入闪烁 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

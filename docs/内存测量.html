@@ -478,8 +478,8 @@
 </code></pre></div>
 <p>操作系统对于小块内存的管理方式，如 Linux 内核中的延迟映射（Lazy Mapping）或零页复制（Zero Page COW）等技术所导致的。在某些情况下，操作系统可能会推迟实际的物理页面映射，直到首次访问相应的内存位置。这意味着即使您访问和修改了分配的内存，实际的物理页面映射可能仍然被推迟。即使使用memset修改了内存，但是可能也不会进行映射，通常可能只有在内存被修改为不同内容时，才会进行实际物理页面映射。而只有做了物理页面映射，进程的USS才会增加。</p></div>
   <div class="post-nav">
-    <a class="prev" href="wordpress设定固定链接.html">← wordpress设定固定链接</a>
-    <a class="next" href="进程虚拟内存.html">进程虚拟内存 →</a>
+    <a class="prev" href="wordpress怎么被google-百度搜索到.html">← wordpress怎么被google，百度搜索到。</a>
+    <a class="next" href="wordpress设定固定链接.html">wordpress设定固定链接 →</a>
   </div>
 </article>
 

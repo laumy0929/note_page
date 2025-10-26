@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>lekiwi+Orin Nano环境搭建 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">环境准备</a><ul><li><a href="#_2">组装硬件</a></li><li><a href="#orin-nano">Orin nano</a></li><li><a href="#pc-ubunut">PC ubunut</a></li></ul></li><li><a href="#_3">软件安装</a><ul><li><a href="#_4">代码下载</a></li><li><a href="#_5">配置安装</a></li></ul></li><li><a href="#_6">遥操作</a><ul><li><a href="#_7">标定</a></li><li><a href="#_8">遥控</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>lekiwi+Orin Nano环境搭建</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-10-25
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">环境准备</h2>
+<p>简要记录在Orin nano平台搭建lekiwi环境，可以远程遥控底盘移动和机械臂示教的过程，需要的硬件如下： - NVIDIA Jetson Orin Nano开发板 - Lekiwi套件（底盘、主从机械臂） - PC，预装好Ubuntu系统</p>
+<h3 id="_2">组装硬件</h3>
+<p>将底盘、主从机械臂、Orin nano组装好，需要注意的是由于官方默认使用的计算平台是树莓派，所以默认提供的供电接口是USB 5V。我们这里使用的Orin Nano平台，使用的是DC5525电源接口，因此需要提前购买准备DC5521 to DC5525的转接线。</p>
+<p>详细组装可以参考 （1）https://github.com/SIGRobotics-UIUC/LeKiwi/blob/main/Assembly.md （2）https://huggingface.co/docs/lerobot/so101#step-by-step-assembly-instructions</p>
+<h3 id="orin-nano">Orin nano</h3>
+<p>首先，首次启动先接上键盘、鼠标、显示器登录配置好网络和VNC。</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>update
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>vino
+
+<span class="c1"># 设置vino开机自启</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span>~/.config/autostart
+cp<span class="w"> </span>/usr/share/applications/vino-server.desktop<span class="w"> </span>~/.config/autostart/.
+
+<span class="nb">cd</span><span class="w"> </span>/usr/lib/systemd/user/graphical-session.target.wants
+sudo<span class="w"> </span>ln<span class="w"> </span>-s<span class="w"> </span>../vino-server.service<span class="w"> </span>./.
+
+<span class="c1"># 调整共享／认证设置</span>
+gsettings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>org.gnome.Vino<span class="w"> </span>prompt-enabled<span class="w"> </span><span class="nb">false</span>
+gsettings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>org.gnome.Vino<span class="w"> </span>require-encryption<span class="w"> </span><span class="nb">false</span>
+
+<span class="c1"># 设置密码，默认thepassword</span>
+gsettings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>org.gnome.Vino<span class="w"> </span>authentication-methods<span class="w"> </span><span class="s2">"['vnc']"</span>
+gsettings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>org.gnome.Vino<span class="w"> </span>vnc-password<span class="w"> </span><span class="k">$(</span><span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s1">'thepassword'</span><span class="p">|</span>base64<span class="k">)</span>
+
+<span class="c1"># 然后重启就可以使用VNC viewer访问了</span>
+sudo<span class="w"> </span>reboot
+</code></pre></div>
+<p>其次，安装conda 环境，由于Jetson架构是aarch64，所以下载miniconda aarch64的版本。</p>
+<div class="codehilite"><pre><span></span><code>wget<span class="w"> </span>https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh
+sh<span class="w"> </span>Miniconda3-latest-Linux-x86_64.sh
+<span class="nb">source</span><span class="w"> </span>~/.bashrc
+</code></pre></div>
+<h3 id="pc-ubunut">PC ubunut</h3>
+<p>同理安装conda环境，与jetson不一样的是，PC是X86架构。</p>
+<div class="codehilite"><pre><span></span><code>wget<span class="w"> </span>https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+sh<span class="w"> </span>Miniconda3-latest-Linux-x86_64.sh
+<span class="nb">source</span><span class="w"> </span>~/.bashrc
+</code></pre></div>
+<h2 id="_3">软件安装</h2>
+<h3 id="_4">代码下载</h3>
+<p>在Orin nano和PC ubuntu上各自从github上克隆开源代码。</p>
+<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/huggingface/lerobot.git
+</code></pre></div>
+<h3 id="_5">配置安装</h3>
+<p>首先，在Orin nano和PC ubuntu上各自创建lekiwi的环境。</p>
+<div class="codehilite"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>lekiwi<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.10
+conda<span class="w"> </span>activate<span class="w"> </span>lekiwi
+</code></pre></div>
+<p>其次，切到lerobot环境下进行安装</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>lerobot
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[feetech]"</span>
+conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span><span class="nv">ffmpeg</span><span class="o">=</span><span class="m">7</span>.1.1
+</code></pre></div>
+<h2 id="_6">遥操作</h2>
+<h3 id="_7">标定</h3>
+<p>需要给主臂、从臂进行标定，以限制关节的最大运动范围。在标定前，可以先看看视频怎么操作机械臂https://huggingface.co/docs/lerobot/so101#calibrate</p>
+<p>（1）从臂的运行命令如下</p>
+<div class="codehilite"><pre><span></span><code>lerobot-calibrate<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--robot.type<span class="o">=</span>lekiwi<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--robot.id<span class="o">=</span>R1225280<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--robot.cameras<span class="o">=</span><span class="s1">'{handeye: {type: opencv, index_or_path: 0, width: 640, height: 360, fps: 30}}'</span>
+</code></pre></div>
+<p>标定的文件 （2）主臂的运行命令如下：</p>
+<div class="codehilite"><pre><span></span><code>lerobot-calibrate<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--teleop.type<span class="o">=</span>so101_leader<span class="w">  </span><span class="se">\</span>
+<span class="w">    </span>--teleop.port<span class="o">=</span>/dev/ttyACM0<span class="w">  </span><span class="se">\</span>
+<span class="w">    </span>--teleop.id<span class="o">=</span>R07252801
+</code></pre></div>
+<p>（3）标定好后会在下面路径存储标定的参数</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># orin nano平台</span>
+~/.cache/huggingface/lerobot/calibration/robots/lekiwi/R1225280.json
+<span class="c1"># ubuntu平台</span>
+~/.cache/huggingface/lerobot/calibration/teleoperators/so101_leader/R07252801.json
+</code></pre></div>
+<h3 id="_8">遥控</h3>
+<p>（1）由于PC和lekiwi之前的遥控使用的是gRPC，所以需要先安装zmq，否则会报错。</p>
+<div class="codehilite"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>zmq
+</code></pre></div>
+<p>（2）orin nano启动命令，host.connection_time_s设置的是时间（单位是秒），超过这个时间会自动断开。</p>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>lerobot.robots.lekiwi.lekiwi_host<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--robot.id<span class="o">=</span>R1225280<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--robot.cameras<span class="o">=</span><span class="s1">'{handeye: {type: opencv, index_or_path: 0, width: 640, height: 360, fps: 30}}'</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--host.connection_time_s<span class="o">=</span><span class="m">300</span>
+</code></pre></div>
+<p>（3）PC ubuntu需要修改示例代码，修改点如下：</p>
+<div class="codehilite"><pre><span></span><code>diff<span class="w"> </span>--git<span class="w"> </span>a/examples/lekiwi/teleoperate.py<span class="w"> </span>b/examples/lekiwi/teleoperate.py
+index<span class="w"> </span>6b430df4..cb4ad415<span class="w"> </span><span class="m">100644</span>
+---<span class="w"> </span>a/examples/lekiwi/teleoperate.py
++++<span class="w"> </span>b/examples/lekiwi/teleoperate.py
+@@<span class="w"> </span>-18,20<span class="w"> </span>+18,20<span class="w"> </span>@@<span class="w"> </span>import<span class="w"> </span><span class="nb">time</span>
+
+<span class="w"> </span>from<span class="w"> </span>lerobot.robots.lekiwi<span class="w"> </span>import<span class="w"> </span>LeKiwiClient,<span class="w"> </span>LeKiwiClientConfig
+<span class="w"> </span>from<span class="w"> </span>lerobot.teleoperators.keyboard.teleop_keyboard<span class="w"> </span>import<span class="w"> </span>KeyboardTeleop,<span class="w"> </span>KeyboardTeleopConfig
+-from<span class="w"> </span>lerobot.teleoperators.so100_leader<span class="w"> </span>import<span class="w"> </span>SO100Leader,<span class="w"> </span>SO100LeaderConfig
++from<span class="w"> </span>lerobot.teleoperators.so101_leader<span class="w"> </span>import<span class="w"> </span>SO101Leader,<span class="w"> </span>SO101LeaderConfig
+<span class="w"> </span>from<span class="w"> </span>lerobot.utils.robot_utils<span class="w"> </span>import<span class="w"> </span>busy_wait
+<span class="w"> </span>from<span class="w"> </span>lerobot.utils.visualization_utils<span class="w"> </span>import<span class="w"> </span>init_rerun,<span class="w"> </span>log_rerun_data
+
+<span class="w"> </span><span class="nv">FPS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">30</span>
+
+<span class="w"> </span><span class="c1"># Create the robot and teleoperator configurations</span>
+-robot_config<span class="w"> </span><span class="o">=</span><span class="w"> </span>LeKiwiClientConfig<span class="o">(</span><span class="nv">remote_ip</span><span class="o">=</span><span class="s2">"172.18.134.136"</span>,<span class="w"> </span><span class="nv">id</span><span class="o">=</span><span class="s2">"my_lekiwi"</span><span class="o">)</span>
+-teleop_arm_config<span class="w"> </span><span class="o">=</span><span class="w"> </span>SO100LeaderConfig<span class="o">(</span><span class="nv">port</span><span class="o">=</span><span class="s2">"/dev/tty.usbmodem585A0077581"</span>,<span class="w"> </span><span class="nv">id</span><span class="o">=</span><span class="s2">"my_awesome_leader_arm"</span><span class="o">)</span>
++robot_config<span class="w"> </span><span class="o">=</span><span class="w"> </span>LeKiwiClientConfig<span class="o">(</span><span class="nv">remote_ip</span><span class="o">=</span><span class="s2">"192.168.0.33"</span>,<span class="w"> </span><span class="nv">id</span><span class="o">=</span><span class="s2">"my_lekiwi"</span><span class="o">)</span>
++teleop_arm_config<span class="w"> </span><span class="o">=</span><span class="w"> </span>SO101LeaderConfig<span class="o">(</span><span class="nv">port</span><span class="o">=</span><span class="s2">"/dev/ttyACM0"</span>,<span class="w"> </span><span class="nv">id</span><span class="o">=</span><span class="s2">"R07252801"</span><span class="o">)</span>
+<span class="w"> </span><span class="nv">keyboard_config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>KeyboardTeleopConfig<span class="o">(</span><span class="nv">id</span><span class="o">=</span><span class="s2">"my_laptop_keyboard"</span><span class="o">)</span>
+
+<span class="w"> </span><span class="c1"># Initialize the robot and teleoperator</span>
+<span class="w"> </span><span class="nv">robot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>LeKiwiClient<span class="o">(</span>robot_config<span class="o">)</span>
+-leader_arm<span class="w"> </span><span class="o">=</span><span class="w"> </span>SO100Leader<span class="o">(</span>teleop_arm_config<span class="o">)</span>
++leader_arm<span class="w"> </span><span class="o">=</span><span class="w"> </span>SO101Leader<span class="o">(</span>teleop_arm_config<span class="o">)</span>
+<span class="w"> </span><span class="nv">keyboard</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>KeyboardTeleop<span class="o">(</span>keyboard_config<span class="o">)</span>
+</code></pre></div>
+<ul>
+<li>将SO100改成SO101，因为我们的主臂使用的是SO101</li>
+<li>将remote_ip改成jetson nano的ip</li>
+<li>配置好SO101的uart端口和标定的文件</li>
+</ul>
+<p>（4）PC ubunut执行命令</p>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>examples/lekiwi/teleoperate.py
+</code></pre></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_0759fce32403b4f326054572ced3b614_1761372407.jpg"><img alt="" src="assets/doc/04-ai/ai应用/lekiwiorin-nano环境搭建/images/wp_editor_md_0759fce32403b4f326054572ced3b614_1761372407.jpg"/></a></p>
+<p>之后就可以使用键盘和主臂进行遥控操作了。</p>
+<table>
+<thead>
+<tr>
+<th><strong>Key</strong></th>
+<th><strong>Action</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>W</td>
+<td>前进</td>
+</tr>
+<tr>
+<td>S</td>
+<td>后退</td>
+</tr>
+<tr>
+<td>A</td>
+<td>左移</td>
+</tr>
+<tr>
+<td>D</td>
+<td>右移</td>
+</tr>
+<tr>
+<td>Z</td>
+<td>左转（逆时针）</td>
+</tr>
+<tr>
+<td>X</td>
+<td>右转（顺时针）</td>
+</tr>
+<tr>
+<td>R</td>
+<td>加速一档</td>
+</tr>
+<tr>
+<td>F</td>
+<td>减速一档</td>
+</tr>
+</tbody>
+</table></div>
+  <div class="post-nav">
+    
+    <a class="next" href="jetson-orin-nano环境搭建.html">Jetson Orin Nano环境搭建 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

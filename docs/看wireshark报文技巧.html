@@ -69,32 +69,32 @@
     </span>
   </div>
   <div class="post-content"><h2 id="tcp">TCP握手与挥手</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_15c18286b29b68b5e81affedc114f545.jpg"><img alt="" src="assets/doc/08-网络/关于看wireshark报技巧/images/wp_editor_md_15c18286b29b68b5e81affedc114f545.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_15c18286b29b68b5e81affedc114f545.jpg"><img alt="" src="assets/doc/09-网络/关于看wireshark报技巧/images/wp_editor_md_15c18286b29b68b5e81affedc114f545.jpg"/></a></p>
 <h3 id="syncack">握手看SYNC与ACK</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_0b76ff3c1095a775f6561e404082a17a.jpg"><img alt="" src="assets/doc/08-网络/关于看wireshark报技巧/images/wp_editor_md_0b76ff3c1095a775f6561e404082a17a.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_0b76ff3c1095a775f6561e404082a17a.jpg"><img alt="" src="assets/doc/09-网络/关于看wireshark报技巧/images/wp_editor_md_0b76ff3c1095a775f6561e404082a17a.jpg"/></a></p>
 <p>第一次握手[SYNC]标志, 第二次握手看[SYNC,ACK]标志，第三次ACK。</p>
 <h3 id="fin">挥手看FIN</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_74a4a9f4a97db492803b8b344c3ed893.jpg"><img alt="" src="assets/doc/08-网络/关于看wireshark报技巧/images/wp_editor_md_74a4a9f4a97db492803b8b344c3ed893.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_74a4a9f4a97db492803b8b344c3ed893.jpg"><img alt="" src="assets/doc/09-网络/关于看wireshark报技巧/images/wp_editor_md_74a4a9f4a97db492803b8b344c3ed893.jpg"/></a></p>
 <h2 id="_1">报文交互</h2>
 <h3 id="_2">正常交互</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_57a1b92781a03545a4354152f8a9896d.jpg"><img alt="" src="assets/doc/08-网络/关于看wireshark报技巧/images/wp_editor_md_57a1b92781a03545a4354152f8a9896d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_57a1b92781a03545a4354152f8a9896d.jpg"><img alt="" src="assets/doc/09-网络/关于看wireshark报技巧/images/wp_editor_md_57a1b92781a03545a4354152f8a9896d.jpg"/></a></p>
 <ul>
 <li>先看len，当长度为0,这个包是ack包，长度不为0表示是发送的数据包。</li>
 <li>再看ack，表示该值以前的序号都收到了。ack是对端上一个报文的seq+len，同时也是期望对端下一个发包。</li>
 </ul>
 <h3 id="_3">警告交互</h3>
 <h4 id="tcp-dup-ack">TCP Dup ACK</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_d2c0306a428e6cc86fea8d3fad2a1323.jpg"><img alt="" src="assets/doc/08-网络/关于看wireshark报技巧/images/wp_editor_md_d2c0306a428e6cc86fea8d3fad2a1323.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_d2c0306a428e6cc86fea8d3fad2a1323.jpg"><img alt="" src="assets/doc/09-网络/关于看wireshark报技巧/images/wp_editor_md_d2c0306a428e6cc86fea8d3fad2a1323.jpg"/></a></p>
 <p>重传ACK[TCP dup ack AAA#B],其中A表示重复发送的是哪个number的报文（注意不是seq），B表示这是第几次重复发送ACK。主要有以下场景会导致。</p>
 <p>回复的ACK丢了导致对端没有收到，导致对端重复发送报文，以至于期望接收的报文没有收到，需要重复发送ACK。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_1bdbe614125db82830b425cca9164d31.jpg"><img alt="" src="assets/doc/08-网络/关于看wireshark报技巧/images/wp_editor_md_1bdbe614125db82830b425cca9164d31.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_1bdbe614125db82830b425cca9164d31.jpg"><img alt="" src="assets/doc/09-网络/关于看wireshark报技巧/images/wp_editor_md_1bdbe614125db82830b425cca9164d31.jpg"/></a></p>
 <p>序列468的重发实际是多余，接收者在466序列已经收到了。</p>
 <h4 id="tcp-out-of-order">TCP Out-of-Order</h4>
 <p>报文乱序，发送报文的seq不对，一般情况下是对TCP Dup ACK的重传。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_7a5488ed6e1b1a746aee81e5bd145c28.jpg"><img alt="" src="assets/doc/08-网络/关于看wireshark报技巧/images/wp_editor_md_7a5488ed6e1b1a746aee81e5bd145c28.jpg"/></a></p></div>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_7a5488ed6e1b1a746aee81e5bd145c28.jpg"><img alt="" src="assets/doc/09-网络/关于看wireshark报技巧/images/wp_editor_md_7a5488ed6e1b1a746aee81e5bd145c28.jpg"/></a></p></div>
   <div class="post-nav">
-    <a class="prev" href="mqtt协议分析.html">← MQTT协议分析</a>
-    <a class="next" href="ssl-tls协议分析.html">SSL/TLS协议分析 →</a>
+    <a class="prev" href="libpeer分析.html">← libpeer分析</a>
+    <a class="next" href="mqtt协议分析.html">MQTT协议分析 →</a>
   </div>
 </article>
 

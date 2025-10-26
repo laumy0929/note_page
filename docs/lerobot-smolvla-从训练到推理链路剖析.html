@@ -1,0 +1,1038 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LeRobot SmolVLA：从训练到推理链路剖析 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">框架</a><ul></ul></li><li><a href="#_2">训练</a><ul><li><a href="#_3">输入处理</a></li><li><a href="#_4">前向传播</a></li><li><a href="#_5">损失计算</a></li><li><a href="#_6">模型参数</a></li></ul></li><li><a href="#_7">推理</a><ul><li><a href="#_8">前缀缓存</a></li><li><a href="#_9">后缀循环</a></li></ul></li><li><a href="#_10">注意力</a><ul><li><a href="#_11">自注意力</a></li><li><a href="#_12">交叉注意力</a></li></ul></li><li><a href="#_13">模型配置</a><ul><li><a href="#smolvlaconfig">SmolVLAConfig</a></li><li><a href="#_14">加载流程</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>LeRobot SmolVLA：从训练到推理链路剖析</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-08-25
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">框架</h2>
+<p>本文主要对lerobot SmolVLA策略代码进行分析，下面是策略实现关键部分框图。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_606a482e93c99ec2564559998534915e_1756272535.png"><img alt="" src="assets/doc/04-ai/lerobot/lerobot-smolvla策略/images/wp_editor_md_606a482e93c99ec2564559998534915e_1756272535.png"/></a></p>
+<p>SmolVLAPolicay类封装向上提供策略的调用。SmolVLAConfig是对SmolVLA策略的配置，用于配置输出动作序列长度、观测图像输入后到模型的缩放尺寸以及微调策略等等。SmolVLAPolicay类中关键的成员是VLAFlowMatching类，是实现SmolVLA模型flow matching机制训练、推理的核心。在VLAFlowMatching类中关系成员是SmolVLMWithExpertModel类，其定义了VLM+Expert模型具体实现。</p>
+<p>SmolVLA策略实现主要涉及SmolVLAPolicy、VLAFlowMatching 、SmolVLMWithExperModel三个类来实现。就以<strong>模型训练、模型推理</strong>两条主线来进行总结。</p>
+<h2 id="_2">训练</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_00066daa75db208026c2ad495c61b1cf_1756284915.png"><img alt="" src="assets/doc/04-ai/lerobot/lerobot-smolvla策略/images/wp_editor_md_00066daa75db208026c2ad495c61b1cf_1756284915.png"/></a></p>
+<p>训练过程可以分为一下几个核心部分：</p>
+<ul>
+<li>数据输入处理：图像、文本和状态通过各自处理方法嵌入并标准化，合并成统一的输入，供后续层次处理。</li>
+<li>VLM与专家模型交互前向传播：图像、文本和状态数据通过VLM和专家模型进行多层次的自注意力和交叉注意力计算，得到联合特征表示。</li>
+<li>损失计算与优化：通过计算预测动作和目标动作之间的损失，具体是速度场的损失，使用反向传播更新参数。</li>
+<li>模型参数冻结与训练策略：通过冻结不必要的模型部分（VLM），专注优化重要部分，减少计算的开销。</li>
+</ul>
+<h3 id="_3">输入处理</h3>
+<p>SmolVLA模型分为前缀prefix、后缀suffix输入。前缀主要是观测端数据由图像、文本和机器的状态嵌入构成，提供给VLM处理，目的是为模型提供上下文信息，理解任务的背景。后缀是用于生成过程中，输入的是噪声动作+时间步，经过Expert模型处理输出具体的预测动作。</p>
+<p><strong>（1）前缀prefix嵌入</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">embed_prefix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">images</span><span class="p">,</span> <span class="n">img_masks</span><span class="p">,</span> <span class="n">lang_tokens</span><span class="p">,</span> <span class="n">lang_masks</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="n">embs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">pad_masks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">att_masks</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># 处理图像</span>
+    <span class="k">for</span> <span class="n">_img_idx</span><span class="p">,</span> <span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">img_mask</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">img_masks</span><span class="p">)):</span>
+        <span class="n">img_emb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">embed_image</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
+        <span class="n">embs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">img_emb</span><span class="p">)</span>
+        <span class="n">pad_masks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">img_mask</span><span class="p">)</span>
+
+    <span class="c1"># 处理语言</span>
+    <span class="n">lang_emb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">embed_language_tokens</span><span class="p">(</span><span class="n">lang_tokens</span><span class="p">)</span>
+    <span class="n">embs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lang_emb</span><span class="p">)</span>
+    <span class="n">pad_masks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lang_masks</span><span class="p">)</span>
+
+    <span class="c1"># 处理状态</span>
+    <span class="n">state_emb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_proj</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+    <span class="n">embs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">state_emb</span><span class="p">)</span>
+    <span class="n">state_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">state_emb</span><span class="p">)</span>
+    <span class="n">pad_masks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">state_mask</span><span class="p">)</span>
+
+    <span class="c1"># 合并所有嵌入</span>
+    <span class="n">embs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">embs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">pad_masks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">pad_masks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">att_masks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">att_masks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">embs</span><span class="p">,</span> <span class="n">pad_masks</span><span class="p">,</span> <span class="n">att_masks</span>
+</code></pre></div>
+<p>代码的流程是依次对输入图像、语言、机器状态进行分别做embedding，然后进行按列合并为一个前缀输入。</p>
+<ul>
+<li>图像嵌入：通过embed_image方法转换为嵌入表示，每个图像的嵌入被添加到embs列表中，img_mask则记录图像的有效区域。</li>
+<li>文本嵌入：通过embed_language_tokens() 被转换为嵌入表示，lang_emb 是语言的嵌入，包含了语言的语法和语义信息。</li>
+<li>状态嵌入：状态信息通过 state_proj() 映射到与图像和文本相同维度的空间，得到 state_emb。</li>
+</ul>
+<p>最终图像嵌入、文本嵌入和状态嵌入通过 torch.cat() 方法按列合并成一个大的 前缀输入（Prefix）。pad_masks 和 att_masks 也被合并成一个统一的输入，确保每个模态的信息能够与其他模态的输入一起传递。</p>
+<p>图像和文本嵌入调用已经隐式包含了位置编码，状态信息state_proj 转换为嵌入，尽管没有显式的位置信息，但会在模型中通过与其他模态嵌入的融合获取上下文信息。</p>
+<p><strong>（2）后缀Suffix嵌入</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">embed_suffix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">noisy_actions</span><span class="p">,</span> <span class="n">timestep</span><span class="p">):</span>
+    <span class="n">embs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">pad_masks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">att_masks</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># 使用 MLP 融合时间步长和动作信息</span>
+    <span class="n">action_emb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">action_in_proj</span><span class="p">(</span><span class="n">noisy_actions</span><span class="p">)</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">action_emb</span><span class="o">.</span><span class="n">device</span>
+    <span class="n">bsize</span> <span class="o">=</span> <span class="n">action_emb</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">action_emb</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="c1"># 使用正弦-余弦位置编码生成时间嵌入</span>
+    <span class="n">time_emb</span> <span class="o">=</span> <span class="n">create_sinusoidal_pos_embedding</span><span class="p">(</span>
+        <span class="n">timestep</span><span class="p">,</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">expert_hidden_size</span><span class="p">,</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">min_period</span><span class="p">,</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_period</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">time_emb</span> <span class="o">=</span> <span class="n">time_emb</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+
+    <span class="c1"># 将时间嵌入和动作嵌入结合</span>
+    <span class="n">time_emb</span> <span class="o">=</span> <span class="n">time_emb</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">expand_as</span><span class="p">(</span><span class="n">action_emb</span><span class="p">)</span>
+    <span class="n">action_time_emb</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">action_emb</span><span class="p">,</span> <span class="n">time_emb</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="n">action_time_emb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">action_time_mlp_in</span><span class="p">(</span><span class="n">action_time_emb</span><span class="p">)</span>
+    <span class="n">action_time_emb</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">silu</span><span class="p">(</span><span class="n">action_time_emb</span><span class="p">)</span>  <span class="c1"># swish == silu</span>
+    <span class="n">action_time_emb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">action_time_mlp_out</span><span class="p">(</span><span class="n">action_time_emb</span><span class="p">)</span>
+
+    <span class="c1"># 将生成的动作嵌入加入到输入中</span>
+    <span class="n">embs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">action_time_emb</span><span class="p">)</span>
+
+    <span class="n">bsize</span><span class="p">,</span> <span class="n">action_time_dim</span> <span class="o">=</span> <span class="n">action_time_emb</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">action_time_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">bsize</span><span class="p">,</span> <span class="n">action_time_dim</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">pad_masks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">action_time_mask</span><span class="p">)</span>
+
+    <span class="c1"># 设置注意力掩码，防止图像、语言和状态的输入与动作输入相互影响</span>
+    <span class="n">att_masks</span> <span class="o">+=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">chunk_size</span>
+    <span class="n">embs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">embs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">pad_masks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">pad_masks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">att_masks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">att_masks</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">embs</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">embs</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">att_masks</span> <span class="o">=</span> <span class="n">att_masks</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">bsize</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">att_masks</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">embs</span><span class="p">,</span> <span class="n">pad_masks</span><span class="p">,</span> <span class="n">att_masks</span>
+</code></pre></div>
+<p>后缀的输入主要是提供给Expert专家模型用于flow matching预测出输出，输入是噪声动作（noisy actions）+时间步长（timestep）。上述代码可以分为以下几个部分：</p>
+<ul>
+<li>时间步长嵌入：时间步长（timestep）用于表示当前的生成步骤，生成一个正弦-余弦位置编码（Sine-Cosine Positional Embedding）。create_sinusoidal_pos_embedding() 使用正弦和余弦函数生成时间嵌入，增强模型对时序的理解。</li>
+<li>动作嵌入：动作通过 action_in_proj 进行嵌入，得到 action_emb。这一步是将生成的动作（采样的噪声动作）转化为嵌入表示。</li>
+<li>融合时间和动作：动作嵌入与时间嵌入（time_emb）通过 torch.cat() 进行拼接，形成一个新的包含时间信息的动作嵌入。这样，生成的动作不仅包含来自环境的信息，还加入了时间步长的变化。</li>
+<li>MLP处理：合并后的动作嵌入通过 action_time_mlp_in 和 action_time_mlp_out 层进行处理。这个过程是对动作嵌入进行进一步的处理，确保其能够适应后续的生成任务。</li>
+</ul>
+<p>最终，生成的动作嵌入被加入到 embs 列表中，并通过 torch.cat() 合并为一个统一的后缀输入。这个后缀输入将与前缀输入一起通过 Transformer 层进行处理。</p>
+<h3 id="_4">前向传播</h3>
+<p>forward是整个前向传播的核心，将将输入组合后通过模型计算输出。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span> <span class="n">images</span><span class="p">,</span> <span class="n">img_masks</span><span class="p">,</span> <span class="n">lang_tokens</span><span class="p">,</span> <span class="n">lang_masks</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">actions</span><span class="p">,</span> <span class="n">noise</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="c1"># 1. 前缀输入的生成</span>
+    <span class="n">prefix_embs</span><span class="p">,</span> <span class="n">prefix_pad_masks</span><span class="p">,</span> <span class="n">prefix_att_masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_prefix</span><span class="p">(</span>
+        <span class="n">images</span><span class="p">,</span> <span class="n">img_masks</span><span class="p">,</span> <span class="n">lang_tokens</span><span class="p">,</span> <span class="n">lang_masks</span><span class="p">,</span> <span class="n">state</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 2. 后缀输入的生成</span>
+    <span class="n">suffix_embs</span><span class="p">,</span> <span class="n">suffix_pad_masks</span><span class="p">,</span> <span class="n">suffix_att_masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_suffix</span><span class="p">(</span><span class="n">actions</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
+
+    <span class="c1"># 3. 拼接前缀和后缀的嵌入</span>
+    <span class="n">pad_masks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">prefix_pad_masks</span><span class="p">,</span> <span class="n">suffix_pad_masks</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">att_masks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">prefix_att_masks</span><span class="p">,</span> <span class="n">suffix_att_masks</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># 4. 计算注意力掩码</span>
+    <span class="n">att_2d_masks</span> <span class="o">=</span> <span class="n">make_att_2d_masks</span><span class="p">(</span><span class="n">pad_masks</span><span class="p">,</span> <span class="n">att_masks</span><span class="p">)</span>
+    <span class="n">position_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">pad_masks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="c1"># 5. 前向计算</span>
+    <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">suffix_out</span><span class="p">),</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span>
+        <span class="n">attention_mask</span><span class="o">=</span><span class="n">att_2d_masks</span><span class="p">,</span>
+        <span class="n">position_ids</span><span class="o">=</span><span class="n">position_ids</span><span class="p">,</span>
+        <span class="n">past_key_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">inputs_embeds</span><span class="o">=</span><span class="p">[</span><span class="n">prefix_embs</span><span class="p">,</span> <span class="n">suffix_embs</span><span class="p">],</span>
+        <span class="n">use_cache</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">fill_kv_cache</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 6. 速度场预测计算损失</span>
+    <span class="n">suffix_out</span> <span class="o">=</span> <span class="n">suffix_out</span><span class="p">[:,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">chunk_size</span> <span class="p">:]</span>
+    <span class="n">suffix_out</span> <span class="o">=</span> <span class="n">suffix_out</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">v_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">action_out_proj</span><span class="p">(</span><span class="n">suffix_out</span><span class="p">)</span>
+    <span class="n">losses</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span><span class="n">v_t</span><span class="p">,</span> <span class="n">actions</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">"none"</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">losses</span>
+</code></pre></div>
+<p>代码调用前缀、后缀输入然后进行拼接得到inputs_embeds，然后再计算注意力的掩码就可以调用VLM+Expert模型进行前向计算。在前向计算中有两个参数use_cache 和 fill_kv_cache 参数，这两个参数的设置控制 key-value 缓存 的使用。</p>
+<p><strong>（1）模型组合</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">models</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">get_vlm_model</span><span class="p">()</span><span class="o">.</span><span class="n">text_model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lm_expert</span><span class="p">]</span>
+<span class="n">model_layers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_model_layers</span><span class="p">(</span><span class="n">models</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_model_layers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">models</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+        <span class="n">vlm_layers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">expert_layers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">multiple_of</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_vlm_layers</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_expert_layers</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_vlm_layers</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">multiple_of</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">%</span> <span class="n">multiple_of</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">expert_layer</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">expert_layer_index</span> <span class="o">=</span> <span class="n">i</span> <span class="o">//</span> <span class="n">multiple_of</span> <span class="k">if</span> <span class="n">multiple_of</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">i</span>
+                <span class="n">expert_layer</span> <span class="o">=</span> <span class="n">models</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">expert_layer_index</span><span class="p">]</span>
+            <span class="n">vlm_layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">models</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">expert_layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">expert_layer</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">vlm_layers</span><span class="p">,</span> <span class="n">expert_layers</span><span class="p">]</span>
+</code></pre></div>
+<p>模型混合主要是生成一个混合的模型层列表，通过get_model_layers函数计算并返回 VLM 层和 Expert 层的对齐关系，VLM层和Expert层对齐是基于multiple_of来进行层级分配的。如果某些 VLM 层 没有对应的 Expert 层，则设置为 None，仅由 VLM 层处理。默认情况下VLM和Expert的层数一样都为16，下图看看VLM=8，Expert=4的示例。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_21c7ee411d6eafe7cc1c5679d1ca2d38_1756209942.png"><img alt="" src="assets/doc/04-ai/lerobot/lerobot-smolvla策略/images/wp_editor_md_21c7ee411d6eafe7cc1c5679d1ca2d38_1756209942.png"/></a></p>
+<p>因此最终对于SmolVLA来说，模型是一个混合的模型层列表model_layers。可以通过model_layers[i][layer_idx]来访问具体的模型，model_layers[0][x]为VLM模型，model_layers[1][x]为Expert模型。如model_layers[0][2]为第二层的VLM，model_layers[1][2]为第二层的Expert，model_layers[1][1]为None。</p>
+<p><strong>（2）处理输入嵌入</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">for</span> <span class="n">hidden_states</span> <span class="ow">in</span> <span class="n">inputs_embeds</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">hidden_states</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">continue</span>
+    <span class="n">batch_size</span> <span class="o">=</span> <span class="n">hidden_states</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</code></pre></div>
+<p>遍历输入嵌入（inputs_embeds），检查是否有无效的输入（即 None），并获取当前批次的大小batch_size。</p>
+<ul>
+<li>inputs_embeds：模型的输入嵌入数据，可能包含多种模态的输入（例如，图像嵌入、文本嵌入等）。</li>
+<li>hidden_states.shape[0]：获取当前输入数据的批次大小。</li>
+</ul>
+<p><strong>（3）自注意力与交叉注意力</strong></p>
+<div class="codehilite"><pre><span></span><code>        <span class="n">num_layers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_vlm_layers</span>
+        <span class="n">head_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vlm</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">text_config</span><span class="o">.</span><span class="n">head_dim</span>
+        <span class="k">for</span> <span class="n">layer_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">fill_kv_cache</span>
+                <span class="ow">or</span> <span class="s2">"cross"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attention_mode</span>
+                <span class="ow">or</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">self_attn_every_n_layers</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">layer_idx</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">self_attn_every_n_layers</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="n">att_outputs</span><span class="p">,</span> <span class="n">past_key_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward_attn_layer</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">att_outputs</span><span class="p">,</span> <span class="n">past_key_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward_cross_attn_layer</span><span class="p">()</span>
+</code></pre></div>
+<p>使用VLM层数来进行遍历，因为VLM侧的层数是Expert的一倍。进行如循环根据条件来判断是进行自注意力计算还是交叉注意力计算。</p>
+<p>判断使用自注意力的条件是有3种情况（其中一种满足即可）：</p>
+<ul>
+<li>fill_kv_cache：如果需要填充 键值缓存（key-value cache），则使用自注意力计算。</li>
+<li>"cross" not in self.attention_mode：如果当前没有启用交叉注意力模式，则使用自注意力。</li>
+<li>self_attn_every_n_layers：在每隔 n 层计算自注意力时，执行该条件。通常用于启用跨层的自注意力机制。</li>
+</ul>
+<p>具体关于自注意力与交叉注意力计算的细节见后续章节。</p>
+<p><strong>（4）残差连接与前馈网络</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">out_emb</span> <span class="o">+=</span> <span class="n">hidden_states</span>
+<span class="n">after_first_residual</span> <span class="o">=</span> <span class="n">out_emb</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+
+<span class="n">out_emb</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">post_attention_layernorm</span><span class="p">(</span><span class="n">out_emb</span><span class="p">)</span>
+<span class="n">out_emb</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">mlp</span><span class="p">(</span><span class="n">out_emb</span><span class="p">)</span>
+
+<span class="n">out_emb</span> <span class="o">+=</span> <span class="n">after_first_residual</span>
+</code></pre></div>
+<ul>
+<li>
+<p>残差连接：每一层都使用残差连接，将当前层的输出与原始输入相加，防止深层网络的梯度消失问题。</p>
+</li>
+<li>
+<p>前馈网络（MLP）：通过前馈神经网络（通常包括一个隐藏层和激活函数）进行处理，进一步捕捉输入的非线性关系。</p>
+</li>
+</ul>
+<p><strong>（5）输出处理</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">outputs_embeds</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">hidden_states</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">inputs_embeds</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">hidden_states</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">out_emb</span> <span class="o">=</span> <span class="n">models</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">)</span>
+        <span class="n">outputs_embeds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">out_emb</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">outputs_embeds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+<span class="k">return</span> <span class="n">outputs_embeds</span><span class="p">,</span> <span class="n">past_key_values</span>
+</code></pre></div>
+<p>遍历输入嵌入（inputs_embeds），对每个有效的 hidden_states 进行 归一化处理（models[i].norm()）。如果嵌入无效（即 None），则直接将 None 放入输出列表中，以保持输入结构的对齐。最终返回 处理后的嵌入 和 past_key_values（如果有的话）。</p>
+<p>归一化（通常是层归一化）确保嵌入在后续计算中具有更好的数值稳定性，帮助模型学习。对缺失的嵌入（None）进行特殊处理，主要是VLM+Expert对齐时，Expert通常为VLM的一半，而模型遍历是时按照VLM层次来遍历的，所以有一半的Expert是None，但是这部的None不能在处理VLM层的时候断掉Expert的输入，否则Expert模型梯度链就断了。</p>
+<h3 id="_5">损失计算</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">SmolVLAPolicy</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+    <span class="o">......</span>
+    <span class="n">调</span> <span class="n">VLAFlowMatching</span> <span class="n">计算逐样本</span><span class="o">/</span><span class="n">逐步</span><span class="o">/</span><span class="n">逐维损失</span><span class="err">（</span><span class="n">不聚合</span><span class="err">）</span>
+    <span class="n">losses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">img_masks</span><span class="p">,</span> <span class="n">lang_tokens</span><span class="p">,</span> <span class="n">lang_masks</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">actions</span><span class="p">,</span> <span class="n">noise</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">actions_is_pad</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">in_episode_bound</span> <span class="o">=</span> <span class="o">~</span><span class="n">actions_is_pad</span>
+        <span class="n">losses</span> <span class="o">=</span> <span class="n">losses</span> <span class="o">*</span> <span class="n">in_episode_bound</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1">#  去掉为对齐而pad出的 action 维度</span>
+    <span class="n">losses</span> <span class="o">=</span> <span class="n">losses</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_action_dim</span><span class="p">]</span>
+
+    <span class="c1">#  聚合为标量 loss（反向传播用）</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">losses</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="p">{</span><span class="s2">"loss"</span><span class="p">:</span> <span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">()}</span>
+</code></pre></div>
+<p>在SmolVLAPolicy.forward(...)调用VLAFlowMatching.forward计算返回损失，下面直接来看VLAFlowMatching.forward。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">images</span><span class="p">,</span> <span class="n">img_masks</span><span class="p">,</span> <span class="n">lang_tokens</span><span class="p">,</span> <span class="n">lang_masks</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">actions</span><span class="p">,</span> <span class="n">noise</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="c1"># ① 采样噪声与时间</span>
+    <span class="k">if</span> <span class="n">noise</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">noise</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_noise</span><span class="p">(</span><span class="n">actions</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">actions</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>  <span class="c1"># ~N(0,1)</span>
+    <span class="k">if</span> <span class="n">time</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_time</span><span class="p">(</span><span class="n">actions</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">actions</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="c1"># Beta(1.5,1.0)→偏向 t≈1</span>
+
+    <span class="c1"># ② 合成中间点 x_t 与“真向量场” u_t</span>
+    <span class="n">time_expanded</span> <span class="o">=</span> <span class="n">time</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>            <span class="c1"># [B,1,1]</span>
+    <span class="n">x_t</span> <span class="o">=</span> <span class="n">time_expanded</span> <span class="o">*</span> <span class="n">noise</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">time_expanded</span><span class="p">)</span> <span class="o">*</span> <span class="n">actions</span>    <span class="c1"># convex组合</span>
+    <span class="n">u_t</span> <span class="o">=</span> <span class="n">noise</span> <span class="o">-</span> <span class="n">actions</span>
+
+    <span class="c1"># ③ 前缀/后缀嵌入（图像+文本+状态 | 动作+时间），拼注意力mask/位置id</span>
+    <span class="n">prefix_embs</span><span class="p">,</span> <span class="n">prefix_pad_masks</span><span class="p">,</span> <span class="n">prefix_att_masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_prefix</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">img_masks</span><span class="p">,</span> <span class="n">lang_tokens</span><span class="p">,</span> <span class="n">lang_masks</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+    <span class="n">suffix_embs</span><span class="p">,</span> <span class="n">suffix_pad_masks</span><span class="p">,</span> <span class="n">suffix_att_masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_suffix</span><span class="p">(</span><span class="n">x_t</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
+
+    <span class="n">pad_masks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">prefix_pad_masks</span><span class="p">,</span> <span class="n">suffix_pad_masks</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">att_masks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">prefix_att_masks</span><span class="p">,</span>  <span class="n">suffix_att_masks</span><span class="p">],</span>  <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">att_2d_masks</span> <span class="o">=</span> <span class="n">make_att_2d_masks</span><span class="p">(</span><span class="n">pad_masks</span><span class="p">,</span> <span class="n">att_masks</span><span class="p">)</span>
+    <span class="n">position_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">pad_masks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="c1"># ④ 走双塔文本Transformer：prefix + suffix（训练时不建缓存）</span>
+    <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">suffix_out</span><span class="p">),</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span>
+        <span class="n">attention_mask</span><span class="o">=</span><span class="n">att_2d_masks</span><span class="p">,</span>
+        <span class="n">position_ids</span><span class="o">=</span><span class="n">position_ids</span><span class="p">,</span>
+        <span class="n">past_key_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">inputs_embeds</span><span class="o">=</span><span class="p">[</span><span class="n">prefix_embs</span><span class="p">,</span> <span class="n">suffix_embs</span><span class="p">],</span>
+        <span class="n">use_cache</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">fill_kv_cache</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">suffix_out</span> <span class="o">=</span> <span class="n">suffix_out</span><span class="p">[:,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">chunk_size</span> <span class="p">:]</span>   <span class="c1"># 取后缀对应的输出token</span>
+
+    <span class="c1"># ⑤ Expert头→动作向量场 v_t，并与 u_t 做逐元素 MSE</span>
+    <span class="n">suffix_out</span> <span class="o">=</span> <span class="n">suffix_out</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>         <span class="c1"># 数值稳定</span>
+    <span class="n">v_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">action_out_proj</span><span class="p">(</span><span class="n">suffix_out</span><span class="p">)</span>
+    <span class="n">losses</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span><span class="n">u_t</span><span class="p">,</span> <span class="n">v_t</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">"none"</span><span class="p">)</span>         <span class="c1"># [B, T, A] 不聚合</span>
+    <span class="k">return</span> <span class="n">losses</span>
+</code></pre></div>
+<p>核心思想还是学习一个向量场 $v_{\theta}(x_t,t)$ 去逼近真实向量场 $u_t = \epsilon - a$，其中</p>
+<p>$$ x_t = t \cdot \epsilon + (1 - t) \cdot a, \quad \epsilon \sim \mathcal{N}(0,I) $$</p>
+<p>$a$ 是机器真实的动作如舵机的角度，对应上述代码的action；$\epsilon$是noisy action，最开始随机生成采样而来，对应上述的noise。</p>
+<h3 id="_6">模型参数</h3>
+<p>模型参数冻结主要是以下两个方法决定</p>
+<ul>
+<li>SmolVLMWithExpertModel.set_requires_grad（管 VLM/Expert的大部分参数）；</li>
+<li>VLAFlowMatching.set_requires_grad（只管 state 的投影头）。</li>
+</ul>
+<p><strong>（1）VLM/Expert大部分参数</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">set_requires_grad</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="c1"># 1) 冻结视觉编码器（可选）</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">freeze_vision_encoder</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">get_vlm_model</span><span class="p">()</span><span class="o">.</span><span class="n">vision_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_vlm_model</span><span class="p">()</span><span class="o">.</span><span class="n">vision_model</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># 2) 只训练 Expert（常见默认）</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_expert_only</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vlm</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">vlm</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># 3) 非“只训 Expert”时，VLM 只冻结一小部分层，避免 DDP unused params</span>
+        <span class="n">last_layers</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">num_vlm_layers</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_vlm_layers</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_expert_layers</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_vlm_layers</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_expert_layers</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="n">last_layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_vlm_layers</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="n">frozen</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"lm_head"</span><span class="p">,</span> <span class="s2">"text_model.model.norm.weight"</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">L</span> <span class="ow">in</span> <span class="n">last_layers</span><span class="p">:</span>
+            <span class="n">frozen</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"text_model.model.layers.</span><span class="si">{</span><span class="n">L</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">vlm</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">k</span> <span class="ow">in</span> <span class="n">name</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">frozen</span><span class="p">):</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># 4) Expert 侧不训练 lm_head（没用到 LM 头）</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lm_expert</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+        <span class="k">if</span> <span class="s2">"lm_head"</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+</code></pre></div>
+<ul>
+<li>冻结视觉编码器：把 VLM 的 vision encoder 切到 eval()，并把其所有参数 requires_grad=False。对于VLM视觉部分已经比较稳定了，若下游数据量不大，继续训练易带来不稳定与显存开销；冻结能省资源并保持视觉表征稳定。</li>
+<li>只训练 Expert：把VLM的（视觉编码+LLM）都起到eval且全部冻结。这是一种轻量微调策略——只训练 Expert+ 动作/时间/状态投影头，能在小数据上快速稳定收敛，避免对大模型语义分布造成破坏。</li>
+<li>非“只训 Expert”时，VLM 只冻结一小部分层：永远冻结 VLM 的 lm_head（语言模型头，动作任务用不到），冻结text_model.model.norm.weight，降低训练不稳定，冻结最后 1 层；</li>
+</ul>
+<p>总结一下：</p>
+<table>
+<thead>
+<tr>
+<th>目标</th>
+<th>典型设置</th>
+<th>实际可训练部分</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>轻量微调（默认/推荐起步）</strong></td>
+<td>freeze_vision_encoder=True + train_expert_only=True</td>
+<td><strong>Expert 全部层（除 lm_head）</strong> + <strong>动作/时间/状态头</strong>（VLAFlowMatching 里的 action_in/out_proj、action_time_mlp_、state_proj）</td>
+</tr>
+<tr>
+<td><strong>加强表达（部分放开 VLM）</strong></td>
+<td>freeze_vision_encoder=True/False + train_expert_only=False</td>
+<td><strong>Expert 全部层</strong> + <strong>大多数 VLM 文本层</strong>（但冻结 lm_head、末尾 norm、最后 1–2 层） + <strong>动作/时间/状态头</strong></td>
+</tr>
+</tbody>
+</table>
+<p>除了上面的参数之外在 SmolVLMWithExpertModel.train 中又做了一层保险：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">freeze_vision_encoder</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">get_vlm_model</span><span class="p">()</span><span class="o">.</span><span class="n">vision_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_expert_only</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vlm</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+</code></pre></div>
+<p>即使外部调用了 model.train()，被冻的模块仍保持 eval()，避免 Dropout/BN 等训练态行为干扰。是否参与反向仍由 requires_grad 决定；两者配合保证“真冻结”。</p>
+<p><strong>（2）state 的投影头</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">VLAFlowMatching</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span> <span class="o">=</span> <span class="n">SmolVLMWithExpertModel</span><span class="p">(</span> <span class="o">...</span> <span class="p">)</span>
+
+        <span class="c1"># —— 与动作/状态/时间相关的投影头 —— </span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_proj</span>        <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_state_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">text_config</span><span class="o">.</span><span class="n">hidden_size</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">action_in_proj</span>    <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_action_dim</span><span class="p">,</span>  <span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">expert_hidden_size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">action_out_proj</span>   <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">expert_hidden_size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_action_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">action_time_mlp_in</span>  <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">expert_hidden_size</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">expert_hidden_size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">action_time_mlp_out</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">expert_hidden_size</span><span class="p">,</span>     <span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">expert_hidden_size</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_requires_grad</span><span class="p">()</span>   <span class="c1"># ← 这里调用</span>
+
+        <span class="o">...</span>
+    <span class="k">def</span> <span class="nf">set_requires_grad</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">params</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_proj</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+            <span class="n">params</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">train_state_proj</span>
+</code></pre></div>
+<p>根据 config.train_state_proj（布尔值）开/关状态投影层 state_proj 的可训练性。这里只对state_proj做控制，这个是把机器人状态（关节角、抓取开合等）映射到 VLM 文本编码器的隐藏维度。不同机器人/任务，状态分布差异很大（量纲、范围、相关性）；是否需要学习这个映射，取决于你的数据规模与分布，所以可以根据train_state_proj=True/False来决定是否要训练或冻结。其它头（action_in/out_proj、action_time_mlp_*）对动作/时间更直接，通常都需要学习，因此默认不在这里冻结。</p>
+<h2 id="_7">推理</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_cfbb8d30a3b9ab1ff705563b848f2051_1756286500.png"><img alt="" src="assets/doc/04-ai/lerobot/lerobot-smolvla策略/images/wp_editor_md_cfbb8d30a3b9ab1ff705563b848f2051_1756286500.png"/></a></p>
+<p>推理的入口函数入口：SmolVLAPolicy.predict_action_chunk -&gt;select_action-&gt; VLAFlowMatching.sample_actions(...)，推理跟训练流程大致相同，这里只简单总结一下不同点。</p>
+<h3 id="_8">前缀缓存</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">prefix_embs</span><span class="p">,</span> <span class="n">prefix_pad_masks</span><span class="p">,</span> <span class="n">prefix_att_masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_prefix</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">prefix_att_2d_masks</span> <span class="o">=</span> <span class="n">make_att_2d_masks</span><span class="p">(</span><span class="n">prefix_pad_masks</span><span class="p">,</span> <span class="n">prefix_att_masks</span><span class="p">)</span>
+<span class="n">prefix_position_ids</span>  <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">prefix_pad_masks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+<span class="c1"># 只喂前缀，构建 KV cache</span>
+<span class="n">_</span><span class="p">,</span> <span class="n">past_key_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span>
+    <span class="n">attention_mask</span><span class="o">=</span><span class="n">prefix_att_2d_masks</span><span class="p">,</span>
+    <span class="n">position_ids</span><span class="o">=</span><span class="n">prefix_position_ids</span><span class="p">,</span>
+    <span class="n">past_key_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">inputs_embeds</span><span class="o">=</span><span class="p">[</span><span class="n">prefix_embs</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>   <span class="c1"># ★ 只有前缀</span>
+    <span class="n">use_cache</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">use_cache</span><span class="p">,</span>     <span class="c1"># 通常 True</span>
+    <span class="n">fill_kv_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>                  <span class="c1"># ★ 建缓存</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>与训练的差别是训练不建缓存，推理先把 VLM 的 Q/K/V（更准确：K/V）算出来并存起来（past_key_values），这步只走 self-attn 分支（因为 fill_kv_cache=True），Expert 不参与。另外需要注意的时传递的输入只有prefix_embs而训练是inputs_embeds=[prefix_embs, suffix_embs]既要传递prefix_embs也有传递suffix_embs，这里的后缀编码为插值点的嵌入，即x_t = time_expanded * noise + (1 - time_expanded) * actions。因为没有Expert的输入，所以自注意力算的也只有VLM的输入。</p>
+<h3 id="_9">后缀循环</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">dt</span>   <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">num_steps</span>
+<span class="n">x_t</span>  <span class="o">=</span> <span class="n">noise</span>  <span class="c1"># 初始噪声</span>
+<span class="n">time</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+<span class="k">while</span> <span class="n">time</span> <span class="o">&gt;=</span> <span class="o">-</span><span class="n">dt</span><span class="o">/</span><span class="mi">2</span><span class="p">:</span>
+    <span class="n">v_t</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">denoise_step</span><span class="p">(</span><span class="n">prefix_pad_masks</span><span class="p">,</span> <span class="n">past_key_values</span><span class="p">,</span> <span class="n">x_t</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
+    <span class="n">x_t</span> <span class="o">+=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v_t</span>   <span class="c1"># Euler 更新</span>
+    <span class="n">time</span> <span class="o">+=</span> <span class="n">dt</span>
+<span class="k">return</span> <span class="n">x_t</span>  <span class="c1"># 作为动作</span>
+</code></pre></div>
+<p>做 ODE 去噪循环（Euler），每一步只算后缀。与训练的差别是“采一个随机 t 直接监督向量场”，推理是“从 t=1 积分到 t=0”（ODE 解）。这里的 num_steps 控制积分步数（精度/速度权衡）。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">denoise_step</span><span class="p">(</span><span class="o">...</span><span class="p">)</span><span class="o">----&gt;</span>
+
+<span class="n">suffix_embs</span><span class="p">,</span> <span class="n">suffix_pad_masks</span><span class="p">,</span> <span class="n">suffix_att_masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_suffix</span><span class="p">(</span><span class="n">x_t</span><span class="p">,</span> <span class="n">timestep</span><span class="p">)</span>
+<span class="c1"># 组装 prefix/suffix 的联合注意力掩码（prefix 只提供 pad_2d 以允许被看）</span>
+<span class="n">full_att_2d_masks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">prefix_pad_2d_masks</span><span class="p">,</span> <span class="n">suffix_att_2d_masks</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">position_ids</span> <span class="o">=</span> <span class="n">prefix_offsets</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">suffix_pad_masks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+<span class="n">outputs_embeds</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vlm_with_expert</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span>
+    <span class="n">attention_mask</span><span class="o">=</span><span class="n">full_att_2d_masks</span><span class="p">,</span>
+    <span class="n">position_ids</span><span class="o">=</span><span class="n">position_ids</span><span class="p">,</span>
+    <span class="n">past_key_values</span><span class="o">=</span><span class="n">past_key_values</span><span class="p">,</span>  <span class="c1"># ★ 复用 prefix KV</span>
+    <span class="n">inputs_embeds</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">suffix_embs</span><span class="p">],</span><span class="c1"># ★ 只有后缀</span>
+    <span class="n">use_cache</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">use_cache</span><span class="p">,</span>  <span class="c1"># True</span>
+    <span class="n">fill_kv_cache</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>              <span class="c1"># ★ 不再建缓存</span>
+<span class="p">)</span>
+<span class="n">suffix_out</span> <span class="o">=</span> <span class="n">outputs_embeds</span><span class="p">[</span><span class="mi">1</span><span class="p">][:,</span> <span class="o">-</span><span class="n">chunk_size</span><span class="p">:]</span>
+<span class="n">v_t</span>        <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">action_out_proj</span><span class="p">(</span><span class="n">suffix_out</span><span class="p">)</span>
+</code></pre></div>
+<p>denoise_step(...)拿缓存 + <strong>只喂后缀（前缀为None）</strong>，分层走 cross/self。VLM 不再重算 Q/K/V，层内 cross-attn 时，Expert 的 Query 去看 prefix 的 K/V 缓存；若该层被 self_attn_every_n_layers 强制 self，则只做 Expert 自注意（VLM 旁路，因为没有输入前缀）。与训练的差别是训练时两侧一起算（inputs_embeds=[prefix, suffix]），且无缓存。</p>
+<p><strong>训练 vs 推理</strong></p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>训练（VLAFlowMatching.forward）</th>
+<th>推理（sample_actions + denoise_step）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>是否用真动作</strong></td>
+<td>用，参与构造 x_t,t 与 u_t=noise-actions，形成监督</td>
+<td>不用（没有 label），从噪声解 ODE 得动作</td>
+</tr>
+<tr>
+<td><strong>时间使用</strong></td>
+<td>随机采样 t~Beta(1.5,1.0)，单步监督</td>
+<td>从 t=1 到 t=0 迭代（步长 dt=-1/num_steps）</td>
+</tr>
+<tr>
+<td><strong>是否建 KV Cache</strong></td>
+<td>否（use_cache=False, fill_kv_cache=False）</td>
+<td>是：先<strong>prefix-only</strong> 建缓存；循环中 <strong>suffix-only</strong> 复用缓存</td>
+</tr>
+<tr>
+<td><strong>两塔前向喂法</strong></td>
+<td>一次性 inputs_embeds=[prefix, suffix]</td>
+<td>两段：① [prefix, None]（建缓存）；② [None, suffix]（复用缓存）</td>
+</tr>
+<tr>
+<td><strong>层内注意力路由</strong></td>
+<td>由 attention_mode / self_attn_every_n_layers 决定，但无缓存上下文</td>
+<td>相同路由；<strong>cross 时 Expert-Q × cached VLM-KV</strong>；self 时只 Expert 自注意</td>
+</tr>
+<tr>
+<td><strong>位置编码（RoPE）</strong></td>
+<td>每层对参与计算的 Q/K 应用</td>
+<td>同上；prefix 的位置在建缓存时用过；suffix 在每步都重算</td>
+</tr>
+<tr>
+<td><strong>损失/梯度</strong></td>
+<td>MSE(u_t, v_t) → 反向</td>
+<td>无损失、无反向</td>
+</tr>
+<tr>
+<td><strong>输出后处理</strong></td>
+<td>返回标量 loss（policy 中聚合/掩码后）</td>
+<td>x_t 作为动作 → unnormalize →（可选）Aloha 映射；支持 n-step 队列</td>
+</tr>
+</tbody>
+</table>
+<h2 id="_10">注意力</h2>
+<p>注意力的计算是模型训练和推理的核心，主要涉及自注意力和交叉注意力，这里单独总结一章节进行梳理分析。</p>
+<h3 id="_11">自注意力</h3>
+<p>自注意力的代码注意在forward_attn_layer函数中，接下来根据代码来进行分析。</p>
+<p><strong>（1）自注意力QKV计算</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">query_states</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">key_states</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">value_states</span> <span class="o">=</span> <span class="p">[]</span>
+</code></pre></div>
+<p>首先定义了Self-Attention 中的 Query、Key 和 Value。这些将用于计算注意力权重。</p>
+<div class="codehilite"><pre><span></span><code>        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">hidden_states</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">inputs_embeds</span><span class="p">):</span>
+            <span class="n">layer</span> <span class="o">=</span> <span class="n">model_layers</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">layer_idx</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">hidden_states</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">layer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">hidden_states</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">input_layernorm</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">)</span>
+</code></pre></div>
+<p>inputs_embeds 是一个包含不同模态输入的列表或张量。例如，它可能包含 VLM 的前缀输入（图像、文本、状态）和 Expert 的后缀输入（动作、时间）。enumerate(inputs_embeds) 会遍历 inputs_embeds 中的每个元素，并返回 i（当前元素的索引）和 hidden_states（对应的输入嵌入）。通过 enumerate 我们可以分别处理每个输入模态，i 用来区分是处理 VLM 还是 Expert。i=0 对应 VLM 的输入，i=1 对应 Expert 的输入。</p>
+<p>因此model_layers[i][layer_idx]根据 i 来选择当前是处理 VLM 层还是 Expert 层。如果 i=0，则选择 VLM 的层；如果 i=1，则选择 Expert 的层。layer_idx是当前处理的层的索引，指定当前模型中的哪一层进行处理。</p>
+<p>当判断hidden_states is None或layer is None是则跳过不处理，对于Expert侧来说会为空，因为外层是按照VLM层数来遍历的，Expert只有VLM的一半，因此每隔VLM一层就会有一个Expert为空。</p>
+<p>先使用input_layernorm对当前输入hidden_states进行归一化。然后就各自进行Q/K/V计算。</p>
+<div class="codehilite"><pre><span></span><code>            <span class="n">hidden_states</span> <span class="o">=</span> <span class="n">hidden_states</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">q_proj</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="n">query_state</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">q_proj</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">hidden_shape</span><span class="p">)</span>
+            <span class="n">key_state</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">k_proj</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">hidden_shape</span><span class="p">)</span>
+            <span class="n">value_state</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">v_proj</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">hidden_shape</span><span class="p">)</span>
+
+            <span class="n">query_states</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">query_state</span><span class="p">)</span>
+            <span class="n">key_states</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key_state</span><span class="p">)</span>
+            <span class="n">value_states</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value_state</span><span class="p">)</span>
+</code></pre></div>
+<p>在for循环中，遍历VLM和Expert各自计算Q/K/V，然后把VLM和Expert计算的Q/K/V都分类各自加入到相同的列表中，如VLM和Expert的Q加入列表query_states.append。</p>
+<p><strong>（2）拼接QKV</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">query_states</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">query_states</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">key_states</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">key_states</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">value_states</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">value_states</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<p>将VLM和Expert计算出来的Query、Key、Value各自拼接成一个大的张量，用于后续的注意力计算，从这里可以看出。VLM和Expert的注意力计算是使用一个transformer同时对VLM+Expert的输入拼接输入计算的。相当于VLM和Expert的输入可以双向注意力。</p>
+<p><strong>（3）EoPE编码</strong></p>
+<div class="codehilite"><pre><span></span><code>        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">query_states</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">seq_len</span> <span class="o">&lt;</span> <span class="n">position_ids</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">_position_ids</span> <span class="o">=</span> <span class="n">position_ids</span><span class="p">[:,</span> <span class="p">:</span><span class="n">seq_len</span><span class="p">]</span>
+            <span class="n">_attention_mask</span> <span class="o">=</span> <span class="n">attention_mask</span><span class="p">[:,</span> <span class="p">:</span><span class="n">seq_len</span><span class="p">,</span> <span class="p">:</span><span class="n">seq_len</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_position_ids</span> <span class="o">=</span> <span class="n">position_ids</span>
+            <span class="n">_attention_mask</span> <span class="o">=</span> <span class="n">attention_mask</span>
+
+        <span class="n">attention_mask_</span> <span class="o">=</span> <span class="n">_attention_mask</span>
+        <span class="n">position_ids_</span> <span class="o">=</span> <span class="n">_position_ids</span>
+
+        <span class="n">query_states</span> <span class="o">=</span> <span class="n">apply_rope</span><span class="p">(</span><span class="n">query_states</span><span class="p">,</span> <span class="n">position_ids_</span><span class="p">)</span>
+        <span class="n">key_states</span> <span class="o">=</span> <span class="n">apply_rope</span><span class="p">(</span><span class="n">key_states</span><span class="p">,</span> <span class="n">position_ids_</span><span class="p">)</span>
+</code></pre></div>
+<p>这段代码主要处理的是位置编码和注意力掩码，这里主要是引入了RoPE编码，计算两个位置之间的相对距离来构造编码，而不是仅仅依赖于绝对位置，提高增强模型的泛化能力。</p>
+<p><strong>（4）缓存机制</strong></p>
+<div class="codehilite"><pre><span></span><code>      <span class="k">if</span> <span class="n">use_cache</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">fill_kv_cache</span><span class="p">:</span>
+                <span class="n">past_key_values</span><span class="p">[</span><span class="n">layer_idx</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">"key_states"</span><span class="p">:</span> <span class="n">key_states</span><span class="p">,</span>
+                    <span class="s2">"value_states"</span><span class="p">:</span> <span class="n">value_states</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># TODO here, some optimization can be done - similar to a `StaticCache` we can declare the `max_len` before.</span>
+                <span class="c1"># so we create an empty cache, with just one cuda malloc, and if (in autoregressive case) we reach</span>
+                <span class="c1"># the max len, then we (for instance) double the cache size. This implementation already exists</span>
+                <span class="c1"># in `transformers`. (molbap)</span>
+                <span class="n">key_states</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">past_key_values</span><span class="p">[</span><span class="n">layer_idx</span><span class="p">][</span><span class="s2">"key_states"</span><span class="p">],</span> <span class="n">key_states</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">value_states</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">past_key_values</span><span class="p">[</span><span class="n">layer_idx</span><span class="p">][</span><span class="s2">"value_states"</span><span class="p">],</span> <span class="n">value_states</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<p>将每一层的Key和Value缓存到<strong>past_key_values</strong>[layer_idx]中，模型训练时这里的use_cache设置为0，当模型是推理时use_cache设置为1，fill_kv_cache设置为1。主要是在推理阶段，会先调用VLM+Expert模型推理一次将Key、Value进行缓存保存起来，后续就只是推理Expert了，VLM将不再计算了，通过这样的方式以提高计算效率。</p>
+<p><strong>（5）注意力输出</strong></p>
+<div class="codehilite"><pre><span></span><code>        <span class="n">att_output</span> <span class="o">=</span> <span class="n">attention_interface</span><span class="p">(</span>
+            <span class="n">attention_mask_</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">head_dim</span><span class="p">,</span> <span class="n">query_states</span><span class="p">,</span> <span class="n">key_states</span><span class="p">,</span> <span class="n">value_states</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">att_output</span><span class="p">],</span> <span class="n">past_key_values</span>
+</code></pre></div>
+<p>注意力计算时会把可用来源（VLM 前缀、Expert 后缀）各自算出的 Q/K/V在序列维度拼接后统一做一次注意力，但掩码保证了“单向可见”，即<strong>VLM 与 Expert 的 Q/K/V都参与拼接，但二维掩码使 VLM 基本不看 Expert，Expert 能看 VLM</strong>。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_2b960016ce1221f88389b36f18a972a9_1756288204.png"><img alt="" src="assets/doc/04-ai/lerobot/lerobot-smolvla策略/images/wp_editor_md_2b960016ce1221f88389b36f18a972a9_1756288204.png"/></a></p>
+<h3 id="_12">交叉注意力</h3>
+<p>交叉注意力在forward_cross_attn_layer中实现。下面来进行分析。</p>
+<p><strong>（1）前缀自注意力</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">inputs_embeds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">past_key_values</span><span class="p">:</span>
+    <span class="n">seq_len</span> <span class="o">=</span> <span class="n">inputs_embeds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">position_id</span><span class="p">,</span> <span class="n">expert_position_id</span> <span class="o">=</span> <span class="n">position_ids</span><span class="p">[:,</span> <span class="p">:</span><span class="n">seq_len</span><span class="p">],</span> <span class="n">position_ids</span><span class="p">[:,</span> <span class="n">seq_len</span><span class="p">:]</span>
+    <span class="n">prefix_attention_mask</span> <span class="o">=</span> <span class="n">attention_mask</span><span class="p">[:,</span> <span class="p">:</span><span class="n">seq_len</span><span class="p">,</span> <span class="p">:</span><span class="n">seq_len</span><span class="p">]</span>
+
+    <span class="n">layer</span> <span class="o">=</span> <span class="n">model_layers</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">layer_idx</span><span class="p">]</span>          <span class="c1"># 选 VLM 的第 layer_idx 层</span>
+    <span class="n">hidden_states</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">input_layernorm</span><span class="p">(</span><span class="n">inputs_embeds</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># 投影出 VLM 的 Q/K/V</span>
+    <span class="n">query_state</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">q_proj</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Lp</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Dh</span><span class="p">)</span>
+    <span class="n">key_state</span>   <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">k_proj</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Lp</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Dh</span><span class="p">)</span>
+    <span class="n">value_state</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">v_proj</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Lp</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Dh</span><span class="p">)</span>
+
+    <span class="c1"># 对 Q/K 施加 RoPE（相对位置编码）</span>
+    <span class="n">query_states</span> <span class="o">=</span> <span class="n">apply_rope</span><span class="p">(</span><span class="n">query_state</span><span class="p">,</span> <span class="n">position_id</span><span class="p">)</span>
+    <span class="n">key_states</span>   <span class="o">=</span> <span class="n">apply_rope</span><span class="p">(</span><span class="n">key_state</span><span class="p">,</span>   <span class="n">position_id</span><span class="p">)</span>
+
+    <span class="c1"># 只在 prefix 上自注意力（用 prefix 的方阵 mask）</span>
+    <span class="n">att_output</span> <span class="o">=</span> <span class="n">attention_interface</span><span class="p">(</span><span class="n">prefix_attention_mask</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">head_dim</span><span class="p">,</span>
+                                     <span class="n">query_states</span><span class="p">,</span> <span class="n">key_states</span><span class="p">,</span> <span class="n">value_state</span><span class="p">)</span>
+    <span class="n">att_outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">att_output</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">expert_position_id</span> <span class="o">=</span> <span class="n">position_ids</span>
+</code></pre></div>
+<p>当满足inputs_embeds有前缀+后缀的数据且没有缓存的时，只取VLM的输入prefix用于计算自注意力，输出结果为att_outputs。同时如果这层是Expert的交叉注意力，那么VLM计算出来的K/V后面要给到后面Expert用作cross的K/V。</p>
+<p>上面前缀自注意力只有只有训练的模型的时候进入交叉注意力每次都会跑，在推理阶段时每次推理只会跑一次。</p>
+<p><strong>（2）K/V cache缓存处理</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">use_cache</span> <span class="ow">and</span> <span class="n">past_key_values</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">past_key_values</span> <span class="o">=</span> <span class="p">{}</span>
+
+<span class="k">if</span> <span class="n">use_cache</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">fill_kv_cache</span><span class="p">:</span>
+        <span class="n">past_key_values</span><span class="p">[</span><span class="n">layer_idx</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"key_states"</span><span class="p">:</span> <span class="n">key_states</span><span class="p">,</span> <span class="s2">"value_states"</span><span class="p">:</span> <span class="n">value_states</span><span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">key_states</span>   <span class="o">=</span> <span class="n">past_key_values</span><span class="p">[</span><span class="n">layer_idx</span><span class="p">][</span><span class="s2">"key_states"</span><span class="p">]</span>
+        <span class="n">value_states</span> <span class="o">=</span> <span class="n">past_key_values</span><span class="p">[</span><span class="n">layer_idx</span><span class="p">][</span><span class="s2">"value_states"</span><span class="p">]</span>
+</code></pre></div>
+<p>推理的时候会用到缓存，在推理时会调用两次forward。</p>
+<ul>
+<li>建缓存阶段（prefix-only）：外层会先单独跑一遍，只给 inputs_embeds=[prefix_embs, None]，fill_kv_cache=True，把 VLM prefix 的 K/V 存到 past_key_values[layer_idx]。</li>
+<li>后缀阶段（真正 cross）：用 inputs_embeds=[prefix_embs, suffix_embs] 或者只给 suffix，fill_kv_cache=False，此时直接复用缓存里的 prefix K/V，不用再算。</li>
+</ul>
+<p><strong>（3）Expert的交叉注意力</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">expert_layer</span> <span class="o">=</span> <span class="n">model_layers</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">layer_idx</span><span class="p">]</span>   <span class="c1"># 取 Expert 的第 layer_idx 层（可能是 None）</span>
+<span class="k">if</span> <span class="n">expert_layer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">expert_hidden_states</span> <span class="o">=</span> <span class="n">expert_layer</span><span class="o">.</span><span class="n">input_layernorm</span><span class="p">(</span><span class="n">inputs_embeds</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</code></pre></div>
+<p>expert_layer is None 的出现是由 get_model_layers 对齐规则决定的，multiple_of = num_vlm_layers // num_expert_layers。Expert要能够计算交叉注意力也要满足当前层是否有Expert层。因为VLM和Expert是对齐的，不一定每一层都有Expert，而当self_attn_every_n_layers设置为2时，相当于是奇数层才会自注意力，而当VLM为16，Expert为8,那么正好Expert都在偶数层基数层没有，所以整个模型都没有注意力机制计算。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">expert_query_state</span> <span class="o">=</span> <span class="n">expert_layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">q_proj</span><span class="p">(</span><span class="n">expert_hidden_states</span><span class="p">)</span> \
+                         <span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Ls</span><span class="p">,</span> <span class="n">He</span><span class="p">,</span> <span class="n">Dhe</span><span class="p">)</span>
+<span class="c1"># 先把 VLM 的 K/V 合并 head 维，变为 [B, Lp, H*Dh]</span>
+<span class="n">_key_states</span>   <span class="o">=</span> <span class="n">key_states</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">expert_layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">k_proj</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">*</span><span class="n">key_states</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">_value_states</span> <span class="o">=</span> <span class="n">value_states</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">expert_layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">v_proj</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">*</span><span class="n">value_states</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="c1"># 再喂给 Expert 自己的 k_proj/v_proj，把维度映射到 Expert 的头数与 head_dim</span>
+<span class="n">expert_key_states</span>   <span class="o">=</span> <span class="n">expert_layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">k_proj</span><span class="p">(</span><span class="n">_key_states</span><span class="p">)</span> \
+                         <span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">*</span><span class="n">_key_states</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>   <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">expert_layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">head_dim</span><span class="p">)</span>   <span class="c1"># [B, Lp, He, Dhe]</span>
+<span class="n">expert_value_states</span> <span class="o">=</span> <span class="n">expert_layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">v_proj</span><span class="p">(</span><span class="n">_value_states</span><span class="p">)</span> \
+                         <span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">*</span><span class="n">_value_states</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">expert_layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">head_dim</span><span class="p">)</span>
+</code></pre></div>
+<p>Expert的expert_query_state来自自己的输入，而expert_key_states、expert_value_states来之与key_states、value_states即为VLM计算过来的缓存K/V。也就是Expert计算注意力是Q使用自己的，而K/V使用的是VLM的。但是需要注意的是可能两边的模型VLM和Expert的hidden宽度、KV头数/维度不一样，先把 VLM K/V 的多头维合并（view(*, H*Dh)），再用 Expert 自己的 k_proj/v_proj 做一次线性变换，映射到 Expert 的多头维度。这就是代码里 “cross K/V 适配层” 的作用；对应到 <strong>init</strong>，当 attention_mode 包含 "cross" 时，会把 Expert 的 k_proj/v_proj 重定义成输入维=VLM 的 kv_heads x head_dim，输出维=Expert 的。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 让 Expert 的 token 位置从 0 开始（RoPE 需要相对位置）</span>
+<span class="n">expert_position_id</span> <span class="o">=</span> <span class="n">expert_position_id</span> <span class="o">-</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">expert_position_id</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+
+<span class="c1"># 行选择 Expert 的 queries（后缀那段），列只到 prefix 的 K/V 长度（严格 cross，不看自己）</span>
+<span class="n">expert_attention_mask</span> <span class="o">=</span> <span class="n">attention_mask</span><span class="p">[:,</span> <span class="o">-</span><span class="n">inputs_embeds</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:,</span> <span class="p">:</span> <span class="n">expert_key_states</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">]</span>
+
+<span class="c1"># 对 Expert 的 Query 施加 RoPE</span>
+<span class="n">expert_query_states</span> <span class="o">=</span> <span class="n">apply_rope</span><span class="p">(</span><span class="n">expert_query_state</span><span class="p">,</span> <span class="n">expert_position_id</span><span class="p">)</span>
+
+<span class="n">att_output</span> <span class="o">=</span> <span class="n">attention_interface</span><span class="p">(</span><span class="n">expert_attention_mask</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">head_dim</span><span class="p">,</span>
+                                 <span class="n">expert_query_states</span><span class="p">,</span> <span class="n">expert_key_states</span><span class="p">,</span> <span class="n">expert_value_states</span><span class="p">)</span>
+<span class="n">att_outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">att_output</span><span class="p">)</span>
+</code></pre></div>
+<p>接下来就是计算mask，确保Expert计算cross时只看到前缀（纯cross-attn），不能自回看（不看后缀自身）。再计算RoPE的位置编码，最后调用attention_interface计算交叉注意力得到结果输出。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">return</span> <span class="n">att_outputs</span><span class="p">,</span> <span class="n">past_key_values</span>
+</code></pre></div>
+<p>最终返回的是两个流对应的自注意力输出，att_outputs 的 长度与 inputs_embeds 对齐，索引0代表VLM 流的输出（前面 prefix 自注意力的结果）；索引 1 代表Expert 流的输出（本层 cross 的结果；没有 Expert 就是 None）。外层主循环会据此对两个流分别过 o_proj + 残差 + MLP 等，继续下一层。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/08/wp_editor_md_eaba9df551b693207c8543974bc2de9c_1756287909.png"><img alt="" src="assets/doc/04-ai/lerobot/lerobot-smolvla策略/images/wp_editor_md_eaba9df551b693207c8543974bc2de9c_1756287909.png"/></a></p>
+<p>总结一下：cross-attn 分支“不拼接 Expert 的 K/V”：Expert 的 Q 只对 VLM 的 K/V（经投影到 Expert 维度）做注意。训练时VLM K/V现场算出并可选择写入缓存；Expert Q 只看这份 VLM K/V。推理时先用前缀阶段填好 VLM KV 缓存；去噪时 Expert Q 直接用缓存的 VLM K/V。VLM 不产生 Q，不会“看”Expert。</p>
+<p><strong>Expert要计算交叉注意力需要满足什么条件？</strong></p>
+<p>主要看3个参数</p>
+<ul>
+<li>L = num_vlm_layers：VLM 总层数</li>
+<li>E = num_expert_layers：Expert 总层数（必须 &gt; 0 且能整除 L）</li>
+<li>S = self_attn_every_n_layers：每隔 S 层强制走一次自注意力（=这层不做 cross）</li>
+</ul>
+<p><strong>某层做 cross 的条件 : i % M 0 且（S = 0 或 i % S != 0）</strong></p>
+<p>举例1：L=16, E=8；有Expert的层是{0,2,4,6,8,10,12,14}，若S=2这些层全是S的倍数，那么没有一层做cross。若S=3，做cross的为{2,4,8,10,14}。</p>
+<p>总结一下就是能做cross的，先看每隔几层做cross（间接有self_attn_every_n_layers决定）同时要满足能做cross的这几层有没有Expert。一般情况下，当VLM和Expert具有相同层数是，奇数层做Cross，如果Expert为VLM的一半是需要设置self_attn_every_n_layers设置大于2以上的奇数才能做cross。</p>
+<table>
+<thead>
+<tr>
+<th>层类型</th>
+<th>训练时</th>
+<th>推理时</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Self-Attn</strong></td>
+<td>VLM &amp; Expert 各自算 QKV → 拼接 → 双向注意 → 切分结果</td>
+<td>同训练，但 prefix KV 在首轮缓存，后续复用；双向依旧存在，但 VLM 冻结</td>
+</tr>
+<tr>
+<td><strong>Cross-Attn</strong></td>
+<td>VLM 自注意更新自身 KV；Expert 只算 Q，从 VLM KV（线性投影后）读条件</td>
+<td>prefix KV 已缓存；Expert 只算 Q，直接读缓存的 VLM KV；无需重复计算</td>
+</tr>
+</tbody>
+</table>
+<h2 id="_13">模型配置</h2>
+<h3 id="smolvlaconfig">SmolVLAConfig</h3>
+<p>模型配置主要是SmolVLAConfig类，其决定了训练/推理是模型结构、预处理、优化器/调度器、以及VLM骨干选择与冻结策略。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">SmolVLAConfig</span><span class="p">(</span><span class="n">PreTrainedConfig</span><span class="p">):</span>
+    <span class="c1"># Input / output structure.</span>
+    <span class="n">n_obs_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">chunk_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span>
+    <span class="n">n_action_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span>
+
+    <span class="n">normalization_mapping</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">NormalizationMode</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"VISUAL"</span><span class="p">:</span> <span class="n">NormalizationMode</span><span class="o">.</span><span class="n">IDENTITY</span><span class="p">,</span>
+            <span class="s2">"STATE"</span><span class="p">:</span> <span class="n">NormalizationMode</span><span class="o">.</span><span class="n">MEAN_STD</span><span class="p">,</span>
+            <span class="s2">"ACTION"</span><span class="p">:</span> <span class="n">NormalizationMode</span><span class="o">.</span><span class="n">MEAN_STD</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Shorter state and action vectors will be padded</span>
+    <span class="n">max_state_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span>
+    <span class="n">max_action_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span>
+
+    <span class="c1"># Image preprocessing</span>
+    <span class="n">resize_imgs_with_padding</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">)</span>
+
+    <span class="c1"># Add empty images. Used by smolvla_aloha_sim which adds the empty</span>
+    <span class="c1"># left and right wrist cameras in addition to the top camera.</span>
+    <span class="n">empty_cameras</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># Converts the joint and gripper values from the standard Aloha space to</span>
+    <span class="c1"># the space used by the pi internal runtime which was used to train the base model.</span>
+    <span class="n">adapt_to_pi_aloha</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># Converts joint dimensions to deltas with respect to the current state before passing to the model.</span>
+    <span class="c1"># Gripper dimensions will remain in absolute values.</span>
+    <span class="n">use_delta_joint_actions_aloha</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># Tokenizer</span>
+    <span class="n">tokenizer_max_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">48</span>
+
+    <span class="c1"># Decoding</span>
+    <span class="n">num_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
+
+    <span class="c1"># Attention utils</span>
+    <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># Finetuning settings</span>
+    <span class="n">freeze_vision_encoder</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">train_expert_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">train_state_proj</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># Training presets</span>
+    <span class="n">optimizer_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span>
+    <span class="n">optimizer_betas</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">)</span>
+    <span class="n">optimizer_eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span>
+    <span class="n">optimizer_weight_decay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-10</span>
+    <span class="n">optimizer_grad_clip_norm</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">10</span>
+
+    <span class="n">scheduler_warmup_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1_000</span>
+    <span class="n">scheduler_decay_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30_000</span>
+    <span class="n">scheduler_decay_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.5e-6</span>
+
+    <span class="n">vlm_model_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"HuggingFaceTB/SmolVLM2-500M-Video-Instruct"</span>  <span class="c1"># Select the VLM backbone.</span>
+    <span class="n">load_vlm_weights</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Set to True in case of training the expert from scratch. True when init from pretrained SmolVLA weights</span>
+
+    <span class="n">add_image_special_tokens</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Whether to use special image tokens around image features.</span>
+
+    <span class="n">attention_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"cross_attn"</span>
+
+    <span class="n">prefix_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
+    <span class="n">pad_language_to</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"longest"</span>  <span class="c1"># "max_length"</span>
+
+    <span class="n">num_expert_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span>  <span class="c1"># Less or equal to 0 is the default where the action expert has the same number of layers of VLM. Otherwise the expert have less layers.</span>
+    <span class="n">num_vlm_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16</span>  <span class="c1"># Number of layers used in the VLM (first num_vlm_layers layers)</span>
+    <span class="n">self_attn_every_n_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># Interleave SA layers each self_attn_every_n_layers</span>
+    <span class="n">expert_width_multiplier</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.75</span>  <span class="c1"># The action expert hidden size (wrt to the VLM)</span>
+
+    <span class="n">min_period</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">4e-3</span>  <span class="c1"># sensitivity range for the timestep used in sine-cosine positional encoding</span>
+    <span class="n">max_period</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">4.0</span>
+</code></pre></div>
+<p>可以分为几个部分</p>
+<p><strong>（1）输入输出与时序</strong></p>
+<ul>
+<li>n_obs_steps: 输入观测的历史步数，默认为1。</li>
+<li>chunk_size:每次模型生成的动作序列长度（后缀序列长度）。</li>
+<li>n_action_steps：外部消费的动作步数，需要满足n_action_steps &lt;= chunk_size（代码中已校验）。</li>
+</ul>
+<p>采样与训练的后缀长度在 VLAFlowMatching.sample_actions/forward 中使用，动作队列在 SmolVLAPolicy 中按 n_action_steps 出队。</p>
+<p><strong>（2）归一化与特征维度</strong></p>
+<ul>
+<li>normalization_mapping：各模态的标准化策略，视觉默认 Identity，状态与动作 MeanStd。</li>
+<li>max_state_dim/max_action_dim：状态、动作向量的固定上限维度；短向量会 pad 到该维度（pad_vector）。</li>
+</ul>
+<p>Normalize/Unnormalize 与 state_proj/action_ x _proj 的投影维度。</p>
+<p><strong>（3）图像预处理与空相机</strong></p>
+<ul>
+<li>resize_imgs_with_padding=(512,512)：视觉输入 pad-resize 到固定分辨率，然后再做 [-1,1] 归一化（SigLIP 习惯）。</li>
+<li>empty_cameras：允许在 batch 缺少图像时补空相机占位（用于多摄像头但部分缺失的场景）。</li>
+</ul>
+<p><strong>（4）Aloha 相关开关</strong></p>
+<ul>
+<li>adapt_to_pi_aloha：状态/动作与 Aloha 空间的双向转换（关节翻转、夹爪角度/线性空间互转）。</li>
+<li>use_delta_joint_actions_aloha：将关节维度转为相对量（目前未在 LeRobot 中实现，置 True 会报错）。</li>
+</ul>
+<p><strong>（5）文本与采样步数</strong></p>
+<ul>
+<li>tokenizer_max_length=48：语言 token 最大长度。</li>
+<li>num_steps=10：Flow Matching 反推理的 Euler 步数（越大越精细，越慢）。</li>
+</ul>
+<p>prepare_language、sample_actions 的迭代去噪循环。</p>
+<p><strong>（6）缓存与注意力</strong></p>
+<ul>
+<li>use_cache=True：是否使用 KV-Cache（前缀只算一次，后续重复用）。</li>
+<li>attention_mode="cross_attn"：与 SmolVLMWithExpertModel 的交叉注意力对齐策略。</li>
+<li>prefix_length=-1/pad_language_to="longest"：前缀长度/语言 padding 策略；用于构造 attention_mask 与 position_ids。</li>
+</ul>
+<p><strong>（7）微调的策略</strong></p>
+<ul>
+<li>freeze_vision_encoder=True：冻结 VLM 视觉编码器。</li>
+<li>train_expert_only=True：只训练动作 expert（VLM 其它部分冻结）。</li>
+<li>train_state_proj=True：是否训练状态投影层。</li>
+</ul>
+<p>影响SmolVLMWithExpertModel.set_requires_grad 以及 VLM 参数的 requires_grad 设置。</p>
+<p><strong>（8）优化器与调度器</strong></p>
+<ul>
+<li>optimizer_* 与 scheduler_*：在训练入口 TrainPipelineConfig.validate() 使用，生成默认的 AdamW + 余弦退火带预热调度。</li>
+</ul>
+<p>可被 CLI 覆写（如 --optimizer.lr 等）。</p>
+<p><strong>（9）VLM骨干与权重加载</strong></p>
+<ul>
+<li>vlm_model_name="HuggingFaceTB/SmolVLM2-500M-Video-Instruct"：指定用哪个 VLM 仓库（用于取 tokenizer/processor，和构建骨干结构）。</li>
+<li>load_vlm_weights=False：是否直接从该 VLM 仓库下载骨干权重。为 False时只拿 AutoConfig 构结构，权重随机初始化，随后通常被策略检查点覆盖。为 True时用 AutoModelForImageTextToText.from_pretrained 加载骨干权重（仅在 --policy.type=smolvla 路线下常用）。</li>
+</ul>
+<p>与 --policy.path 的关系为用 --policy.path=lerobot/smolvla_base 时，实际权重来自本地/Hub 的策略检查点（包含 VLM+expert），不会使用骨干权重，但仍会用 vlm_model_name 主要是加载 tokenizer/processor。用 --policy.type=smolvla 时，vlm_model_name 决定骨干结构，load_vlm_weights 决定是否拉骨干权重，expert 按本地配置新建训练。</p>
+<p><strong>（10）层数与宽度对齐</strong></p>
+<ul>
+<li>num_vlm_layers：把 VLM 的文本层裁剪为前 N 层再用。裁剪层数后设为 self.num_vlm_layers。</li>
+<li>num_expert_layers：专家 expert 模型的层数；若 ≤0 则默认与 VLM 层数相同。决定 expert 与 VLM 的层对齐步长 multiple_of = num_vlm_layers // num_expert_layers。只有在 i % multiple_of = 0 的 VLM 层位点才映射到一个 expert 层用于交叉注意力；其他层的 expert_layer 为空。</li>
+<li>self_attn_every_n_layers：每隔 n 层强制走“仅自注意力”而不是交叉注意力。当 attention_mode 含 “cross” 且 fill_kv_cache=False 时，如果 layer_idx % n = 0 则走 self-attn 分支，否则走 cross-attn 分支。例如n=2 → 偶数层自注意、奇数层尝试交叉注意，但还需该层“有映射到的 expert 层”（见 multiple_of）才真正执行 cross-attn。</li>
+<li>expert_width_multiplier：expert 的隐藏维度 = VLM 隐藏维度 × multiplier（同时重设 FFN 的 intermediate_size）。expert 更窄以降算力；但会改动线性层形状，需与加载的检查点一致，否则会维度不匹配。为实现 cross-attn，代码会按 VLM hidden 尺寸重建部分 q/k/v 投影，使其能接收来自 VLM 的输入（跳过“只自注意”层）。</li>
+</ul>
+<p>在SmolVLAConfig配置集中定义了 SmolVLA 的“结构与训练/推理开关”。训练微调常用 --policy.path=lerobot/smolvla_base，此时多数结构参数不宜修改，微调时从smolvla_base中加载config.json配置；而从骨干自建训练时才需要精细调 num_expert_layers/num_vlm_layers/expert_width_multiplier/load_vlm_weights 等，并确保与骨干 hidden_size/层数一致。</p>
+<h3 id="_14">加载流程</h3>
+<p>策略的加载主要分为两条入口路径，两者互斥，通过启动时参数指定。</p>
+<p><strong>（1）--policy.path=....方式</strong></p>
+<p>用 --policy.path=.....:指定一个已存在的策略checkpoint（Hub 上或本地目录）。如训练时微调可以指定lerobot/smolvla_base，推理时指定output/train/pretrained_model。会从 path/config.json 里反序列化成 SmolVLAConfig；会加载同目录下的 model.safetensors（整个策略权重：VLM骨干 + 动作专家 + 投影层等）；训练开始时，模型已经有了一套完整的初始化参数（通常是预训练好的）。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">lerobot</span><span class="o">.</span><span class="n">scripts</span><span class="o">.</span><span class="n">train</span> \
+  <span class="o">--</span><span class="n">policy</span><span class="o">.</span><span class="n">path</span><span class="o">=</span><span class="n">lerobot</span><span class="o">/</span><span class="n">smolvla_base</span> \
+  <span class="o">--</span><span class="n">dataset</span><span class="o">.</span><span class="n">repo_id</span><span class="o">=</span><span class="n">xxx</span> \
+  <span class="o">--</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span> <span class="o">--</span><span class="n">steps</span><span class="o">=</span><span class="mi">200000</span>
+</code></pre></div>
+<p>这里会拿 Hugging Face Hub 上的 lerobot/smolvla_base（含 config.json + model.safetensors，整个策略权重：VLM骨干 + 动作专家 + 投影层等）来初始化。</p>
+<p><strong>（2）--policy.type=smolvla方式</strong> 指定一个 策略类别（由 @PreTrainedConfig.register_subclass("smolvla") 注册）。会创建一个全新的 SmolVLAConfig 对象（带默认超参），而不是加载 checkpoint。没有预训练权重，除非配合 load_vlm_weights=True，这时只会拉取纯VLM背骨的预训练权重（而动作专家层仍然是随机初始化）。可以用命令行参数覆盖任意超参（比如 --policy.num_expert_layers=4）。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">lerobot</span><span class="o">.</span><span class="n">scripts</span><span class="o">.</span><span class="n">train</span> \
+  <span class="o">--</span><span class="n">policy</span><span class="o">.</span><span class="n">type</span><span class="o">=</span><span class="n">smolvla</span> \
+  <span class="o">--</span><span class="n">dataset</span><span class="o">.</span><span class="n">repo_id</span><span class="o">=</span><span class="n">xxx</span> \
+  <span class="o">--</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span> <span class="o">--</span><span class="n">steps</span><span class="o">=</span><span class="mi">200000</span> \
+  <span class="o">--</span><span class="n">policy</span><span class="o">.</span><span class="n">load_vlm_weights</span><span class="o">=</span><span class="kc">True</span>
+</code></pre></div>
+<p>从零（或仅用 VLM 预训练骨干）开始训练一个新策略。</p>
+<p>下面以推理和训练举例说明其调用流程。</p>
+<p><strong>（1）训练使用policy.path方式</strong></p>
+<p>在 validate() 中读取 path，并把所有 --policy.xxx 作为“同层覆写”传入配置加载。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">policy_path</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">get_path_arg</span><span class="p">(</span><span class="s2">"policy"</span><span class="p">)</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">policy</span> <span class="o">=</span> <span class="n">PreTrainedConfig</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">policy_path</span><span class="p">,</span> <span class="n">cli_overrides</span><span class="o">=</span><span class="n">cli_overrides</span><span class="p">)</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">policy</span><span class="o">.</span><span class="n">pretrained_path</span> <span class="o">=</span> <span class="n">policy_path</span>
+</code></pre></div>
+<p>判断是从本地目录还是Hub下载获取配置文件，然后应用得到 SmolVLAConfig。只加载“配置”（config.json），不加载模型权重。权重加载发生在后续 policy_cls.from_pretrained(...)（另一个类，见 policies/pretrained.py）。</p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="k">def</span> <span class="nf">from_pretrained</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">pretrained_name_or_path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="o">**</span><span class="n">policy_kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+    <span class="n">model_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">pretrained_name_or_path</span><span class="p">)</span>
+    <span class="c1"># 1) 决定从本地目录还是Hub取配置文件（只取config，不取权重）</span>
+    <span class="k">if</span> <span class="n">Path</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">CONFIG_NAME</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">model_id</span><span class="p">):</span>
+            <span class="n">config_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">model_id</span><span class="p">,</span> <span class="n">CONFIG_NAME</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">CONFIG_NAME</span><span class="si">}</span><span class="s2"> not found in </span><span class="si">{</span><span class="n">Path</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">config_file</span> <span class="o">=</span> <span class="n">hf_hub_download</span><span class="p">(</span><span class="n">repo_id</span><span class="o">=</span><span class="n">model_id</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">CONFIG_NAME</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">HfHubHTTPError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="o">...</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span>
+
+    <span class="c1"># 2) 应用CLI覆写（如 --policy.xxx=...）</span>
+    <span class="n">cli_overrides</span> <span class="o">=</span> <span class="n">policy_kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"cli_overrides"</span><span class="p">,</span> <span class="p">[])</span>
+    <span class="k">with</span> <span class="n">draccus</span><span class="o">.</span><span class="n">config_type</span><span class="p">(</span><span class="s2">"json"</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">draccus</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config_file</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">cli_overrides</span><span class="p">)</span>
+</code></pre></div>
+<p>构建策略，注入数据集特征与统计，若存在 pretrained_path 则连同权重加载。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">cfg</span><span class="o">.</span><span class="n">input_features</span><span class="o">/</span><span class="n">output_features</span> <span class="o">=</span> <span class="o">...</span>
+<span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">pretrained_path</span><span class="p">:</span>
+    <span class="n">policy</span> <span class="o">=</span> <span class="n">policy_cls</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">policy</span> <span class="o">=</span> <span class="n">policy_cls</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</code></pre></div>
+<p>加载权重（目录或 Hub 的 model.safetensors），随后迁移到 device、设 eval()（训练循环里会再切回 train()）。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">model_id</span><span class="p">):</span>
+    <span class="n">policy</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_load_as_safetensor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">policy</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">device</span><span class="p">);</span> <span class="n">policy</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+</code></pre></div>
+<p>SmolVLA 特定初始化，即使走 path，仍按 vlm_model_name 加载 tokenizer/processor（非权重），并实例化骨干+expert。</p>
+<div class="codehilite"><pre><span></span><code><span class="bp">self</span><span class="o">.</span><span class="n">language_tokenizer</span> <span class="o">=</span> <span class="n">AutoProcessor</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">vlm_model_name</span><span class="p">)</span><span class="o">.</span><span class="n">tokenizer</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">VLAFlowMatching</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>（2）训练使用policy.type方式</strong></p>
+<p>draccus 按类型直接实例化 SmolVLAConfig（该类已注册）并解析 --policy.xxx。</p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@PreTrainedConfig</span><span class="o">.</span><span class="n">register_subclass</span><span class="p">(</span><span class="s2">"smolvla"</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">SmolVLAConfig</span><span class="p">(</span><span class="n">PreTrainedConfig</span><span class="p">):</span>
+</code></pre></div>
+<p>make_policy 同上；因无 pretrained_path，默认从零构建。若配置 load_vlm_weights=true，才会把骨干权重从 vlm_model_name 拉下来（expert 仍需训练）。</p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">load_vlm_weights</span><span class="p">:</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">vlm</span> <span class="o">=</span> <span class="n">AutoModelForImageTextToText</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_id</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">AutoConfig</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">vlm</span> <span class="o">=</span> <span class="n">SmolVLMForConditionalGeneration</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>（3）推理模式只能使用policy.path方式</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">policy_path</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">get_path_arg</span><span class="p">(</span><span class="s2">"policy"</span><span class="p">)</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">policy</span> <span class="o">=</span> <span class="n">PreTrainedConfig</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">policy_path</span><span class="p">,</span> <span class="n">cli_overrides</span><span class="o">=</span><span class="n">cli_overrides</span><span class="p">)</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">policy</span><span class="o">.</span><span class="n">pretrained_path</span> <span class="o">=</span> <span class="n">policy_path</span>
+</code></pre></div>
+<p>record 的配置按policy.path加载训练的模型，随后通过 predict_action/select_action 使用策略进行推理。</p>
+<p><strong>policy.path 对比 policy.type</strong></p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th><strong>policy.path=...</strong></th>
+<th><strong>policy.type=smolvla</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>配置来源</strong></td>
+<td>从 <strong>checkpoint 目录/Hub 仓库</strong>里的 config.json 反序列化成 SmolVLAConfig</td>
+<td>通过 @PreTrainedConfig.register_subclass("smolvla") 新建一个默认 SmolVLAConfig，命令行可覆写</td>
+</tr>
+<tr>
+<td><strong>权重来源</strong></td>
+<td>从 <strong>checkpoint 里的 model.safetensors</strong> 加载完整策略权重（VLM骨干 + 动作专家 + 投影层）</td>
+<td>默认全随机；若 load_vlm_weights=True，则只加载 <strong>VLM骨干</strong>权重（SmolVLM2），动作专家仍随机</td>
+</tr>
+<tr>
+<td><strong>归一化统计</strong></td>
+<td><strong>不从 checkpoint 恢复</strong>，而是来自数据集 dataset_stats（normalize_inputs/targets在加载时被忽略）</td>
+<td>同左</td>
+</tr>
+<tr>
+<td><strong>Tokenizer/Processor</strong></td>
+<td>仍然会用 config.vlm_model_name（默认 HuggingFaceTB/SmolVLM2）加载 tokenizer/processor</td>
+<td>同左</td>
+</tr>
+<tr>
+<td><strong>常见场景</strong></td>
+<td>- 直接推理   - 微调已有策略</td>
+<td>- 从零开始训练新策略   - 换结构做实验（改 num_expert_layers、expert_width_multiplier等）</td>
+</tr>
+<tr>
+<td><strong>推理可用性</strong></td>
+<td>一键可用（权重完整）</td>
+<td>不可直接用（专家没训练，输出无意义），除非后续手动加载你自己训练好的权重</td>
+</tr>
+<tr>
+<td><strong>是否需要 HuggingFaceTB/SmolVLM2 权重</strong></td>
+<td>不需要（只用到它的 processor/tokenizer）</td>
+<td>如果 load_vlm_weights=True → 需要拉骨干权重；否则全随机</td>
+</tr>
+</tbody>
+</table></div>
+  <div class="post-nav">
+    <a class="prev" href="smolvla-异步推理-远程-policy-server-与本地-client-实操.html">← SmolVLA 异步推理：远程 Policy Server 与本地 Client 实操</a>
+    <a class="next" href="从数学角度理解flow-matching中的线性插值.html">从数学角度理解flow matching中的线性插值 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>语音生成模型：CosyVoice入门实践 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">是什么</a><ul></ul></li><li><a href="#_2">怎么用</a><ul><li><a href="#_3">环境安装</a></li><li><a href="#_4">测试</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>语音生成模型：CosyVoice入门实践</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-26
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">是什么</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_43560dd8ba2e203ecc04be963fdca3e0_1759023542.png"><img alt="" src="assets/doc/04-ai/ai应用/语音生成模型：cosyvoice入门实践/images/wp_editor_md_43560dd8ba2e203ecc04be963fdca3e0_1759023542.png"/></a></p>
+<p>CosyVoice是阿里开源的一款文字转语音的开源模型，可以支持音色复刻。</p>
+<h2 id="_2">怎么用</h2>
+<h3 id="_3">环境安装</h3>
+<p><strong>（1）代码下载</strong></p>
+<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>--recursive<span class="w"> </span>https://github.com/FunAudioLLM/CosyVoice.git
+
+<span class="nb">cd</span><span class="w"> </span>CosyVoice
+git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
+</code></pre></div>
+<p>因为CosyVoice仓库中还依赖了第三方的Matcha-TTS，所以克隆本地仓库后，还需要下载第三方的。</p>
+<p><strong>（2）创建conda环境</strong></p>
+<div class="codehilite"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>cosyvoice<span class="w"> </span>-y<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.10
+conda<span class="w"> </span>activate<span class="w"> </span>cosyvoice
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt<span class="w"> </span>-i<span class="w"> </span>https://mirrors.aliyun.com/pypi/simple/<span class="w"> </span>--trusted-host<span class="o">=</span>mirrors.aliyun.com
+</code></pre></div>
+<p>创建conda环境并安装依赖。如果没有安装cuda工具的话，还需要执行下面命令安装。</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>nvidia-cuda-toolkit
+</code></pre></div>
+<p><strong>（3）下载预训练模型</strong></p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>update<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>git-lfs<span class="w"> </span>-y
+mkdir<span class="w"> </span>-p<span class="w"> </span>pretrained_models
+git<span class="w"> </span>clone<span class="w"> </span>https://www.modelscope.cn/iic/CosyVoice2-0.5B.git<span class="w"> </span>pretrained_models/CosyVoice2-0.5B
+git<span class="w"> </span>clone<span class="w"> </span>https://www.modelscope.cn/iic/CosyVoice-300M.git<span class="w"> </span>pretrained_models/CosyVoice-300M
+git<span class="w"> </span>clone<span class="w"> </span>https://www.modelscope.cn/iic/CosyVoice-300M-SFT.git<span class="w"> </span>pretrained_models/CosyVoice-300M-SFT
+git<span class="w"> </span>clone<span class="w"> </span>https://www.modelscope.cn/iic/CosyVoice-300M-Instruct.git<span class="w"> </span>pretrained_models/CosyVoice-300M-Instruct
+git<span class="w"> </span>clone<span class="w"> </span>https://www.modelscope.cn/iic/CosyVoice-ttsfrd.git<span class="w"> </span>pretrained_models/CosyVoice-ttsfrd
+</code></pre></div>
+<p>上面的模型文件选择一个即可，需要注意的是因为模型比较大，所以要在本地安装git-lfs才能下载大文件。</p>
+<h3 id="_4">测试</h3>
+<div class="codehilite"><pre><span></span><code>python3<span class="w"> </span>webui.py<span class="w"> </span>--port<span class="w"> </span><span class="m">50000</span><span class="w"> </span>--model_dir<span class="w"> </span>pretrained_models/CosyVoice-300M
+</code></pre></div>
+<p>执行上面命令后，就可以登录网页输入<a href="http://127.0.0.1:50000/">http://127.0.0.1:50000/</a>进行测试了。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_4dd51d2e6b236fe8f3d16448abcefa63_1758869975.png"><img alt="" src="assets/doc/04-ai/ai应用/语音生成模型：cosyvoice入门实践/images/wp_editor_md_4dd51d2e6b236fe8f3d16448abcefa63_1758869975.png"/></a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="机器人控制利器-mpc入门与实践解析.html">← 机器人控制利器：MPC入门与实践解析</a>
+    <a class="next" href="语音识别模型-sensevoice入门实践.html">语音识别模型：SenseVoice入门实践 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

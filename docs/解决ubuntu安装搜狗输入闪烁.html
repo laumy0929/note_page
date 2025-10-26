@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>解决ubuntu安装搜狗输入闪烁 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#xorg">切换使用Xorg显示</a><ul></ul></li><li><a href="#fcitx5fcitx">卸载fcitx5安装fcitx</a><ul></ul></li><li><a href="#_1">安装搜狗</a><ul></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>解决ubuntu安装搜狗输入闪烁</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-10
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      其他
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="xorg">切换使用Xorg显示</h2>
+<p>之所以要切换Xorg显示是因为搜狗输入如果使用wayland显示，切到中文会一直闪烁，因此需要使用Xorg显示。</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">echo</span><span class="w"> </span><span class="nv">$XDG_SESSION_TYPE</span>
+</code></pre></div>
+<p>先检查当前是那种图像绘画，如果打印是x11则是Xorg，如果是wayland则是wayland。</p>
+<p>全局修改为Xorg显示。</p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>vim<span class="w"> </span>/etc/gdm3/custom.conf
+
+将下面这行去掉#
+<span class="c1">#WaylandEnable=false</span>
+
+然后
+
+sudo<span class="w"> </span>systemctl<span class="w"> </span>restart<span class="w"> </span>gdm3
+
+重启
+</code></pre></div>
+<h2 id="fcitx5fcitx">卸载fcitx5安装fcitx</h2>
+<p>需要把fcitx5卸载了，安装fcitx4。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">sudo</span> <span class="n">apt</span> <span class="n">remove</span> <span class="o">--</span><span class="n">purge</span> <span class="n">fcitx5</span> <span class="n">fcitx5</span><span class="o">-*</span> <span class="o">-</span><span class="n">y</span>
+<span class="n">sudo</span> <span class="n">apt</span> <span class="n">autoremove</span>
+</code></pre></div>
+<p>然后安装</p>
+<div class="codehilite"><pre><span></span><code><span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">fcitx</span>
+</code></pre></div>
+<h2 id="_1">安装搜狗</h2>
+<p>安装官方的进行安装即可</p>
+<p><a href="https://shurufa.sogou.com/linux/guide">https://shurufa.sogou.com/linux/guide</a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="isaac-sim-v5-0-0-探索ai-机器人仿真平台.html">← Isaac Sim v5.0.0：探索AI 机器人仿真平台</a>
+    <a class="next" href="什么是ros-机器人操作系统快览随记.html">什么是ROS：机器人操作系统快览随记 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

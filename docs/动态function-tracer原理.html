@@ -797,8 +797,8 @@
 </code></pre></div>
 <p>register_ftrace_function是一个通用的注册函数，传递的参数struct ftrace_ops *ops即想要在函数入口插入跟踪的函数，无论是function tracer、irqsoff、fprobes、trace_event等函数都是调用该函数进行注册插桩，也可以自定义自己想要插桩的函数。 从原理上来讲，使能了-fpatchable-function-entry编译参数后，入口函数处就占了坑位，默认是先用nop指令填充，那么可以在运行阶段想换成啥就换成啥。</p></div>
   <div class="post-nav">
-    <a class="prev" href="静态ftrace.html">← 静态ftrace</a>
-    <a class="next" href="ftrace-概述.html">ftrace-概述 →</a>
+    <a class="prev" href="camera基础知识.html">← Camera基础知识</a>
+    <a class="next" href="静态ftrace.html">静态ftrace →</a>
   </div>
 </article>
 

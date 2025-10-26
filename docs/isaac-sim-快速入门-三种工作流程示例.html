@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Isaac Sim 快速入门：三种工作流程示例 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">简介</a><ul></ul></li><li><a href="#_2">基础使用教程</a><ul><li><a href="#gui">GUI方式</a></li><li><a href="#_3">扩展功能方式</a></li><li><a href="#python">独立python环境方式</a></li></ul></li><li><a href="#_4">机器人基础教程</a><ul><li><a href="#gui_1">GUI方式</a></li><li><a href="#extension">Extension方式</a></li><li><a href="#python_1">独立Python方式</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>Isaac Sim 快速入门：三种工作流程示例</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-11
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">简介</h2>
+<p>如果是NVIDIA Isaac Sim的新用户，可以按照本文的两个示例来体验Isaac Sim。本文主要提供Isaac Sim基础使用教程、机器人基础教程。</p>
+<p>在快速入门教程中，所有可通过 GUI 执行的操作同样也能用 Python 实现。您可以在 GUI 操作与 Python 脚本之间自由切换。您在 GUI 中创建的所有内容都能保存为 USD 文件的一部分。</p>
+<p>例如，您可以通过图形界面创建世界，并为机器人添加所需动作。随后将整个 USD 文件导入独立的 Python 脚本中，根据需求系统性地修改属性。</p>
+<h2 id="_2">基础使用教程</h2>
+<p>本教程涵盖 Isaac Sim 的基础操作，包括界面导航、场景对象添加、查看对象基本属性以及运行模拟等内容。</p>
+<p>通过本教程，您将从空白场景开始，根据三种不同工作流程的选择，最终实现机器人运动控制。提供三种不同工作流程的目的是展示 Isaac Sim 可根据需求以多种方式灵活使用。</p>
+<p>可以查看两种工作流中的脚本以了解它们的差异。通过对比分析，有助于掌握如何执行完全相同的任务：</p>
+<ul>
+<li>扩展脚本可在<strong>Window &gt; Examples &gt; Robotics Examples</strong>中找到，然后单击浏览器右上角的**Open Script **按钮。</li>
+<li>独立脚本位于 \<isaac-sim-root-dir>/standalone_examples/tutorials/ 文件夹内。</isaac-sim-root-dir></li>
+</ul>
+<p>可以通过编辑扩展示例中的任意脚本来体验"hot-reloading"功能。保存文件后，无需关闭模拟器即可立即看到变更生效。</p>
+<p>在官方教程中有3个标签页，三个标签页执行相同操作并达成相同结果。</p>
+<ul>
+<li>GUI： 图形用户界面</li>
+<li>Extensions：扩展功能</li>
+<li>Standalone Python：独立Python环境</li>
+</ul>
+<h3 id="gui">GUI方式</h3>
+<p><strong>步骤1：启动Isaac Sim</strong></p>
+<ul>
+<li>linux：cd ~/isaacsim &amp;&amp; ./isaac-sim.selector.sh</li>
+<li>windows:双击isaac-sim.selector.bat</li>
+</ul>
+<p>模拟器完全加载后，创建新场景：</p>
+<p>从顶部菜单栏点击<strong>File &gt; New</strong>。首次启动 Isaac Sim 时，可能需要 5-10 分钟完成初始化。</p>
+<p><strong>步骤2： 添加地平面</strong></p>
+<p>为场景添加地平面：从顶部菜单栏点击<strong>Create &gt; Physics &gt; Ground Plane</strong>。</p>
+<p><strong>步骤3：添加光源</strong></p>
+<p>可以为场景添加光源以照亮其中的物体。如果场景中有光源但没有物体反射光线，场景仍会显得昏暗。</p>
+<p>在顶部菜单栏中，点击<strong>Create &gt; Lights &gt; Distant Light</strong>。</p>
+<p><strong>步骤4：添加视觉立方体</strong></p>
+<p>"视觉"立方体是指没有附加物理属性的立方体，例如没有质量、没有碰撞体积。这种立方体不会受重力影响下落，也不会与其他物体发生碰撞。</p>
+<p>从顶部菜单栏中，依次点击<strong>Create &gt; Shape &gt; Cube.</strong></p>
+<p>在用户界面最左侧找到箭头图标并点击<strong>Play</strong>。运行模拟时立方体不会有任何动作。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_06ec1ea5078ef44e185364057d89c458_1757579665.webp"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim快速入门教程/images/wp_editor_md_06ec1ea5078ef44e185364057d89c458_1757579665.webp"/></a></p>
+<p><strong>步骤5：移动、旋转与缩放立方体</strong></p>
+<p>使用左侧工具栏上的各种操控工具来操作立方体。</p>
+<ul>
+<li>按下"W"键或点击移动工具即可拖拽移动立方体。通过点击箭头并拖拽可单轴移动，点击彩色方块并拖拽可双轴移动，点击工具中心的圆点并拖拽则可三轴自由移动。</li>
+<li>按下“E”键或点击旋转控制器来旋转立方体。</li>
+<li>按下“R”键或点击缩放控制器来调整立方体大小。点击箭头并拖动可单维度缩放，点击彩色方块并拖动可双维度缩放，点击控制器中心的圆圈并拖动则可实现三维同步缩放。</li>
+<li>按下“esc”键取消选中立方体。</li>
+</ul>
+<p>对于“移动”和“旋转”操作，可选择基于局部坐标系或世界坐标系进行操作。长按控制器即可查看选项。</p>
+<p>可以通过立方体的<strong>Property</strong>属性面板进行更精确的修改，只需在对应输入框中输入具体数值即可。点击输入框旁的蓝色方块可将数值重置为默认值。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_cb48c7b4199bccff0762ba1071b9e268_1757579832.webp"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim快速入门教程/images/wp_editor_md_cb48c7b4199bccff0762ba1071b9e268_1757579832.webp"/></a></p>
+<p><strong>步骤6：添加物理与碰撞属性</strong></p>
+<p>常见的物理属性包括质量和惯性矩阵，这些属性使物体能够在重力作用下下落。碰撞属性则决定了物体能否与其他物体发生碰撞。</p>
+<p>物理和碰撞属性可以分别添加，因此你可以创建一个能与其他物体碰撞但不受重力影响的物体，或是受重力影响但不会与其他物体碰撞的物体。但在多数情况下，这两个属性会同时添加。</p>
+<p>为立方体添加物理和碰撞属性：</p>
+<ul>
+<li>在场景树中找到对象（"/World/Cube"）并高亮显示它。</li>
+<li>从工作区右下角的<strong>Property</strong>属性面板中，点击"Add"按钮并在下拉菜单中选择<strong>Physics</strong>。这将显示可添加到对象的一系列属性选项。</li>
+<li>选择<strong>Rigid Body with Colliders Preset</strong>“带碰撞器的刚体预设”可为对象同时添加物理和碰撞网格。</li>
+<li>按下播放<strong>Play</strong>按钮，观察立方体在重力作用下坠落并与地平面发生碰撞。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_3cc6e0dcfdfa0d009419338062ce20ab_1757579989.webp"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim快速入门教程/images/wp_editor_md_3cc6e0dcfdfa0d009419338062ce20ab_1757579989.webp"/></a></p>
+<p>教程结束，记得保存你的工作。</p>
+<h3 id="_3">扩展功能方式</h3>
+<p>通过一个名为"脚本编辑器"的现有扩展模块来演示扩展工作流的特性。脚本编辑器允许用户通过 Python 与场景进行交互。主要使用与独立 Python 工作流相同的 Python API。当我们开始与模拟时间轴交互时，特别是下一个教程中，这两种工作流的区别将变得清晰。</p>
+<p><strong>步骤1：启动</strong></p>
+<p>启动一个新的 Isaac Sim 实例，转到顶部菜单栏并点击<strong>Window &gt; Script Editor</strong>。</p>
+<p><strong>步骤2：添加地平面</strong> 要通过交互式 Python 添加地平面，请将以下代码片段复制粘贴到脚本编辑器中，然后点击底部的运行<strong>Run</strong>按钮执行。</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">isaacsim.core.api.objects.ground_plane</span> <span class="kn">import</span> <span class="n">GroundPlane</span>
+<span class="n">GroundPlane</span><span class="p">(</span><span class="n">prim_path</span><span class="o">=</span><span class="s2">"/World/GroundPlane"</span><span class="p">,</span> <span class="n">z_position</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>步骤3：添加光源</strong></p>
+<p>可以为场景添加光源以照亮其中的物体。如果场景中有光源但没有物体反射光线，场景仍会显得昏暗。</p>
+<ul>
+<li>在脚本编辑器中新建一个标签页(<strong>Tab &gt; Add Tab</strong>)。</li>
+<li>在脚本编辑器中复制粘贴以下代码片段并运行，即可添加光源。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">omni.usd</span>
+<span class="kn">from</span> <span class="nn">pxr</span> <span class="kn">import</span> <span class="n">Sdf</span><span class="p">,</span> <span class="n">UsdLux</span>
+
+<span class="n">stage</span> <span class="o">=</span> <span class="n">omni</span><span class="o">.</span><span class="n">usd</span><span class="o">.</span><span class="n">get_context</span><span class="p">()</span><span class="o">.</span><span class="n">get_stage</span><span class="p">()</span>
+<span class="n">distantLight</span> <span class="o">=</span> <span class="n">UsdLux</span><span class="o">.</span><span class="n">DistantLight</span><span class="o">.</span><span class="n">Define</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">Sdf</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="s2">"/DistantLight"</span><span class="p">))</span>
+<span class="n">distantLight</span><span class="o">.</span><span class="n">CreateIntensityAttr</span><span class="p">(</span><span class="mi">300</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>步骤4：添加视觉立方体</strong></p>
+<ul>
+<li>在脚本编辑器中新建一个标签页 (<strong>Tab &gt; Add Tab</strong>)。</li>
+<li>在脚本编辑器中复制粘贴以下代码片段并运行，即可添加两个立方体。我们将保留其中一个作为纯视觉对象，同时为另一个添加物理和碰撞属性以便对比。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">isaacsim.core.api.objects</span> <span class="kn">import</span> <span class="n">VisualCuboid</span>
+<span class="n">VisualCuboid</span><span class="p">(</span>
+   <span class="n">prim_path</span><span class="o">=</span><span class="s2">"/visual_cube"</span><span class="p">,</span>
+   <span class="n">name</span><span class="o">=</span><span class="s2">"visual_cube"</span><span class="p">,</span>
+   <span class="n">position</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]),</span>
+   <span class="n">size</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+   <span class="n">color</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+<span class="p">)</span>
+<span class="n">VisualCuboid</span><span class="p">(</span>
+   <span class="n">prim_path</span><span class="o">=</span><span class="s2">"/test_cube"</span><span class="p">,</span>
+   <span class="n">name</span><span class="o">=</span><span class="s2">"test_cube"</span><span class="p">,</span>
+   <span class="n">position</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]),</span>
+   <span class="n">size</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+   <span class="n">color</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Isaac Sim 核心 API 是对原生 USD 和物理引擎 API 的封装。您可以使用原生 USD API 添加一个视觉立方体（不含物理和颜色属性）。请注意原生 USD API 更为冗长，但能提供对每个属性的更精细控制。</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">pxr</span> <span class="kn">import</span> <span class="n">UsdPhysics</span><span class="p">,</span> <span class="n">PhysxSchema</span><span class="p">,</span> <span class="n">Gf</span><span class="p">,</span> <span class="n">PhysicsSchemaTools</span><span class="p">,</span> <span class="n">UsdGeom</span>
+<span class="kn">import</span> <span class="nn">omni</span>
+
+<span class="c1"># USD api for getting the stage</span>
+<span class="n">stage</span> <span class="o">=</span> <span class="n">omni</span><span class="o">.</span><span class="n">usd</span><span class="o">.</span><span class="n">get_context</span><span class="p">()</span><span class="o">.</span><span class="n">get_stage</span><span class="p">()</span>
+
+<span class="c1"># Adding a Cube</span>
+<span class="n">path</span> <span class="o">=</span> <span class="s2">"/visual_cube_usd"</span>
+<span class="n">cubeGeom</span> <span class="o">=</span> <span class="n">UsdGeom</span><span class="o">.</span><span class="n">Cube</span><span class="o">.</span><span class="n">Define</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+<span class="n">cubePrim</span> <span class="o">=</span> <span class="n">stage</span><span class="o">.</span><span class="n">GetPrimAtPath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<span class="n">size</span> <span class="o">=</span> <span class="mf">0.5</span>
+<span class="n">offset</span> <span class="o">=</span> <span class="n">Gf</span><span class="o">.</span><span class="n">Vec3f</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span><span class="o">-</span><span class="mf">0.2</span><span class="p">,</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">cubeGeom</span><span class="o">.</span><span class="n">CreateSizeAttr</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">cubePrim</span><span class="o">.</span><span class="n">HasAttribute</span><span class="p">(</span><span class="s2">"xformOp:translate"</span><span class="p">):</span>
+  <span class="n">UsdGeom</span><span class="o">.</span><span class="n">Xformable</span><span class="p">(</span><span class="n">cubePrim</span><span class="p">)</span><span class="o">.</span><span class="n">AddTranslateOp</span><span class="p">()</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+  <span class="n">cubePrim</span><span class="o">.</span><span class="n">GetAttribute</span><span class="p">(</span><span class="s2">"xformOp:translate"</span><span class="p">)</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>步骤5：添加物理与碰撞属性</strong> 在 Isaac Sim 核心 API 中，我们为常用对象编写了封装器，这些封装器附带所有物理和碰撞属性。您可以通过以下代码片段添加一个具有物理和碰撞属性的立方体。</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">isaacsim.core.api.objects</span> <span class="kn">import</span> <span class="n">DynamicCuboid</span>
+
+<span class="n">DynamicCuboid</span><span class="p">(</span>
+   <span class="n">prim_path</span><span class="o">=</span><span class="s2">"/dynamic_cube"</span><span class="p">,</span>
+   <span class="n">name</span><span class="o">=</span><span class="s2">"dynamic_cube"</span><span class="p">,</span>
+   <span class="n">position</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]),</span>
+   <span class="n">scale</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">]),</span>
+   <span class="n">size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+   <span class="n">color</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>另外，如果想修改现有对象使其具备物理和碰撞属性，可以使用以下代码片段。</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">isaacsim.core.prims</span> <span class="kn">import</span> <span class="n">RigidPrim</span>
+<span class="n">RigidPrim</span><span class="p">(</span><span class="s2">"/test_cube"</span><span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">isaacsim.core.prims</span> <span class="kn">import</span> <span class="n">GeometryPrim</span>
+<span class="n">prim</span> <span class="o">=</span> <span class="n">GeometryPrim</span><span class="p">(</span><span class="s2">"/test_cube"</span><span class="p">)</span>
+<span class="n">prim</span><span class="o">.</span><span class="n">apply_collision_apis</span><span class="p">()</span>
+</code></pre></div>
+<p>点击播放<strong>Play</strong>按钮，观察立方体在重力作用下坠落并与地平面碰撞。</p>
+<p><strong>步骤6： 移动、旋转与缩放立方体</strong></p>
+<p>使用核心 API 移动物体：</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">isaacsim.core.prims</span> <span class="kn">import</span> <span class="n">XFormPrim</span>
+
+<span class="n">translate_offset</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.5</span><span class="p">,</span><span class="mf">1.2</span><span class="p">,</span><span class="mf">1.0</span><span class="p">]])</span>
+<span class="n">orientation_offset</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.7</span><span class="p">,</span><span class="mf">0.7</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">]])</span>     <span class="c1"># note this is in radians</span>
+<span class="n">scale</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span><span class="mf">1.5</span><span class="p">,</span><span class="mf">0.2</span><span class="p">]])</span>
+
+<span class="n">stage</span> <span class="o">=</span> <span class="n">omni</span><span class="o">.</span><span class="n">usd</span><span class="o">.</span><span class="n">get_context</span><span class="p">()</span><span class="o">.</span><span class="n">get_stage</span><span class="p">()</span>
+<span class="n">cube_in_coreapi</span> <span class="o">=</span> <span class="n">XFormPrim</span><span class="p">(</span><span class="n">prim_paths_expr</span><span class="o">=</span><span class="s2">"/test_cube"</span><span class="p">)</span>
+<span class="n">cube_in_coreapi</span><span class="o">.</span><span class="n">set_world_poses</span><span class="p">(</span><span class="n">translate_offset</span><span class="p">,</span> <span class="n">orientation_offset</span><span class="p">)</span>
+<span class="n">cube_in_coreapi</span><span class="o">.</span><span class="n">set_local_scales</span><span class="p">(</span><span class="n">scale</span><span class="p">)</span>
+</code></pre></div>
+<p>使用原始 USD API 移动物体：</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">pxr</span> <span class="kn">import</span> <span class="n">UsdGeom</span><span class="p">,</span> <span class="n">Gf</span>
+<span class="kn">import</span> <span class="nn">omni.usd</span>
+
+<span class="n">stage</span> <span class="o">=</span> <span class="n">omni</span><span class="o">.</span><span class="n">usd</span><span class="o">.</span><span class="n">get_context</span><span class="p">()</span><span class="o">.</span><span class="n">get_stage</span><span class="p">()</span>
+<span class="n">cube_prim</span> <span class="o">=</span> <span class="n">stage</span><span class="o">.</span><span class="n">GetPrimAtPath</span><span class="p">(</span><span class="s2">"/visual_cube_usd"</span><span class="p">)</span>
+<span class="n">translate_offset</span> <span class="o">=</span> <span class="n">Gf</span><span class="o">.</span><span class="n">Vec3f</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span><span class="o">-</span><span class="mf">0.2</span><span class="p">,</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">rotate_offset</span> <span class="o">=</span> <span class="n">Gf</span><span class="o">.</span><span class="n">Vec3f</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span><span class="o">-</span><span class="mi">90</span><span class="p">,</span><span class="mi">180</span><span class="p">)</span>        <span class="c1"># note this is in degrees</span>
+<span class="n">scale</span> <span class="o">=</span> <span class="n">Gf</span><span class="o">.</span><span class="n">Vec3f</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mf">1.5</span><span class="p">,</span><span class="mf">0.2</span><span class="p">)</span>
+<span class="c1"># translation</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">cube_prim</span><span class="o">.</span><span class="n">HasAttribute</span><span class="p">(</span><span class="s2">"xformOp:translate"</span><span class="p">):</span>
+   <span class="n">UsdGeom</span><span class="o">.</span><span class="n">Xformable</span><span class="p">(</span><span class="n">cube_prim</span><span class="p">)</span><span class="o">.</span><span class="n">AddTranslateOp</span><span class="p">()</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="n">translate_offset</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+   <span class="n">cube_prim</span><span class="o">.</span><span class="n">GetAttribute</span><span class="p">(</span><span class="s2">"xformOp:translate"</span><span class="p">)</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="n">translate_offset</span><span class="p">)</span>
+<span class="c1"># rotation</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">cube_prim</span><span class="o">.</span><span class="n">HasAttribute</span><span class="p">(</span><span class="s2">"xformOp:rotateXYZ"</span><span class="p">):</span>        <span class="c1"># there are also "xformOp:orient" for quaternion rotation, as well as "xformOp:rotateX", "xformOp:rotateY", "xformOp:rotateZ" for individual axis rotation</span>
+   <span class="n">UsdGeom</span><span class="o">.</span><span class="n">Xformable</span><span class="p">(</span><span class="n">cube_prim</span><span class="p">)</span><span class="o">.</span><span class="n">AddRotateXYZOp</span><span class="p">()</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="n">rotate_offset</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+   <span class="n">cube_prim</span><span class="o">.</span><span class="n">GetAttribute</span><span class="p">(</span><span class="s2">"xformOp:rotateXYZ"</span><span class="p">)</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="n">rotate_offset</span><span class="p">)</span>
+<span class="c1"># scale</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">cube_prim</span><span class="o">.</span><span class="n">HasAttribute</span><span class="p">(</span><span class="s2">"xformOp:scale"</span><span class="p">):</span>
+   <span class="n">UsdGeom</span><span class="o">.</span><span class="n">Xformable</span><span class="p">(</span><span class="n">cube_prim</span><span class="p">)</span><span class="o">.</span><span class="n">AddScaleOp</span><span class="p">()</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="n">scale</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+   <span class="n">cube_prim</span><span class="o">.</span><span class="n">GetAttribute</span><span class="p">(</span><span class="s2">"xformOp:scale"</span><span class="p">)</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="n">scale</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="python">独立python环境方式</h3>
+<p>脚本位于standalone_examples/tutorials/getting_started.py，要运行该脚本，请打开终端，导航至 Isaac Sim 安装根目录，并执行以下命令：</p>
+<div class="codehilite"><pre><span></span><code><span class="o">./</span><span class="n">python</span><span class="o">.</span><span class="n">sh</span> <span class="n">standalone_examples</span><span class="o">/</span><span class="n">tutorials</span><span class="o">/</span><span class="n">getting_started</span><span class="o">.</span><span class="n">py</span>
+</code></pre></div>
+<h2 id="_4">机器人基础教程</h2>
+<p>本小节介绍如何将机器人添加到场景中、移动机器人以及检查机器人状态。在开始教程前，请确保已经完成了上一章节isaac sim基础使用教程。</p>
+<h3 id="gui_1">GUI方式</h3>
+<p><strong>步骤1：向场景中添加机器人</strong></p>
+<ul>
+<li>新建场景：通过<strong>File &gt; New Stage.</strong>。</li>
+<li>添加机器人：向场景添加机器人，从顶部菜单栏点击<strong>Create &gt; Robots &gt; Franka Emika Panda Arm</strong>。</li>
+</ul>
+<p><strong>步骤2：检查机器人</strong></p>
+<p>使用物理检查器查看机器人关节属性。</p>
+<ul>
+<li>前往<strong>Tools &gt; Physics &gt; Physics Inspector.</strong>。右侧将打开一个窗口。</li>
+<li>选择 Franka 进行检查。窗口默认会显示关节信息，例如上下限位及默认位置。</li>
+<li>点击右上角的三横线图标可查看更多选项，例如关节刚度和阻尼系数。</li>
+<li>可选）修改这些数值，观察舞台上机器人随参数变化的运动。修改成功后会出现绿色对勾标记。</li>
+<li>点击绿色对勾按钮，将当前参数设为机器人新的默认值。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_9062d1bfaa8651f8fff93aca198541f8_1757580840.webp"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim快速入门教程/images/wp_editor_md_9062d1bfaa8651f8fff93aca198541f8_1757580840.webp"/></a></p>
+<p><strong>步骤3：控制机器人</strong></p>
+<p>基于图形界面的机器人控制器位于 Omniverse 可视化编程工具 OmniGraphs 中。<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/omnigraph/index.html#isaac-sim-omnigraph-overview-page" title="OmniGraph">OmniGraph</a> 相关章节提供了更深入的教程指导。本教程将通过快捷工具生成控制图，然后在 OmniGraph 编辑器中查看该控制图。</p>
+<ul>
+<li>通过菜单栏选择 <strong>Tools &gt; Robotics &gt; Omnigraph Controllers &gt; Joint Position.</strong>来打开控制图生成器。。</li>
+<li>在新弹出的关节位置控制器**Articulation Position Controller Inputs **输入窗口中，点击 Robot Prim 字段旁的添加"Add"按钮。</li>
+<li>选择 Franka 作为目标对象。</li>
+<li>点击确定生成图表。</li>
+</ul>
+<p>要移动机器人的话按照下面步骤</p>
+<ul>
+<li>在右上角的“舞台”选项卡中，选择<strong>Graph &gt; Position_Controller.</strong>。</li>
+<li>选择 <strong>JointCommandArray</strong> 节点。您可以通过在舞台树中选择该节点，或在图表编辑器中选择该节点来完成此操作。</li>
+<li>在右下角的<strong>Property</strong>选项卡中，可以看到关节命令值。构造数组节点<strong>Construct Array Node</strong>下的输入<strong>Inputs</strong>项对应机器人上的关节，从基座关节开始。</li>
+<li>点击+按住+拖动不同的数值字段，或输入不同的值，可以看到机械臂位置发生变化。</li>
+<li>点击<strong>Play</strong>开始模拟。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_20ec8e2a97f8ede90d2dd6dc2157dea8_1757581510.webp"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim快速入门教程/images/wp_editor_md_20ec8e2a97f8ede90d2dd6dc2157dea8_1757581510.webp"/></a></p>
+<p>要生成可视化的图标</p>
+<ul>
+<li>打开图表编辑器窗口：**Window &gt; Graph Editors &gt; Action Graph. **。该编辑器窗口会在包含机器人的视口选项卡下方以新选项卡形式打开。</li>
+<li>调出新打开的浏览器标签页。</li>
+<li>点击位于图形编辑器窗口中央的<strong>Edit Action Graph</strong>选项。</li>
+<li>从列表中选择唯一存在的图形。</li>
+<li>选择一个数组并查看<strong>Stage</strong>和<strong>Property</strong>选项卡，以了解每个数组节点关联的值。</li>
+<li>在图形中选择"关节控制器"<strong>Articulation Controller</strong>对象以查看其属性。</li>
+</ul>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_fac650ad4788dfbe30299ce3fb582ecb_1757581625.webp"><img alt="" src="assets/doc/04-ai/ai应用/isaac-sim快速入门教程/images/wp_editor_md_fac650ad4788dfbe30299ce3fb582ecb_1757581625.webp"/></a></p>
+<h3 id="extension">Extension方式</h3>
+<p><strong>步骤1：向场景添加机器人</strong></p>
+<p>新建一个场景（File &gt; New)。要将机器人添加到场景中，请将以下代码片段复制粘贴到脚本编辑器中并运行。</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">carb</span>
+<span class="kn">from</span> <span class="nn">isaacsim.core.prims</span> <span class="kn">import</span> <span class="n">Articulation</span>
+<span class="kn">from</span> <span class="nn">isaacsim.core.utils.stage</span> <span class="kn">import</span> <span class="n">add_reference_to_stage</span>
+<span class="kn">from</span> <span class="nn">isaacsim.storage.native</span> <span class="kn">import</span> <span class="n">get_assets_root_path</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="n">assets_root_path</span> <span class="o">=</span> <span class="n">get_assets_root_path</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">assets_root_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">carb</span><span class="o">.</span><span class="n">log_error</span><span class="p">(</span><span class="s2">"Could not find Isaac Sim assets folder"</span><span class="p">)</span>
+<span class="n">usd_path</span> <span class="o">=</span> <span class="n">assets_root_path</span> <span class="o">+</span> <span class="s2">"/Isaac/Robots/FrankaRobotics/FrankaPanda/franka.usd"</span>
+<span class="n">prim_path</span> <span class="o">=</span> <span class="s2">"/World/Arm"</span>
+
+<span class="n">add_reference_to_stage</span><span class="p">(</span><span class="n">usd_path</span><span class="o">=</span><span class="n">usd_path</span><span class="p">,</span> <span class="n">prim_path</span><span class="o">=</span><span class="n">prim_path</span><span class="p">)</span>
+<span class="n">arm_handle</span> <span class="o">=</span> <span class="n">Articulation</span><span class="p">(</span><span class="n">prim_paths_expr</span><span class="o">=</span><span class="n">prim_path</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"Arm"</span><span class="p">)</span>
+<span class="n">arm_handle</span><span class="o">.</span><span class="n">set_world_poses</span><span class="p">(</span><span class="n">positions</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]))</span>
+</code></pre></div>
+<p><strong>步骤2：检查机器人</strong> Isaac Sim 核心 API 提供了许多函数调用来获取机器人相关信息。以下是查询关节数量与名称、各类关节属性以及关节状态的示例代码。</p>
+<p>在脚本编辑器中新建标签页，复制粘贴以下代码片段。该操作需在上一步添加机器人完成后执行（此时 arm_handle 已创建）。运行代码前需先点击播放<strong>Play</strong>按钮，这些命令需在物理引擎运行状态下才能生效。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Get the number of joints</span>
+<span class="n">num_joints</span> <span class="o">=</span> <span class="n">arm_handle</span><span class="o">.</span><span class="n">num_joints</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Number of joints: "</span><span class="p">,</span> <span class="n">num_joints</span><span class="p">)</span>
+
+<span class="c1"># Get joint names</span>
+<span class="n">joint_names</span> <span class="o">=</span> <span class="n">arm_handle</span><span class="o">.</span><span class="n">joint_names</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Joint names: "</span><span class="p">,</span> <span class="n">joint_names</span><span class="p">)</span>
+
+<span class="c1"># Get joint limits</span>
+<span class="n">joint_limits</span> <span class="o">=</span> <span class="n">arm_handle</span><span class="o">.</span><span class="n">get_dof_limits</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Joint limits: "</span><span class="p">,</span> <span class="n">joint_limits</span><span class="p">)</span>
+
+<span class="c1"># Get joint positions</span>
+<span class="n">joint_positions</span> <span class="o">=</span> <span class="n">arm_handle</span><span class="o">.</span><span class="n">get_joint_positions</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Joint positions: "</span><span class="p">,</span> <span class="n">joint_positions</span><span class="p">)</span>
+</code></pre></div>
+<p>请注意，点击"运行"时仅会打印一次状态信息，即使模拟正在持续运行。如需查看最新状态，需反复点击"运行"按钮。若希望在每个物理步长都打印信息，需要将这些命令插入到每个物理步长都会执行的回调函数中。在章节"<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/introduction/workflows.html#isaac-sim-app-tutorial-intro-workflows" title="工作流程">工作流程</a>"中详细讲解时间步进机制。</p>
+<p>要将命令插入物理回调中，请在脚本编辑器的单独标签页中运行以下代码片段。</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">from</span> <span class="nn">isaacsim.core.api.simulation_context</span> <span class="kn">import</span> <span class="n">SimulationContext</span>
+
+<span class="k">async</span> <span class="k">def</span> <span class="nf">test</span><span class="p">():</span>
+    <span class="k">def</span> <span class="nf">print_state</span><span class="p">(</span><span class="n">dt</span><span class="p">):</span>
+        <span class="n">joint_positions</span> <span class="o">=</span> <span class="n">arm_handle</span><span class="o">.</span><span class="n">get_joint_positions</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Joint positions: "</span><span class="p">,</span> <span class="n">joint_positions</span><span class="p">)</span>
+    <span class="n">simulation_context</span> <span class="o">=</span> <span class="n">SimulationContext</span><span class="p">()</span>
+    <span class="k">await</span> <span class="n">simulation_context</span><span class="o">.</span><span class="n">initialize_simulation_context_async</span><span class="p">()</span>
+    <span class="k">await</span> <span class="n">simulation_context</span><span class="o">.</span><span class="n">reset_async</span><span class="p">()</span>
+    <span class="n">simulation_context</span><span class="o">.</span><span class="n">add_physics_callback</span><span class="p">(</span><span class="s2">"printing_state"</span><span class="p">,</span> <span class="n">print_state</span><span class="p">)</span>
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">ensure_future</span><span class="p">(</span><span class="n">test</span><span class="p">())</span>
+</code></pre></div>
+<p>按下播放键启动模拟，然后运行该代码片段。您将看到终端在每个物理步骤打印出的信息。</p>
+<p>如果不再需要每个物理步骤都打印信息，可以通过运行以下代码片段来移除物理回调。</p>
+<div class="codehilite"><pre><span></span><code><span class="n">simulation_context</span> <span class="o">=</span> <span class="n">SimulationContext</span><span class="p">()</span>
+<span class="n">simulation_context</span><span class="o">.</span><span class="n">remove_physics_callback</span><span class="p">(</span><span class="s2">"printing_state"</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>步骤3：控制机器人</strong></p>
+<p>在 Isaac Sim 中有多种控制机器人的方式。最底层是直接发送关节指令来设置位置、速度和力矩。以下是通过关节层级的 Articulation API 控制机器人的示例。</p>
+<p>在脚本编辑器中新建一个标签页，复制粘贴以下代码片段。该代码需在前述添加机器人步骤完成后运行（此时 arm_handle 已建立）。运行代码片段前请先点击播放键<strong>Play</strong>。这些指令需在物理引擎运行状态下生效。我们将提供两个位置供您切换。若您已将上述打印状态代码片段添加至每个物理步骤，当机器人移动时您应能看到打印的关节编号发生变化。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Set joint position randomly</span>
+<span class="n">arm_handle</span><span class="o">.</span><span class="n">set_joint_positions</span><span class="p">([[</span><span class="o">-</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">]])</span>
+
+<span class="c1"># Set all joints to 0</span>
+<span class="n">arm_handle</span><span class="o">.</span><span class="n">set_joint_positions</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span> <span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]])</span>
+</code></pre></div>
+<p>与前述 get_joint_positions 功能类似，此处的 set_joint_positions 仅在您点击"运行"时执行一次。若您希望在每个物理步骤发送指令，则需将这些命令插入到每个物理步骤都会执行的物理回调函数中。</p>
+<h3 id="python_1">独立Python方式</h3>
+<p>脚本位于 standalone_examples/tutorials/getting_started_robot.py 。要运行该脚本，请打开终端，导航至 Isaac Sim 安装的根目录，并执行以下命令：</p>
+<div class="codehilite"><pre><span></span><code><span class="o">./</span><span class="n">python</span><span class="o">.</span><span class="n">sh</span> <span class="n">standalone_examples</span><span class="o">/</span><span class="n">tutorials</span><span class="o">/</span><span class="n">getting_started_robot</span><span class="o">.</span><span class="n">py</span>
+</code></pre></div>
+<p>到此就完成了基本的操作了，接下来就是一系列的教程可以参考：<a href="https://docs.isaacsim.omniverse.nvidia.com/5.0.0/robot_setup_tutorials/index.html#isaac-sim-robot-setup-tutorials" title="《机器人设置教程系列》">《机器人设置教程系列》</a>。</p></div>
+  <div class="post-nav">
+    <a class="prev" href="ubuntu-apt-命令.html">← ubuntu apt 命令</a>
+    <a class="next" href="isaac-sim-v5-0-0-探索ai-机器人仿真平台.html">Isaac Sim v5.0.0：探索AI 机器人仿真平台 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

@@ -69,7 +69,7 @@
     </span>
   </div>
   <div class="post-content"><h2 id="mqtt">什么是MQTT</h2>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_c8bb7c238945b79af7fca03d4fd1a823.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_c8bb7c238945b79af7fca03d4fd1a823.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_c8bb7c238945b79af7fca03d4fd1a823.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_c8bb7c238945b79af7fca03d4fd1a823.jpg"/></a></p>
 <p>MQTT是基于TCP/IP网络协议栈构建的异步通信消息协议，基于发布-订阅模式进行传输。实现MQTT协议需要客户端和服务器端通讯完成，在通讯过程中, MQTT协议中有三种身份: 发布者(Publish)、代理(Broker)(服务器)、订阅者(Subscribe)。 其中消息的发布者和订阅者都是客户端，消息代理是服务器，消息发布者可以同时是订阅者，客户端之间的通信完全是空间解耦的。如上图，客户端C如果要接收客户端A的信息，先向broker subscibe想要接收的主题，当Client A发布消息是发送给broker，broker接收到后判断此前Client C订阅了该主题信息，那么就会转发给Client C。因此发布消息/订阅消息与发布者和订阅者是完全解耦的，这种耦合度有下面三个维度：</p>
 <ul>
 <li>空间解耦：发布者与订阅者并不知道对方的存在。</li>
@@ -91,40 +91,40 @@
 <span class="sc">'+'</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">表示通配一个层级</span><span class="err">，</span><span class="w"> </span><span class="n">例如a</span><span class="o">/+</span><span class="err">，</span><span class="n">匹配a</span><span class="o">/</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="o">/</span><span class="n">y</span>
 </code></pre></div>
 <h3 id="mqtt_2">MQTT数据包格式</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_bc74191fbaeec3d559abec4d04688f2c.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_bc74191fbaeec3d559abec4d04688f2c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_bc74191fbaeec3d559abec4d04688f2c.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_bc74191fbaeec3d559abec4d04688f2c.jpg"/></a></p>
 <p>如上图，MQTT的包格式有3部分组成，fixed header，variable header，playload，下面依次进行展开。</p>
 <h4 id="fixed-header">fixed header</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_234e0dbe6049053dc6e1a57d5c1cd860.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_234e0dbe6049053dc6e1a57d5c1cd860.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_234e0dbe6049053dc6e1a57d5c1cd860.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_234e0dbe6049053dc6e1a57d5c1cd860.jpg"/></a></p>
 <p>fixed header又分为MQTT control packet type 和每种packet type对应的flag组成，Packet type主要有以下，其决定了mqtt实际传输的方法。</p>
 <h5 id="packet-types">packet types</h5>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_7029296d8b7ca6df0984d5c6b62ec749.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_7029296d8b7ca6df0984d5c6b62ec749.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_7029296d8b7ca6df0984d5c6b62ec749.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_7029296d8b7ca6df0984d5c6b62ec749.jpg"/></a></p>
 <h5 id="flag">flag</h5>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_68c0aa8c17abd50aff7513afb346df0f.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_68c0aa8c17abd50aff7513afb346df0f.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_68c0aa8c17abd50aff7513afb346df0f.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_68c0aa8c17abd50aff7513afb346df0f.jpg"/></a></p>
 <p>在fixed header的bit[3]~bit[0]主要存储的是各个packet type对应的标志，如上图只有PUBLISH type才有意义，其他的都是保留。</p>
 <ul>
 <li>DUP:设置为1，表明这个数据包是一条重复的消息；否则该数据包就是第一次发布的消息。</li>
-<li>QOS:用于发布的传输质量，bit[2]bit[1]=00，只发一次不保证成功；01最少发一次，收不到ACK会一直重传，接收者可能会重复接受到数据；10只有一次，接收者不会重复收到数据。 <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_2d14832bb6f77d555cf807b516333e0e.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_2d14832bb6f77d555cf807b516333e0e.jpg"/></a> PUBLISH数据包不得将两个QoS位都设置为1。如果服务器或客户端收到PUBLISH两个QoS位都设置为1 的数据包必须关闭网络连接。</li>
+<li>QOS:用于发布的传输质量，bit[2]bit[1]=00，只发一次不保证成功；01最少发一次，收不到ACK会一直重传，接收者可能会重复接受到数据；10只有一次，接收者不会重复收到数据。 <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_2d14832bb6f77d555cf807b516333e0e.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_2d14832bb6f77d555cf807b516333e0e.jpg"/></a> PUBLISH数据包不得将两个QoS位都设置为1。如果服务器或客户端收到PUBLISH两个QoS位都设置为1 的数据包必须关闭网络连接。</li>
 <li>RETAIN:如果RETAIN 标志设置为1，则在客户端向服务器发送的PUBLISH数据包中，服务器必须存储应用程序消息及其QoS，以便可以将其传递给订阅与其主题名称匹配的未来订阅者。</li>
 </ul>
 <p>下面针对QOS质量再进行说明。使用QoS 0可能丢失消息，使用QoS 1可以保证收到消息，但消息可能重复，使用 QoS 2 可以保证消息既不丢失也不重复。</p>
 <ul>
 <li>QOS 0 ： QoS 0是最低的QoS 等级，消息即发即弃，不需要等待确认，不需要存储和重传，因此对于接收方来说，永远都不需要担心收到重复的消息。当我们使用 QoS 0 传递消息时，消息的可靠性完全依赖于底层的TCP协议。而TCP只能保证在连接稳定不关闭的情况下消息的可靠到达，一旦出现连接关闭、重置，仍有可能丢失当前处于网络链路或操作系统底层缓冲区中的消息。这也是 QoS 0 消息最主要的丢失场景。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_73fae43a1f1a84cf8c63074fb1815d6d.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_73fae43a1f1a84cf8c63074fb1815d6d.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_73fae43a1f1a84cf8c63074fb1815d6d.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_73fae43a1f1a84cf8c63074fb1815d6d.jpg"/></a></p>
 <ul>
 <li>QOS 1： 是加入了应答与重传机制，发送方只有在收到接收方的PUBACK报文以后，才能认为消息投递成功。在此之前，发送方需要存储该PUBLISH 报文以便下次重传。缺点就是Broker若从发布方收到了重复的PUBLISH报文，而在将这些报文转发给订阅方的过程中，再次发生重传，这将导致订阅方最终收到更多的重复消息。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_df7cbf2df45555b07c9a16b1858bfc38.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_df7cbf2df45555b07c9a16b1858bfc38.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_df7cbf2df45555b07c9a16b1858bfc38.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_df7cbf2df45555b07c9a16b1858bfc38.jpg"/></a></p>
 <ul>
 <li>QOS 2：解决QoS 0、1 消息可能丢失或者重复的问题，但它也带来了最复杂的交互流程和最高的开销。每一次的QoS 2 消息投递，都要求发送方与接收方进行至少两次请求/响应流程。QOS2是针对接受者不能同时收到重复报的场景需求。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_ca33b9466ff36906434293e1934fcd0c.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_ca33b9466ff36906434293e1934fcd0c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_ca33b9466ff36906434293e1934fcd0c.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_ca33b9466ff36906434293e1934fcd0c.jpg"/></a></p>
 <p>步骤1：发送方（发布者或broker）存储并发布QoS2的报文，然后需要接收方（broker或订阅者）回复PUBREC报文。这里与QoS1流程基本一直，只是回复报文从PUBACK 变成了PUBREC。</p>
 <p>步骤2：当发送方收到PUBREC报文后，表示对端已经收到了发送的报文，发送方将不能再重传这个报文，发送方所以此时可以删除本地存储的PUBLISH报文；接着发送一个PUBREL报文通知对端自己准备将本次使用的Packet ID标记为可用了。</p>
 <p>步骤3：当接收方收到PUBREL报文后，回复PUBCOMP报文表示自己也准备好将当前的Packet ID用于新的消息了。</p>
 <p>4）当发送方收到PUBCOMP报文，这一次的QoS 2 消息传输就算正式完成了。在这之后，发送方可以再次使用当前的 Packet ID 发送新的消息，而接收方再次收到使用这个 Packet ID 的PUBLISH报文时，也会将它视为一个全新的消息。</p>
 <h4 id="variable-header">variable header</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_1ce7d18b7adf12d91348690e87d6d770.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_1ce7d18b7adf12d91348690e87d6d770.jpg"/></a> 可变长度头部有些报文包含，有些报文则不包含。实际上可变长度的头部可以理解为实际的具体数据，因为不同的type对应的payload不同，相同的type也会有不同的数据可以区分，比如connect类型需要包含不少的格式信息。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_1ce7d18b7adf12d91348690e87d6d770.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_1ce7d18b7adf12d91348690e87d6d770.jpg"/></a> 可变长度头部有些报文包含，有些报文则不包含。实际上可变长度的头部可以理解为实际的具体数据，因为不同的type对应的payload不同，相同的type也会有不同的数据可以区分，比如connect类型需要包含不少的格式信息。</p>
 <ul>
 <li>协议版本 ：号值表示客户端的版本。</li>
 <li>clean sesion：MQTT客户端向服务器发起CONNECT请求时，可以通过’Clean Session’标志设置会话。‘Clean Session’设置为0，表示创建一个持久会话，在客户端断开连接时，会话仍然保持并保存离线消息，直到会话超时注销。‘Clean Session’设置为1，表示创建一个新的临时会话，在客户端断开时，会话自动销毁</li>
@@ -134,11 +134,11 @@
 <li>Keep Alive timer(心跳时长)：client与broker交互PINGREQ和PINGRESP。</li>
 </ul>
 <h4 id="payload">payload</h4>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_58e897e8dc697e8ab4a3ae334b7cfb1c.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_58e897e8dc697e8ab4a3ae334b7cfb1c.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_58e897e8dc697e8ab4a3ae334b7cfb1c.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_58e897e8dc697e8ab4a3ae334b7cfb1c.jpg"/></a></p>
 <p>一些MQTT控制数据包包含有效载荷作为数据包的最后部分。对于 PUBLISH 数据包，这是应用程序消息。上图列出了需要有效载荷的控制数据包。</p>
 <h2 id="mqtt_3">MQTT基本交互</h2>
 <h3 id="connect">CONNECT</h3>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_c560cf91dabd554575789aec0b0f6bca.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_c560cf91dabd554575789aec0b0f6bca.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_c560cf91dabd554575789aec0b0f6bca.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_c560cf91dabd554575789aec0b0f6bca.jpg"/></a></p>
 <ul>
 <li>ClientId：每个客户端连接到broker的标识，具有唯一性。如果客户端与服务端不需要保持长连接状态，可以为空。</li>
 <li>CleanSession：client告诉broker是否需要建立持久会话，在持久会话 （CleanSession = false）中，broker会存储client的所有订阅。如果会话不是持久的（CleanSession = true），那么 broker则不会为client存储任何内容并且会清除先前持久会话中的所有信息。</li>
@@ -148,11 +148,11 @@
 </ul>
 <h3 id="connack">CONNACK</h3>
 <p>当broker收到CONNECT消息后，需要发送CONNACK消息进行响应。CONNACK消息包括两部分内容。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_2ff934b0858c2ca9c19e40031fa75dba.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_2ff934b0858c2ca9c19e40031fa75dba.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_2ff934b0858c2ca9c19e40031fa75dba.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_2ff934b0858c2ca9c19e40031fa75dba.jpg"/></a></p>
 <h3 id="publish">PUBLISH</h3>
 <p>当MQTT client在连接上broker以后，就可以发布信息了。MQTT使用的是基于topic主题的过滤，每条消息都应该包含一个topic，broke 可以使用topic将消息发送给感兴趣 client。除此之外每条消息还会包含一个负载(Payload)，Payload 中包含要以字节形式发送的数据。MQTT 是数据无关性的，也就是说数据是由发布者 - publisher 决定要发送的是 XML 、JSON 还是二进制数据、文本数据。</p>
 <p>MQTT 中的 PUBLISH 消息结构如下。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_6474d4ed501a3fa6bfb5770fc97e9b22.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_6474d4ed501a3fa6bfb5770fc97e9b22.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_6474d4ed501a3fa6bfb5770fc97e9b22.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_6474d4ed501a3fa6bfb5770fc97e9b22.jpg"/></a></p>
 <ul>
 <li>Packet Identifier：这个PacketId标识在 client 和 broker 之间唯一的消息标识。packetId 仅与大于零的 Qos 级别相关。</li>
 <li>TopicName：主题名称是一个简单的字符串，/ 代表着分层结构。</li>
@@ -167,23 +167,23 @@
 <p>Dupflag：这个标志表示该消息是重复的并且由于预期的 client 或者 broker 没有确认所以重新发送了一次。这个标志仅仅与 Qos 大于 0 相关。</p>
 </li>
 </ul>
-<p>当 client 向 broker 发送消息时，broker 会读取消息，根据 Qos 的级别进行消息确认，然后处理消息。处理消息其实就是确定哪些 subscriber 订阅了 topic 并将消息发送给他们。 <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_6e0d13c371c839c2810377037421ddc9.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_6e0d13c371c839c2810377037421ddc9.jpg"/></a></p>
+<p>当 client 向 broker 发送消息时，broker 会读取消息，根据 Qos 的级别进行消息确认，然后处理消息。处理消息其实就是确定哪些 subscriber 订阅了 topic 并将消息发送给他们。 <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_6e0d13c371c839c2810377037421ddc9.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_6e0d13c371c839c2810377037421ddc9.jpg"/></a></p>
 <p>最初发布消息的 client 只关心将 PUBLISH 消息发送给 broker，一旦 broker 收到 PUBLISH 消息，broker 就有责任将其传递给所有 subscriber。发布消息的 client 不会知道是否有人对发布的消息感兴趣，同时也不知道多少 client 从 broker 收到了消息。</p>
 <h3 id="subscribe">SUBSCRIBE</h3>
-<p>client 会向 broker 发送 SUBSCRIBE 消息来接收有关感兴趣的 topic，这个 SUBSCRIBE 消息非常简单，它包含了一个唯一的数据包标识和一个订阅列表。 <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_2c766f5ad84b72f0805bbbc6cec5c099.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_2c766f5ad84b72f0805bbbc6cec5c099.jpg"/></a></p>
+<p>client 会向 broker 发送 SUBSCRIBE 消息来接收有关感兴趣的 topic，这个 SUBSCRIBE 消息非常简单，它包含了一个唯一的数据包标识和一个订阅列表。 <a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_2c766f5ad84b72f0805bbbc6cec5c099.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_2c766f5ad84b72f0805bbbc6cec5c099.jpg"/></a></p>
 <ul>
 <li>Packet Identifier：这个 PacketId 和上面的 PacketId 一样，都表示消息的唯一标识符。</li>
 <li>ListOfSubscriptions：SUBSCRIBE 消息可以包含一个client的多个订阅，每个订阅都会由一个 topic和一个 Qos构成。</li>
 </ul>
 <p>client在向broker发送 SUBSCRIBE 消息后，broker会向 client发送 SUBACK 确认消息。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_0add06043da3fc4f9dec2e5a78c3d181.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_0add06043da3fc4f9dec2e5a78c3d181.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_0add06043da3fc4f9dec2e5a78c3d181.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_0add06043da3fc4f9dec2e5a78c3d181.jpg"/></a></p>
 <ul>
 <li>Packet Identifier ：这个数据包标识符和SUBSCRIBE中的相同。</li>
 <li>ReturnCode：broker 为每个接收到的 SUBSCRIBE 消息的 topic/Qos 对发送一个返回码。例如，如果 SUBSCRIBE 消息有五个订阅消息，则SUBACK消息包含五个返回码作为响应。</li>
 </ul>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_2576ca0f99b606e9f917bc5be5423fed.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_2576ca0f99b606e9f917bc5be5423fed.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_2576ca0f99b606e9f917bc5be5423fed.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_2576ca0f99b606e9f917bc5be5423fed.jpg"/></a></p>
 <p>到现在我们已经探讨过了三种消息类型，发布 - 订阅 - 确认消息，这三种消息的示意图如下。</p>
-<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_2576ca0f99b606e9f917bc5be5423fed.jpg"><img alt="" src="assets/doc/08-网络/mqtt协议分析/images/wp_editor_md_2576ca0f99b606e9f917bc5be5423fed.jpg"/></a></p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2024/11/wp_editor_md_2576ca0f99b606e9f917bc5be5423fed.jpg"><img alt="" src="assets/doc/09-网络/mqtt协议分析/images/wp_editor_md_2576ca0f99b606e9f917bc5be5423fed.jpg"/></a></p>
 <p>参考文献：</p>
 <ol>
 <li>
@@ -200,8 +200,8 @@
 </li>
 </ol></div>
   <div class="post-nav">
-    <a class="prev" href="乌龟图分析法.html">← 乌龟图分析法</a>
-    <a class="next" href="看wireshark报文技巧.html">看wireshark报文技巧 →</a>
+    <a class="prev" href="看wireshark报文技巧.html">← 看wireshark报文技巧</a>
+    <a class="next" href="ssl-tls协议分析.html">SSL/TLS协议分析 →</a>
   </div>
 </article>
 

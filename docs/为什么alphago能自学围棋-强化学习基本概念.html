@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>为什么AlphaGo能自学围棋？强化学习基本概念 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">强化学习简介</a><ul><li><a href="#_2">什么是强化学习</a></li><li><a href="#_3">火星探测器</a></li><li><a href="#return">回报return</a></li><li><a href="#policy">Policy</a></li><li><a href="#_4">小结</a></li></ul></li><li><a href="#state-action-value-funciton">State-action value funciton</a><ul><li><a href="#q">状态动作函数Q</a></li><li><a href="#_5">贝尔曼方程</a></li></ul></li><li><a href="#continuous-state-space">Continuous State Space</a><ul><li><a href="#continuous-state-space_1">continuous state space示例</a></li><li><a href="#_6">月球着陆器</a></li><li><a href="#q_1">学习Q</a></li><li><a href="#_7">改进的神经网络架构</a></li><li><a href="#_8">算法改进：ϵ贪婪策略</a></li></ul></li><li><a href="#_9">总结</a><ul><li><a href="#_10">学习流程</a></li><li><a href="#_11">算法</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>为什么AlphaGo能自学围棋？强化学习基本概念</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-10-18
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">强化学习简介</h2>
+<h3 id="_2">什么是强化学习</h3>
+<p>以直升机控制飞行的程序来举例。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_7384c9d9bb31ffe2cd955638ecdea2ea_1760751287.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_7384c9d9bb31ffe2cd955638ecdea2ea_1760751287.png"/></a></p>
+<p>自动驾驶的直升机配备了机载计算机、GPS、加速度计、陀螺仪和磁罗盘，我们可以实时确定的知道直升机的位置。如何使用强化学习来让直升机飞行了？</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_da957fdd3e6e2fe719679511ca570dc1_1760751261.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_da957fdd3e6e2fe719679511ca570dc1_1760751261.png"/></a></p>
+<p>在强化学习中，将直升机的位置、方向和速度等称为<strong>状态s</strong>，因此我们的目标或任务就是从直升机的<strong>状态</strong>映射到<strong>动作a</strong>的函数，意思是将两根控制杆推多远才能保持直升机在空中平衡、飞行而不坠毁。</p>
+<p>要获取到<strong>动作a</strong>可以使用监督学习来训练神经网络，直接学习从x（状态a）到y（动作a）的映射，但事实证明直升机在控制移动时实际上时摸棱两可的，不好判断正确的行动是什么？是向做倾斜一点还是倾斜很多，还是稍微增加直升机的压力？要获得x的数据集和理想的动作y实际上是很困难的。因此对于控制直升机和其他机器人的许多任务，监督学习方法效果不佳，我们改用强化学习。</p>
+<p>强化学习的关键输入称为<strong>reward（奖励）</strong>，它告诉直升机何时表现良好，何时表现不佳。强化学习就像是在训练狗，你不知道狗会做出什么行为？但是我们可以判断狗行为的好坏，如果狗的行为是好的我们就就认为他是一个好狗给予奖励，如果它做出的行为不达我们的预期我们认为就是一个坏狗给予惩罚。我们期望它能自己学会如何做出好的动作行为而少做坏的动作行为。</p>
+<h3 id="_3">火星探测器</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_8de8a2a2d9b8861355338ba9195aca56_1760761849.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_8de8a2a2d9b8861355338ba9195aca56_1760761849.png"/></a></p>
+<p>火星探测器从初始状态运动到最终状态（terminal state），最终会得到一个累计的分数（return），每运动一次都会有相应的奖励reward。</p>
+<p>当前火星探测器的初始位置在state 4，它可以向左也可以向右。</p>
+<ul>
+<li>场景1：state 4（初始）（获得0）-&gt;state 3（获得0）-&gt;state 2（获得0）-&gt;state 1（获得100）；最终得100。</li>
+<li>场景2：state 4（初始）（获得0）-&gt;state 5（获得0）-&gt;state 6（获得40）；最终得40。</li>
+<li>场景3：state 4（初始）（获得0）-&gt;state 4（获得0）-&gt;state 4（获得0）-&gt;state 3（获得0）-&gt;state 2（获得0）-&gt;state 1（获得100）；最终得100。</li>
+</ul>
+<p>在每个时间步长上，机器人处于某种状态，我们称为S，它开始选择一个动作a，然后就获得一些奖励（reward），奖励值它从该状态获取，同时了它会切换为一个新的状态S’。公示表示为$（s,a,R(s),s'）$，举个具体的例子，机器人处于状态4并采取行动时往左边走没有获得奖励（4，&lt;-,0,3）。核心点就是状态（state）、动作（action）、奖励（reward）、下一个状态（next state），基本上就是每采取新动时都会发生情况，这就是强化学习算法要决定如何采取行动考虑的核心要素。</p>
+<h3 id="return">回报return</h3>
+<p>采取的行动会经历不同的状态以及如何享受不同的奖励，但是怎么去衡量一组特定的奖励比另外一组奖励好还是差了？</p>
+<p>打个比方炒股方案1是你今天买入一支股票A然后后天就卖出了赚了1000块，而方案2你今天买入一支股票但是后天你亏了500，但是到第三天你赚了6000，那你更愿意追求那种方案了？虽然是第三天才显示有收益，但是第三天收益很高，显然会选择方案2。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_367b19a64a6c836f7c1a555b3af0dadd_1760764227.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_367b19a64a6c836f7c1a555b3af0dadd_1760764227.png"/></a></p>
+<p>为了计算这个回报分数，我们对动作后的奖励进行累加，但是了随着越往后的动作，我们需要添加一个折扣因子，也就是说越往前的比例系数越高，但是越往后所占的比例折扣就越大。如上图假设折扣因子（discount factor）为0.9，那么R1的折扣因子是1，R2的折扣因子就是0.9，R3的折扣因子就是0.9的平方依此类推。</p>
+<p>最终获得的回报（return）取决于奖励（reward），而奖励取决于你采取的行动，因此回报取决于你采取的行动。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_369a713e912e0688b766a2a412c0e8a9_1760765238.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_369a713e912e0688b766a2a412c0e8a9_1760765238.png"/></a></p>
+<p>如折扣因子是0.5，如果从状态5向左走回报是6.25，如果是状态4向左走回报是12.5，而如果你状态就在6那么回报就是60。</p>
+<p>总结一下强化学习的回报是系统获得的奖励总和，但需要加上折扣系数，每一个时间步的权重不一样，时间步越大奖励的系数结果就越小。</p>
+<h3 id="policy">Policy</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_ccb08427f6bdf549583b370045130914_1760773227.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_ccb08427f6bdf549583b370045130914_1760773227.png"/></a></p>
+<p>在强化学习中，可以通过很多不同的方式采取行动，比如我们可以决定始终选择更接近的奖励，如果最左边的奖励更接近则向左走，如果最右边的奖励更接近则向右走。当然我们也可以换种策略，始终追求更大的奖励等等。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_11c8639cedbd8dad0ad405c2d2d36de0_1760766053.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_11c8639cedbd8dad0ad405c2d2d36de0_1760766053.png"/></a></p>
+<p>策略Pi就是希望我们在那种状态下采取什么样的行动。state———&gt;action。强化学习的目标就是要找到一个策略Pi，告诉在什么状态应该采取什么行动，执行每个状态以最大化回报。</p>
+<h3 id="_4">小结</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_30d16b045e684ca1bb3c09f8e513a04b_1760766289.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_30d16b045e684ca1bb3c09f8e513a04b_1760766289.png"/></a></p>
+<p>上面涉及到的概念，状态、动作、奖励、折扣因子、回报、策略。强化学习的目标就是让策略选择一个好的行动以获取最大的回报，这个决策过程被称为马尔可夫决策过程（MDP）。MDP指的是未来仅取决于当前的状态，而不取决于进入当前状态之前可能发生的任何事情，换句话说在马尔可夫决策过程中，未来取决于你现在所处的位置，而不取决于你是如何达到这里的；再换一种就是MDP是我们有一个机器人，我们要做的是选择动作a，根据这些动作、环境中发生的事情执行科学的任务。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_c97d4cf8e9f02971146a6be1759c88ba_1760773335.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_c97d4cf8e9f02971146a6be1759c88ba_1760773335.png"/></a></p>
+<h2 id="state-action-value-funciton">State-action value funciton</h2>
+<h3 id="q">状态动作函数Q</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_341b1978b81f4d263a3af8ceb2ec153a_1760767381.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_341b1978b81f4d263a3af8ceb2ec153a_1760767381.png"/></a></p>
+<p>表示在状态s下，执行 动作a后，智能体所能获得的期望累计回报（Expected Return）。换句话说Q值衡量的是："如果我在当前状态下做这个动作，长期来看能赚多少奖励？"。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_06fbab1f0ad3a3be5eed005d40f70e6f_1760767618.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_06fbab1f0ad3a3be5eed005d40f70e6f_1760767618.png"/></a></p>
+<p>计算$Q(s,a)$是强化学习算法的重要组成部分。也就是i说有办法计算s的Q,a，对于每个状态和每个动作，那么当你处于某个状态时，你所要做的就是看看不同的动作A，然后选择动作A，那就最大化s的Q,a。求Q的最大值。</p>
+<h3 id="_5">贝尔曼方程</h3>
+<p>如何计算状态动作价值函数Q of S,A了？</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_859f79bbf6436f16df1c337c6c17725c_1760768471.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_859f79bbf6436f16df1c337c6c17725c_1760768471.png"/></a></p>
+<p>在强化学习中有一个名为贝尔曼方程帮助我们解决计算状态动作值函数。下面来看看示例。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_33914b0e1a460cc8412a9e58b0c11676_1760768927.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_33914b0e1a460cc8412a9e58b0c11676_1760768927.png"/></a></p>
+<p>上图中有两个示例当在状态2，向右移动时，那么Q(2,-&gt;)=R(2)+0.5 max Q(3,a'0)=0+(0.5)25=12.5。当在状态4，向左移动时，那么Q(4,&lt;-)=R(4)+0.5max Q(3,a')=0+（0.5）25=12.5。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_af34afc676df1dcb6b5f8b85d79efdbb_1760769619.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_af34afc676df1dcb6b5f8b85d79efdbb_1760769619.png"/></a></p>
+<p>贝尔曼方程体现的核心思想是："一个状态的价值 = 即时奖励 + 后续状态的折扣价值"。也就是说，当前决策的好坏取决于当下奖励 + 未来的期望收益。</p>
+<h2 id="continuous-state-space">Continuous State Space</h2>
+<h3 id="continuous-state-space_1">continuous state space示例</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_ee1f78361a8d0b9afeb5b735135ba141_1760770058.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_ee1f78361a8d0b9afeb5b735135ba141_1760770058.png"/></a></p>
+<p>对于火星车可能只有一个单一的状态1~6，对于下面的卡车来说有很多个状态，比如x,y，角度等等。而对于直升机来说又有更多参数集合的状态。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_056387114d483bdbbbc10d196d600744_1760770230.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_056387114d483bdbbbc10d196d600744_1760770230.png"/></a></p>
+<p>因此状态不仅仅是少数可能离散值的一个，它可以是一个数字向量。</p>
+<h3 id="_6">月球着陆器</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_36b4695be7a8de769c9a837f95f59455_1760770590.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_36b4695be7a8de769c9a837f95f59455_1760770590.png"/></a></p>
+<p>月球着陆车有很多状态变量，如上图所示。奖励函数我们可以设计成下面这样。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_aebb36bdd111431c96419a416aa40dec_1760770684.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_aebb36bdd111431c96419a416aa40dec_1760770684.png"/></a></p>
+<p>对于月球着陆器要学习的策略pi就是输入s，通过策略得到a，然后计算出最大的return。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_a996003eddbdd6a8289bd289dd253284_1760770742.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_a996003eddbdd6a8289bd289dd253284_1760770742.png"/></a></p>
+<h3 id="q_1">学习Q</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_f4341898d1cd26de22718de1830a0794_1760771131.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_f4341898d1cd26de22718de1830a0794_1760771131.png"/></a></p>
+<p>在状态s处，使用神经网络来计算4个动作中，那个动作的Q(s,nothing),Q(s,left),Q(s,main),Q(s,right)最大，然后选择那个最大值的动作。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_d6a233062de1d8b512d4c14341168a7c_1760771671.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_d6a233062de1d8b512d4c14341168a7c_1760771671.png"/></a></p>
+<p>那如何获得一个包含X和Y值的训练集，可以进行训练神经网络了？这就需要用到贝尔曼方程如上图，我们可以把贝尔曼方程的左边命名为X，右边命名为Y，神经网络的输入是一个状态和动作对。而输出Y就是就是Q。神经网络学习的就是X到Y的映射。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_8d151ed4eba5c3c241366a5edf06ef1a_1760771884.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_8d151ed4eba5c3c241366a5edf06ef1a_1760771884.png"/></a></p>
+<h3 id="_7">改进的神经网络架构</h3>
+<p>对于火星车前面的神经网络对应需要推理4次，即Q(s,nothing),Q(s,left),Q(s,main),Q(s,right)，这样效率比较低，那么可以对算法进行改进推理一次直接输出4个动作的对应的Q。下面就是修改后的神经网络架构。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_367b61c5d11b53d3586656837e23f1a4_1760772512.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_367b61c5d11b53d3586656837e23f1a4_1760772512.png"/></a></p>
+<h3 id="_8">算法改进：ϵ贪婪策略</h3>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/10/wp_editor_md_8a3974462ca7dea36c71318bd4c8adb7_1760772955.png"><img alt="" src="assets/doc/04-ai/算法模型/为什么alphago能自学围棋？强化学习基本概念/images/wp_editor_md_8a3974462ca7dea36c71318bd4c8adb7_1760772955.png"/></a></p>
+<h2 id="_9">总结</h2>
+<h3 id="_10">学习流程</h3>
+<ol>
+<li>智能体观察当前状态 $s_t$</li>
+<li>根据策略 $\pi(a|s_t)$ 选择动作 $a_t$</li>
+<li>环境返回奖励 $r_t$ 和下一状态 $s_{t+1}$</li>
+<li>智能体根据反馈更新策略或价值函数</li>
+</ol>
+<p>这一过程可用 <strong>马尔可夫决策过程（MDP）</strong> 表示：</p>
+<p>$$ [ \text{MDP} = (S, A, P, R, \gamma) ] $$</p>
+<p>其中： - 参数$S$：状态集合 - 参数$A$：动作集合 - 参数$P(s'|s,a)$：状态转移概率 - 参数$R(s,a)$：奖励函数 - 参数$\gamma$：折扣因子（0~1）</p>
+<h3 id="_11">算法</h3>
+<p><strong>（1）算法分类</strong></p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>特征</th>
+<th>代表算法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>基于价值（Value-based）</strong></td>
+<td>学习 Q 值，间接得到策略</td>
+<td>Q-learning、DQN</td>
+</tr>
+<tr>
+<td><strong>基于策略（Policy-based）</strong></td>
+<td>直接优化策略函数</td>
+<td>REINFORCE、PPO</td>
+</tr>
+<tr>
+<td><strong>Actor-Critic 混合</strong></td>
+<td>同时学习策略（Actor）和值函数（Critic）</td>
+<td>A2C、A3C、DDPG、SAC</td>
+</tr>
+<tr>
+<td><strong>基于模型（Model-based）</strong></td>
+<td>显式学习环境动态模型</td>
+<td>Dyna-Q、Dreamer、MuZero</td>
+</tr>
+</tbody>
+</table>
+<p><strong>（2）算法演进</strong></p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>特征</th>
+<th>代表算法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>传统表格法（Tabular RL）</strong></td>
+<td>离散状态空间，值表更新</td>
+<td>Q-Learning, SARSA</td>
+</tr>
+<tr>
+<td><strong>深度强化学习（Deep RL）</strong></td>
+<td>神经网络逼近 Q 函数</td>
+<td>DQN, Double DQN, Dueling DQN</td>
+</tr>
+<tr>
+<td><strong>连续动作控制（Continuous Control）</strong></td>
+<td>针对机械臂、无人车等连续控制问题</td>
+<td>DDPG, TD3, SAC</td>
+</tr>
+<tr>
+<td><strong>策略梯度类（Policy Gradient）</strong></td>
+<td>直接优化策略参数</td>
+<td>REINFORCE, PPO, TRPO</td>
+</tr>
+<tr>
+<td><strong>基于模型的RL（Model-based RL）</strong></td>
+<td>同时学习环境模型 + 策略</td>
+<td>MuZero, DreamerV3</td>
+</tr>
+<tr>
+<td><strong>模仿学习 / 具身智能结合</strong></td>
+<td>利用演示或视觉模仿学习</td>
+<td>GAIL, BC, VLA, RT系列</td>
+</tr>
+</tbody>
+</table>
+<p>参考：本文主要来之<a href="https://www.coursera.org/learn/unsupervised-learning-recommenders-reinforcement-learning/home/module/3" title="吴恩达强化学习">吴恩达强化学习</a>笔记</p></div>
+  <div class="post-nav">
+    <a class="prev" href="jetson-orin-nano环境搭建.html">← Jetson Orin Nano环境搭建</a>
+    <a class="next" href="机器人全身控制浅谈-理解-wbc-的原理.html">机器人全身控制浅谈：理解 WBC 的原理 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+

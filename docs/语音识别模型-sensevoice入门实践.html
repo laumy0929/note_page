@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>语音识别模型：SenseVoice入门实践 - Laumy的技术栈</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- MathJax支持LaTeX数学公式 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="./">Laumy的技术栈</a>
+        <div class="search">
+          <input id="search-input" type="text" placeholder="输入关键词回车搜索">
+        </div>
+        <div class="theme-toggle" title="切换主题" id="theme-toggle">☾</div>
+        <nav class="top-nav">
+          <div class="nav-item"><a href="./">首页</a></div>
+          <div class="nav-item site-link">
+            <a href="https://www.laumy.tech" target="_blank" title="访问主站">主站点:www.laumy.tech</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container layout">
+      <aside class="left-nav">
+        
+        <div class="card">
+          <div class="card-title">文章目录</div>
+          <nav id="toc"><ul><li><a href="#_1">是什么</a><ul></ul></li><li><a href="#_2">怎么用</a><ul><li><a href="#_3">配置环境</a></li><li><a href="#_4">示例测试</a></li><li><a href="#_5">接口调用</a></li><li><a href="#_6">实时识别</a></li></ul></li></ul></nav>
+        </div>
+        
+      </aside>
+
+      <section class="content">
+        
+<article class="card post">
+  <h1>语音识别模型：SenseVoice入门实践</h1>
+  <div class="meta">
+    <span class="meta-item">
+      <i class="icon">🕒</i>
+      2025-09-26
+    </span>
+    <span class="meta-item">
+      <i class="icon">📂</i>
+      ai
+    </span>
+    <span class="meta-item">
+      <i class="icon">👤</i>
+      laumy
+    </span>
+  </div>
+  <div class="post-content"><h2 id="_1">是什么</h2>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_bc4b13c97d97e0966eaa5bb44f035f50_1759023608.png"><img alt="" src="assets/doc/04-ai/ai应用/语音识别模型：sensevoice入门实践/images/wp_editor_md_bc4b13c97d97e0966eaa5bb44f035f50_1759023608.png"/></a></p>
+<p>SenseVoice是多语言识别的模型，支持语音转文字（ASR, Automatic Speech Recognition，自动语音识别），语种识别（LID, Language Identification），语音情感识别（SER, Speech Emotion Recognition），音频事件检测 / 声学事件分类（AED／AEC, Audio Event Detection / Classification），逆文本正则化 / 标点 / 富文本转写等。</p>
+<h2 id="_2">怎么用</h2>
+<h3 id="_3">配置环境</h3>
+<p>配置一个conda sensevoice环境并且激活。</p>
+<div class="codehilite"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>sensevoice<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.10
+conda<span class="w"> </span>activate<span class="w"> </span>sensevoice
+</code></pre></div>
+<p>拉取代码，安装依赖</p>
+<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/FunAudioLLM/SenseVoice.git
+<span class="nb">cd</span><span class="w"> </span>SenseVoice/
+
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+</code></pre></div>
+<h3 id="_4">示例测试</h3>
+<p>代码中有两个示例分别是demo1.py和demo2.py，执行后可以看看效果。</p>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>demo1.py
+</code></pre></div>
+<p>执行后会自动从modelscope上下载模型和相关配置到本地。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_9e2563393a5548519f9922906d06d6ac_1758848807.png"><img alt="" src="assets/doc/04-ai/ai应用/语音识别模型：sensevoice入门实践/images/wp_editor_md_9e2563393a5548519f9922906d06d6ac_1758848807.png"/></a></p>
+<p>下载到本地后有模型和相关的配置文件以及示例音频。</p>
+<div class="codehilite"><pre><span></span><code><span class="o">(</span>sensevoice<span class="o">)</span><span class="w"> </span>laumy@ThinkBook-14-G7-IAH:~/.cache/modelscope/hub/models/iic$<span class="w"> </span>tree
+.
+├──<span class="w"> </span>SenseVoiceSmall
+│<span class="w">   </span>├──<span class="w"> </span>am.mvn
+│<span class="w">   </span>├──<span class="w"> </span>chn_jpn_yue_eng_ko_spectok.bpe.model
+│<span class="w">   </span>├──<span class="w"> </span>configuration.json
+│<span class="w">   </span>├──<span class="w"> </span>config.yaml
+│<span class="w">   </span>├──<span class="w"> </span>example
+│<span class="w">   </span>│<span class="w">   </span>├──<span class="w"> </span>en.mp3
+│<span class="w">   </span>│<span class="w">   </span>├──<span class="w"> </span>ja.mp3
+│<span class="w">   </span>│<span class="w">   </span>├──<span class="w"> </span>ko.mp3
+│<span class="w">   </span>│<span class="w">   </span>├──<span class="w"> </span>yue.mp3
+│<span class="w">   </span>│<span class="w">   </span>└──<span class="w"> </span>zh.mp3
+│<span class="w">   </span>├──<span class="w"> </span>fig
+│<span class="w">   </span>│<span class="w">   </span>├──<span class="w"> </span>aed_figure.png
+│<span class="w">   </span>│<span class="w">   </span>├──<span class="w"> </span>asr_results.png
+│<span class="w">   </span>│<span class="w">   </span>├──<span class="w"> </span>inference.png
+│<span class="w">   </span>│<span class="w">   </span>├──<span class="w"> </span>sensevoice.png
+│<span class="w">   </span>│<span class="w">   </span>├──<span class="w"> </span>ser_figure.png
+│<span class="w">   </span>│<span class="w">   </span>└──<span class="w"> </span>ser_table.png
+│<span class="w">   </span>├──<span class="w"> </span>model.pt
+│<span class="w">   </span>├──<span class="w"> </span>README.md
+│<span class="w">   </span>└──<span class="w"> </span>tokens.json
+└──<span class="w"> </span>speech_fsmn_vad_zh-cn-16k-common-pytorch
+<span class="w">    </span>├──<span class="w"> </span>am.mvn
+<span class="w">    </span>├──<span class="w"> </span>configuration.json
+<span class="w">    </span>├──<span class="w"> </span>config.yaml
+<span class="w">    </span>├──<span class="w"> </span>example
+<span class="w">    </span>│<span class="w">   </span>└──<span class="w"> </span>vad_example.wav
+<span class="w">    </span>├──<span class="w"> </span>fig
+<span class="w">    </span>│<span class="w">   </span>└──<span class="w"> </span>struct.png
+<span class="w">    </span>├──<span class="w"> </span>model.pt
+<span class="w">    </span>└──<span class="w"> </span>README.md
+
+<span class="m">7</span><span class="w"> </span>directories,<span class="w"> </span><span class="m">25</span><span class="w"> </span>files
+</code></pre></div>
+<p>最后的识别效果为</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_6b096d7897e254c4d6173189950b4a8d_1758848997.png"><img alt="" src="assets/doc/04-ai/ai应用/语音识别模型：sensevoice入门实践/images/wp_editor_md_6b096d7897e254c4d6173189950b4a8d_1758848997.png"/></a></p>
+<p>还可以测试webui版本</p>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>webui.py
+</code></pre></div>
+<p>然后网址输入：http://127.0.0.1:7860， 注意不能开代理否则会启动失败。</p>
+<p><a href="https://www.laumy.tech/wp-content/uploads/2025/09/wp_editor_md_8bc5306b4eb941a9a8b3f6952195aa86_1758860710.png"><img alt="" src="assets/doc/04-ai/ai应用/语音识别模型：sensevoice入门实践/images/wp_editor_md_8bc5306b4eb941a9a8b3f6952195aa86_1758860710.png"/></a></p>
+<h3 id="_5">接口调用</h3>
+<p>主要简要分析一下使用funASR调用示例。</p>
+<p><strong>（1）模型加载</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="nv">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>AutoModel<span class="o">(</span><span class="nv">model</span><span class="o">=[</span>str<span class="o">]</span>,<span class="w"> </span><span class="nv">device</span><span class="o">=[</span>str<span class="o">]</span>,<span class="w"> </span><span class="nv">ncpu</span><span class="o">=[</span>int<span class="o">]</span>,<span class="w"> </span><span class="nv">output_dir</span><span class="o">=[</span>str<span class="o">]</span>,<span class="w"> </span><span class="nv">batch_size</span><span class="o">=[</span>int<span class="o">]</span>,<span class="w"> </span><span class="nv">hub</span><span class="o">=[</span>str<span class="o">]</span>,<span class="w"> </span>**kwargs<span class="o">)</span>
+</code></pre></div>
+<ul>
+<li>model：模型仓库中的名称</li>
+<li>device：推理的设备，如gpu</li>
+<li>ncpu：cpu并行线程。</li>
+<li>output_dir：输出结果的输出路径</li>
+<li>batch_size：解码时的批处理，样本个数</li>
+<li>hub：从modelscope下载模型。如果为hf，从huggingface下载模型。</li>
+</ul>
+<p><strong>（2）推理</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="nv">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>model.generate<span class="o">(</span><span class="nv">input</span><span class="o">=[</span>str<span class="o">]</span>,<span class="w"> </span><span class="nv">output_dir</span><span class="o">=[</span>str<span class="o">])</span>
+</code></pre></div>
+<ul>
+<li>input：要解码的输入可以是wav文件路径, 例如: asr_example.wav。</li>
+<li>output_dir: 输出结果的输出路径。</li>
+</ul>
+<h3 id="_6">实时识别</h3>
+<p>编写一个示例实时识别</p>
+<div class="codehilite"><pre><span></span><code><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># -*- encoding: utf-8 -*-</span>
+<span class="c1"># Real-time microphone transcription (pure memory) using ALSA (pyalsaaudio) + numpy</span>
+
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">signal</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="k">def</span> <span class="nf">_safe_imports</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">alsaaudio</span>  <span class="c1"># noqa: F401</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">"缺少 pyalsaaudio，请先安装：</span><span class="se">\n</span><span class="s2">  pip install pyalsaaudio</span><span class="se">\n</span><span class="s2">Ubuntu 可能需要：sudo apt-get install -y python3-alsaaudio 或 alsa-utils"</span><span class="p">,</span>
+            <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">raise</span>
+
+<span class="k">def</span> <span class="nf">_safe_import_model</span><span class="p">():</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">funasr</span> <span class="kn">import</span> <span class="n">AutoModel</span>
+        <span class="kn">from</span> <span class="nn">funasr.utils.postprocess_utils</span> <span class="kn">import</span> <span class="n">rich_transcription_postprocess</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">"导入 funasr 失败。如果仓库根目录存在本地 'funasr.py'，请重命名（如 'funasr_demo.py'）以避免遮蔽外部库。"</span><span class="p">,</span>
+            <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">raise</span>
+    <span class="k">return</span> <span class="n">AutoModel</span><span class="p">,</span> <span class="n">rich_transcription_postprocess</span>
+
+<span class="k">def</span> <span class="nf">int16_to_float32</span><span class="p">(</span><span class="n">audio_int16</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">audio_int16</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">:</span>
+        <span class="n">audio_int16</span> <span class="o">=</span> <span class="n">audio_int16</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">audio_int16</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="o">/</span> <span class="mf">32768.0</span><span class="p">)</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">resample_to_16k</span><span class="p">(</span><span class="n">audio_f32</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">orig_sr</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="n">orig_sr</span> <span class="o">==</span> <span class="mi">16000</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">audio_f32</span><span class="p">,</span> <span class="mi">16000</span>
+    <span class="n">backend</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SV_RESAMPLE"</span><span class="p">,</span> <span class="s2">"poly"</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>  <span class="c1"># poly|librosa|linear</span>
+    <span class="c1"># 优先使用更快的 poly（scipy），其次 librosa，最后线性插值兜底</span>
+    <span class="k">if</span> <span class="n">backend</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"poly"</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">scipy.signal</span> <span class="kn">import</span> <span class="n">resample_poly</span>  <span class="c1"># type: ignore</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">resample_poly</span><span class="p">(</span><span class="n">audio_f32</span><span class="p">,</span> <span class="mi">16000</span><span class="p">,</span> <span class="n">orig_sr</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">y</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span> <span class="mi">16000</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+    <span class="k">if</span> <span class="n">backend</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"librosa"</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span> <span class="nn">librosa</span>  <span class="c1"># type: ignore</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">librosa</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="n">audio_f32</span><span class="p">,</span> <span class="n">orig_sr</span><span class="o">=</span><span class="n">orig_sr</span><span class="p">,</span> <span class="n">target_sr</span><span class="o">=</span><span class="mi">16000</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">y</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span> <span class="mi">16000</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+    <span class="c1"># 线性插值兜底（最慢但零依赖）</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">audio_f32</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">new_n</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">audio_f32</span><span class="o">.</span><span class="n">size</span> <span class="o">*</span> <span class="mf">16000.0</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">orig_sr</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="n">new_n</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">audio_f32</span><span class="p">,</span> <span class="n">orig_sr</span>
+    <span class="n">new_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">new_n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">new_x</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">audio_f32</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">y</span><span class="p">,</span> <span class="mi">16000</span>
+
+<span class="k">def</span> <span class="nf">_build_cfg_from_env</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="n">cfg</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="c1"># runtime knobs</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"min_rms"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SV_MIN_RMS"</span><span class="p">,</span> <span class="s2">"0.003"</span><span class="p">))</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"min_rms"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.003</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"overlap_sec"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SV_OVERLAP_SEC"</span><span class="p">,</span> <span class="s2">"0.3"</span><span class="p">))</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"overlap_sec"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.3</span>
+    <span class="n">cfg</span><span class="p">[</span><span class="s2">"merge_vad"</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SV_MERGE_VAD"</span><span class="p">,</span> <span class="s2">"0"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"1"</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"merge_len"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SV_MERGE_LEN"</span><span class="p">,</span> <span class="s2">"2.0"</span><span class="p">))</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="p">[</span><span class="s2">"merge_len"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">2.0</span>
+    <span class="n">cfg</span><span class="p">[</span><span class="s2">"debug"</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SV_DEBUG"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"1"</span>
+    <span class="n">cfg</span><span class="p">[</span><span class="s2">"resample_backend"</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SV_RESAMPLE"</span><span class="p">,</span> <span class="s2">"poly"</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">cfg</span><span class="p">[</span><span class="s2">"dump_wav_path"</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SV_DUMP_WAV"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cfg</span>
+
+<span class="k">def</span> <span class="nf">_select_strong_channel</span><span class="p">(</span><span class="n">frame_any</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">channels</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">frame_any</span>
+    <span class="n">frame_mat</span> <span class="o">=</span> <span class="n">frame_any</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">channels</span><span class="p">)</span>
+    <span class="n">ch_rms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">frame_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">sel</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">ch_rms</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[debug] multi-channel rms=</span><span class="si">{</span><span class="n">ch_rms</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span><span class="si">}</span><span class="s2">, select ch=</span><span class="si">{</span><span class="n">sel</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">frame_mat</span><span class="p">[:,</span> <span class="n">sel</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">_ensure_pcm_open</span><span class="p">(</span><span class="n">alsa_audio</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">samplerate</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">period_frames</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">object</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+    <span class="n">tried</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">dev</span> <span class="ow">in</span> <span class="p">[</span><span class="n">device</span> <span class="ow">or</span> <span class="s2">"default"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"plughw:</span><span class="si">{</span><span class="p">(</span><span class="n">device</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'default'</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">':'</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="p">(</span><span class="n">device</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">device</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">'plughw'</span><span class="p">))</span> <span class="k">else</span> <span class="kc">None</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dev</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">fmt</span> <span class="ow">in</span> <span class="p">(</span><span class="n">alsa_audio</span><span class="o">.</span><span class="n">PCM_FORMAT_S16_LE</span><span class="p">,</span> <span class="n">alsa_audio</span><span class="o">.</span><span class="n">PCM_FORMAT_S32_LE</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">alsa_audio</span><span class="o">.</span><span class="n">PCM</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">alsa_audio</span><span class="o">.</span><span class="n">PCM_CAPTURE</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">alsa_audio</span><span class="o">.</span><span class="n">PCM_NORMAL</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">dev</span><span class="p">)</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">setchannels</span><span class="p">(</span><span class="n">channels</span><span class="p">)</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">setrate</span><span class="p">(</span><span class="n">samplerate</span><span class="p">)</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">setformat</span><span class="p">(</span><span class="n">fmt</span><span class="p">)</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">setperiodsize</span><span class="p">(</span><span class="n">period_frames</span><span class="p">)</span>
+                <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span> <span class="k">if</span> <span class="n">fmt</span> <span class="o">==</span> <span class="n">alsa_audio</span><span class="o">.</span><span class="n">PCM_FORMAT_S16_LE</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span>
+                <span class="n">sample_bytes</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span> <span class="k">else</span> <span class="mi">4</span>
+                <span class="n">fmt_name</span> <span class="o">=</span> <span class="s2">"S16_LE"</span> <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span> <span class="k">else</span> <span class="s2">"S32_LE"</span>
+                <span class="k">return</span> <span class="n">p</span><span class="p">,</span> <span class="n">sample_bytes</span><span class="p">,</span> <span class="n">fmt_name</span><span class="p">,</span> <span class="n">dev</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
+                <span class="n">tried</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">dev</span><span class="p">,</span> <span class="s2">"S16_LE"</span> <span class="k">if</span> <span class="n">fmt</span> <span class="o">==</span> <span class="n">alsa_audio</span><span class="o">.</span><span class="n">PCM_FORMAT_S16_LE</span> <span class="k">else</span> <span class="s2">"S32_LE"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)))</span>
+                <span class="k">continue</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"打开 ALSA 设备失败，尝试: </span><span class="si">{</span><span class="n">tried</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_to_int16_mono</span><span class="p">(</span><span class="n">raw_bytes</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">sample_bytes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">sample_bytes</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">frame_any</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw_bytes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">frame_any</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw_bytes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="n">frame_any</span> <span class="o">=</span> <span class="p">(</span><span class="n">frame_any</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">16</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">channels</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">frame_any</span> <span class="o">=</span> <span class="n">_select_strong_channel</span><span class="p">(</span><span class="n">frame_any</span><span class="p">,</span> <span class="n">channels</span><span class="p">,</span> <span class="n">debug</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">frame_any</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_should_infer</span><span class="p">(</span><span class="n">audio_f32</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">min_rms</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">frames_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">audio_f32</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="n">rms</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">audio_f32</span><span class="p">))))</span>
+    <span class="k">if</span> <span class="n">rms</span> <span class="o">&lt;</span> <span class="n">min_rms</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[debug] frames=</span><span class="si">{</span><span class="n">frames_count</span><span class="si">}</span><span class="s2">, rms=</span><span class="si">{</span><span class="n">rms</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> &lt; min_rms=</span><span class="si">{</span><span class="n">min_rms</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, skip"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span>
+
+<span class="k">def</span> <span class="nf">_infer_block</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">arr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">language</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">running_cache</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">prefer</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SV_INPUT_FORMAT"</span><span class="p">,</span> <span class="s2">"f32"</span><span class="p">)</span>
+    <span class="c1"># candidate arrays</span>
+    <span class="n">f32</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">i16</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">f32</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="mf">32767.0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">)</span>
+    <span class="n">candidates</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]]</span>
+    <span class="k">if</span> <span class="n">prefer</span> <span class="o">==</span> <span class="s2">"i16"</span><span class="p">:</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i16</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span> <span class="p">(</span><span class="n">f32</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span> <span class="p">(</span><span class="n">i16</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="kc">True</span><span class="p">),</span> <span class="p">(</span><span class="n">f32</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="kc">True</span><span class="p">)]</span>
+    <span class="k">elif</span> <span class="n">prefer</span> <span class="o">==</span> <span class="s2">"f32_2d"</span><span class="p">:</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[(</span><span class="n">f32</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="kc">True</span><span class="p">),</span> <span class="p">(</span><span class="n">f32</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span> <span class="p">(</span><span class="n">i16</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="kc">True</span><span class="p">),</span> <span class="p">(</span><span class="n">i16</span><span class="p">,</span> <span class="kc">False</span><span class="p">)]</span>
+    <span class="k">elif</span> <span class="n">prefer</span> <span class="o">==</span> <span class="s2">"i16_2d"</span><span class="p">:</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i16</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="kc">True</span><span class="p">),</span> <span class="p">(</span><span class="n">i16</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span> <span class="p">(</span><span class="n">f32</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="kc">True</span><span class="p">),</span> <span class="p">(</span><span class="n">f32</span><span class="p">,</span> <span class="kc">False</span><span class="p">)]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[(</span><span class="n">f32</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span> <span class="p">(</span><span class="n">i16</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span> <span class="p">(</span><span class="n">f32</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="kc">True</span><span class="p">),</span> <span class="p">(</span><span class="n">i16</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="kc">True</span><span class="p">)]</span>
+
+    <span class="n">res</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">cand</span><span class="p">,</span> <span class="n">_is2d</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span>
+                    <span class="nb">input</span><span class="o">=</span><span class="n">cand</span><span class="p">,</span>
+                    <span class="n">input_fs</span><span class="o">=</span><span class="n">sr</span><span class="p">,</span>
+                    <span class="n">cache</span><span class="o">=</span><span class="n">running_cache</span><span class="p">,</span>
+                    <span class="n">language</span><span class="o">=</span><span class="n">language</span><span class="p">,</span>
+                    <span class="n">use_itn</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">batch_size_s</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+                    <span class="n">merge_vad</span><span class="o">=</span><span class="n">cfg</span><span class="p">[</span><span class="s2">"merge_vad"</span><span class="p">],</span>
+                    <span class="n">merge_length_s</span><span class="o">=</span><span class="n">cfg</span><span class="p">[</span><span class="s2">"merge_len"</span><span class="p">],</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span>
+                    <span class="nb">input</span><span class="o">=</span><span class="n">cand</span><span class="p">,</span>
+                    <span class="n">fs</span><span class="o">=</span><span class="n">sr</span><span class="p">,</span>
+                    <span class="n">cache</span><span class="o">=</span><span class="n">running_cache</span><span class="p">,</span>
+                    <span class="n">language</span><span class="o">=</span><span class="n">language</span><span class="p">,</span>
+                    <span class="n">use_itn</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">batch_size_s</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+                    <span class="n">merge_vad</span><span class="o">=</span><span class="n">cfg</span><span class="p">[</span><span class="s2">"merge_vad"</span><span class="p">],</span>
+                    <span class="n">merge_length_s</span><span class="o">=</span><span class="n">cfg</span><span class="p">[</span><span class="s2">"merge_len"</span><span class="p">],</span>
+                <span class="p">)</span>
+            <span class="k">break</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">continue</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">res</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">""</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"text"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+<span class="k">def</span> <span class="nf">run_in_memory</span><span class="p">(</span>
+    <span class="n">model_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">language</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">samplerate</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">block_seconds</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">alsa_device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">_safe_imports</span><span class="p">()</span>
+    <span class="n">AutoModel</span><span class="p">,</span> <span class="n">rich_post</span> <span class="o">=</span> <span class="n">_safe_import_model</span><span class="p">()</span>
+
+    <span class="c1"># 关闭底层 tqdm 进度条等多余输出</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"TQDM_DISABLE"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"加载模型..."</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">AutoModel</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model_dir</span><span class="p">,</span>
+        <span class="n">trust_remote_code</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">remote_code</span><span class="o">=</span><span class="s2">"./model.py"</span><span class="p">,</span>
+        <span class="n">vad_model</span><span class="o">=</span><span class="s2">"fsmn-vad"</span><span class="p">,</span>
+        <span class="n">vad_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"max_single_segment_time"</span><span class="p">:</span> <span class="mi">30000</span><span class="p">},</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="n">disable_update</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="kn">import</span> <span class="nn">alsaaudio</span>
+
+    <span class="c1"># 更小的 periodsize，降低 I/O 错误概率；推理聚合由 block_seconds 控制</span>
+    <span class="n">period_frames</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="mf">0.1</span> <span class="o">*</span> <span class="n">samplerate</span><span class="p">))</span>
+    <span class="n">cfg</span> <span class="o">=</span> <span class="n">_build_cfg_from_env</span><span class="p">()</span>
+
+    <span class="c1"># 打开设备，尝试 S16 -&gt; S32；必要时切换 plughw 以启用自动重采样/重格式化</span>
+    <span class="n">pcm</span><span class="p">,</span> <span class="n">sample_bytes</span><span class="p">,</span> <span class="n">fmt_name</span><span class="p">,</span> <span class="n">open_dev</span> <span class="o">=</span> <span class="n">_ensure_pcm_open</span><span class="p">(</span><span class="n">alsaaudio</span><span class="p">,</span> <span class="n">alsa_device</span><span class="p">,</span> <span class="n">samplerate</span><span class="p">,</span> <span class="n">channels</span><span class="p">,</span> <span class="n">period_frames</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"debug"</span><span class="p">]:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[debug] opened ALSA device </span><span class="si">{</span><span class="n">open_dev</span><span class="si">}</span><span class="s2"> fmt=</span><span class="si">{</span><span class="n">fmt_name</span><span class="si">}</span><span class="s2"> period=</span><span class="si">{</span><span class="n">period_frames</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"开始录音（纯内存采集），设备=</span><span class="si">{</span><span class="n">alsa_device</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'default'</span><span class="si">}</span><span class="s2">, sr=</span><span class="si">{</span><span class="n">samplerate</span><span class="si">}</span><span class="s2">, ch=</span><span class="si">{</span><span class="n">channels</span><span class="si">}</span><span class="s2">, period=</span><span class="si">{</span><span class="n">period_frames</span><span class="si">}</span><span class="s2">，按 Ctrl+C 停止。</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span>
+        <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">running_cache</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">printed_text</span> <span class="o">=</span> <span class="s2">""</span>
+
+    <span class="c1"># 聚合到这一帧阈值后才调用一次模型，降低调用频率与输出</span>
+    <span class="n">min_frames</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">block_seconds</span> <span class="o">*</span> <span class="n">samplerate</span><span class="p">))</span>
+    <span class="c1"># 重叠帧数，减少句首/句尾丢失</span>
+    <span class="n">overlap_frames</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"overlap_sec"</span><span class="p">])</span> <span class="o">*</span> <span class="n">samplerate</span><span class="p">)</span>
+    <span class="n">block_buf</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">buf_frames</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">stop_flag</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">handle_sigint</span><span class="p">(</span><span class="n">signum</span><span class="p">,</span> <span class="n">frame</span><span class="p">):</span>  <span class="c1"># noqa: ANN001</span>
+        <span class="k">nonlocal</span> <span class="n">stop_flag</span>
+        <span class="n">stop_flag</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">signal</span><span class="o">.</span><span class="n">signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">,</span> <span class="n">handle_sigint</span><span class="p">)</span>
+
+    <span class="c1"># 连续读取 PCM，并聚合达到阈值后执行一次增量推理</span>
+    <span class="k">while</span> <span class="ow">not</span> <span class="n">stop_flag</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">length</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">pcm</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
+            <span class="c1"># 读失败时尝试重建（常见于某些 DMIC Raw）</span>
+            <span class="k">if</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"debug"</span><span class="p">]:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[debug] pcm.read error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">, reopen stream"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># 尝试使用 plughw 以获得自动格式/采样率适配</span>
+            <span class="n">dev</span> <span class="o">=</span> <span class="n">alsa_device</span> <span class="ow">or</span> <span class="s2">"default"</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">dev</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"plughw"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">dev</span> <span class="o">!=</span> <span class="s2">"default"</span><span class="p">:</span>
+                <span class="n">dev</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"plughw:</span><span class="si">{</span><span class="n">dev</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">':'</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
+            <span class="n">pcm</span><span class="p">,</span> <span class="n">sample_bytes</span><span class="p">,</span> <span class="n">fmt_name</span><span class="p">,</span> <span class="n">open_dev</span> <span class="o">=</span> <span class="n">_ensure_pcm_open</span><span class="p">(</span><span class="n">alsaaudio</span><span class="p">,</span> <span class="n">dev</span><span class="p">,</span> <span class="n">samplerate</span><span class="p">,</span> <span class="n">channels</span><span class="p">,</span> <span class="n">period_frames</span><span class="p">)</span>
+            <span class="n">length</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">pcm</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.005</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># 根据实际格式解析 bytes</span>
+        <span class="n">pcm_int16</span> <span class="o">=</span> <span class="n">_to_int16_mono</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">sample_bytes</span><span class="p">,</span> <span class="n">channels</span><span class="p">,</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"debug"</span><span class="p">])</span>
+        <span class="n">block_buf</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pcm_int16</span><span class="p">)</span>
+        <span class="n">buf_frames</span> <span class="o">+=</span> <span class="n">pcm_int16</span><span class="o">.</span><span class="n">size</span>
+
+        <span class="k">if</span> <span class="n">buf_frames</span> <span class="o">&lt;</span> <span class="n">min_frames</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># 达到阈值，拼接并转换为 float32 [-1, 1]</span>
+        <span class="n">joined</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">block_buf</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># 为下一个块保留尾部重叠</span>
+        <span class="k">if</span> <span class="n">overlap_frames</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">joined</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="n">overlap_frames</span><span class="p">:</span>
+            <span class="n">tail</span> <span class="o">=</span> <span class="n">joined</span><span class="p">[</span><span class="o">-</span><span class="n">overlap_frames</span><span class="p">:]</span>
+            <span class="n">block_buf</span> <span class="o">=</span> <span class="p">[</span><span class="n">tail</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+            <span class="n">buf_frames</span> <span class="o">=</span> <span class="n">tail</span><span class="o">.</span><span class="n">size</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">block_buf</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="n">buf_frames</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">audio_block_f32</span> <span class="o">=</span> <span class="n">int16_to_float32</span><span class="p">(</span><span class="n">joined</span><span class="p">)</span>
+        <span class="c1"># 若采样率不是 16k，重采样到 16k</span>
+        <span class="n">audio_block_f32</span><span class="p">,</span> <span class="n">eff_sr</span> <span class="o">=</span> <span class="n">resample_to_16k</span><span class="p">(</span><span class="n">audio_block_f32</span><span class="p">,</span> <span class="n">samplerate</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_should_infer</span><span class="p">(</span><span class="n">audio_block_f32</span><span class="p">,</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"min_rms"</span><span class="p">],</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"debug"</span><span class="p">],</span> <span class="n">joined</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="k">continue</span>
+
+        <span class="k">if</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"debug"</span><span class="p">]:</span>
+            <span class="n">rms</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">audio_block_f32</span><span class="p">))))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[debug] frames=</span><span class="si">{</span><span class="n">joined</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">, eff_sr=</span><span class="si">{</span><span class="n">eff_sr</span><span class="si">}</span><span class="s2">, rms=</span><span class="si">{</span><span class="n">rms</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, infer"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># 可选：调试时将当前块写到一个覆盖的临时 WAV（重采样后，单声道16k），方便用 aplay 检查采音</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"dump_wav_path"</span><span class="p">]:</span>
+            <span class="kn">import</span> <span class="nn">wave</span><span class="o">,</span> <span class="nn">tempfile</span>
+            <span class="n">dump_path</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"dump_wav_path"</span><span class="p">]</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">gettempdir</span><span class="p">())</span> <span class="o">/</span> <span class="s2">"sv_debug_block.wav"</span>
+            <span class="p">)</span>
+            <span class="k">with</span> <span class="n">wave</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">dump_path</span><span class="p">,</span> <span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">wf</span><span class="p">:</span>
+                <span class="n">wf</span><span class="o">.</span><span class="n">setnchannels</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">wf</span><span class="o">.</span><span class="n">setsampwidth</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+                <span class="n">wf</span><span class="o">.</span><span class="n">setframerate</span><span class="p">(</span><span class="n">eff_sr</span><span class="p">)</span>
+                <span class="n">dump_i16</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">audio_block_f32</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="mf">32767.0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">)</span>
+                <span class="n">wf</span><span class="o">.</span><span class="n">writeframes</span><span class="p">(</span><span class="n">dump_i16</span><span class="o">.</span><span class="n">tobytes</span><span class="p">())</span>
+
+        <span class="c1"># 执行推理</span>
+        <span class="n">res_text</span> <span class="o">=</span> <span class="n">_infer_block</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">audio_block_f32</span><span class="p">,</span> <span class="n">eff_sr</span><span class="p">,</span> <span class="n">cfg</span><span class="p">,</span> <span class="n">language</span><span class="p">,</span> <span class="n">running_cache</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">res_text</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="n">text</span> <span class="o">=</span> <span class="n">rich_post</span><span class="p">(</span><span class="n">res_text</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">text</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">printed_text</span><span class="p">):</span>
+            <span class="n">new_part</span> <span class="o">=</span> <span class="n">text</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">printed_text</span><span class="p">)</span> <span class="p">:]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_part</span> <span class="o">=</span> <span class="n">text</span>
+        <span class="k">if</span> <span class="n">new_part</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">new_part</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">printed_text</span> <span class="o">+=</span> <span class="n">new_part</span>
+
+    <span class="c1"># 停止前做一次 flush：如果还有残留缓冲，强制推理，避免句尾丢失</span>
+    <span class="k">if</span> <span class="n">block_buf</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">joined</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">block_buf</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">audio_block_f32</span> <span class="o">=</span> <span class="n">int16_to_float32</span><span class="p">(</span><span class="n">joined</span><span class="p">)</span>
+            <span class="n">audio_block_f32</span><span class="p">,</span> <span class="n">eff_sr</span> <span class="o">=</span> <span class="n">resample_to_16k</span><span class="p">(</span><span class="n">audio_block_f32</span><span class="p">,</span> <span class="n">samplerate</span><span class="p">)</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="n">_infer_block</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">audio_block_f32</span><span class="p">,</span> <span class="n">eff_sr</span><span class="p">,</span> <span class="n">cfg</span><span class="p">,</span> <span class="n">language</span><span class="p">,</span> <span class="n">running_cache</span><span class="p">)</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="n">rich_post</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">text</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">text</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">printed_text</span><span class="p">):],</span> <span class="n">end</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">已停止。"</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">"Real-time mic transcription (in-memory ALSA)"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--model"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">"iic/SenseVoiceSmall"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"模型仓库或本地路径"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--device"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">"cuda:0"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"设备，如 cuda:0 或 cpu"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--language"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"语言代码或 'auto'"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--samplerate"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">16000</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"采样率"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--channels"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"通道数"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--block-seconds"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"每次推理块时长（秒）"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--min-rms"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.003</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"触发推理的最小能量阈值（0-1）"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--overlap-seconds"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"块间重叠时长（秒），减少句首/句尾丢失"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--merge-vad"</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"启用 VAD 合并（默认关闭以获得更快输出）"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--merge-length"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"VAD 合并的最大分段时长（秒）"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--debug"</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"打印调试信息（RMS、帧数等）"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--alsa-device"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"ALSA 设备名（如 hw:0,0 或 default）"</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="c1"># 将 CLI 设置传入环境变量，供运行体内读取</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">debug</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"SV_DEBUG"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"1"</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"SV_MIN_RMS"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">min_rms</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"SV_MERGE_VAD"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"1"</span> <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">merge_vad</span> <span class="k">else</span> <span class="s2">"0"</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"SV_MERGE_LEN"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">merge_length</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"SV_OVERLAP_SEC"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">overlap_seconds</span><span class="p">)</span>
+
+    <span class="n">run_in_memory</span><span class="p">(</span>
+        <span class="n">model_dir</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+        <span class="n">language</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">language</span><span class="p">,</span>
+        <span class="n">samplerate</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">samplerate</span><span class="p">,</span>
+        <span class="n">channels</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">channels</span><span class="p">,</span>
+        <span class="n">block_seconds</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">block_seconds</span><span class="p">,</span>
+        <span class="n">alsa_device</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">alsa_device</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</code></pre></div>
+<p>执行前先安装一下模块组件</p>
+<div class="codehilite"><pre><span></span><code><span class="n">pip</span> <span class="n">install</span> <span class="n">pyalsaaudio</span>
+</code></pre></div>
+<p>接着运行，就可以实时说话转换为文字了。</p>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>demo_realtime_memory.py<span class="w"> </span>--alsa-device<span class="w"> </span>plughw:0,6<span class="w"> </span>--samplerate<span class="w"> </span><span class="m">48000</span><span class="w"> </span>--channels<span class="w"> </span><span class="m">2</span><span class="w"> </span>--block-seconds<span class="w"> </span><span class="m">1</span>.0<span class="w"> </span>--language<span class="w"> </span>zh<span class="w"> </span>--device<span class="w"> </span>cuda:0
+</code></pre></div>
+<p>参考：<a href="https://github.com/FunAudioLLM/SenseVoice">https://github.com/FunAudioLLM/SenseVoice</a></p></div>
+  <div class="post-nav">
+    <a class="prev" href="语音生成模型-cosyvoice入门实践.html">← 语音生成模型：CosyVoice入门实践</a>
+    <a class="next" href="windows访问linux搭建的samba服务.html">windows访问Linux搭建的samba服务 →</a>
+  </div>
+</article>
+
+      </section>
+
+      <aside class="right-panel">
+        
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">Copyright ©2022-2025 laumy 版权所有</div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+  </html>
+
